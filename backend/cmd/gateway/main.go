@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -81,6 +82,12 @@ func run(configPath string) error {
 		bookstorev1.NewAuthServiceClient(authConnection),
 		bookstorev1.NewUserServiceClient(userConnection),
 		bookstorev1.NewBookServiceClient(bookConnection),
+		gatewayhttp.RefreshCookieConfig{
+			Name:     cfg.Gateway.RefreshCookieName,
+			Secure:   cfg.Gateway.RefreshCookieSecure,
+			SameSite: sameSiteMode(cfg.Gateway.RefreshCookieSameSite),
+		},
+		cfg.Gateway.AllowedOrigins,
 	)
 
 	e := echo.New()
@@ -89,8 +96,10 @@ func run(configPath string) error {
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"http://localhost:3000", "http://localhost:5173"},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowOrigins:     cfg.Gateway.AllowedOrigins,
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowCredentials: true,
+		MaxAge:           600,
 	}))
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 	e.GET("/swagger", func(c echo.Context) error {
@@ -123,5 +132,16 @@ func run(configPath string) error {
 		}
 		slog.Info("HTTP gateway graceful shutdown completed")
 		return nil
+	}
+}
+
+func sameSiteMode(value string) http.SameSite {
+	switch strings.ToLower(value) {
+	case "strict":
+		return http.SameSiteStrictMode
+	case "none":
+		return http.SameSiteNoneMode
+	default:
+		return http.SameSiteLaxMode
 	}
 }

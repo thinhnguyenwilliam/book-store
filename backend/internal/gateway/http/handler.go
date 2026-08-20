@@ -12,17 +12,37 @@ import (
 const requestTimeout = 5 * time.Second
 
 type Handler struct {
-	auth  bookstorev1.AuthServiceClient
-	users bookstorev1.UserServiceClient
-	books bookstorev1.BookServiceClient
+	auth           bookstorev1.AuthServiceClient
+	users          bookstorev1.UserServiceClient
+	books          bookstorev1.BookServiceClient
+	refreshCookie  RefreshCookieConfig
+	trustedOrigins map[string]struct{}
+}
+
+type RefreshCookieConfig struct {
+	Name     string
+	Secure   bool
+	SameSite http.SameSite
 }
 
 func NewHandler(
 	auth bookstorev1.AuthServiceClient,
 	users bookstorev1.UserServiceClient,
 	books bookstorev1.BookServiceClient,
+	refreshCookie RefreshCookieConfig,
+	trustedOrigins []string,
 ) *Handler {
-	return &Handler{auth: auth, users: users, books: books}
+	origins := make(map[string]struct{}, len(trustedOrigins))
+	for _, origin := range trustedOrigins {
+		origins[origin] = struct{}{}
+	}
+	return &Handler{
+		auth:           auth,
+		users:          users,
+		books:          books,
+		refreshCookie:  refreshCookie,
+		trustedOrigins: origins,
+	}
 }
 
 func (h *Handler) RegisterRoutes(e *echo.Echo) {
@@ -31,6 +51,8 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 	api := e.Group("/api/v1")
 	api.POST("/auth/register", h.register)
 	api.POST("/auth/login", h.login)
+	api.POST("/auth/refresh", h.refresh)
+	api.POST("/auth/logout", h.logout)
 	api.GET("/books", h.listBooks)
 	api.GET("/books/:id", h.getBook)
 
@@ -70,6 +92,9 @@ func (h *Handler) health(c echo.Context) error {
 // @Failure 500 {object} ErrorResponse
 // @Router /api/v1/auth/register [post]
 func (h *Handler) register(c echo.Context) error {
+	if !h.isTrustedOrigin(c) {
+		return c.JSON(http.StatusForbidden, errorBody("untrusted request origin"))
+	}
 	request := RegisterRequest{}
 	if err := c.Bind(&request); err != nil {
 		return errorResponse(c, err)
@@ -86,6 +111,8 @@ func (h *Handler) register(c echo.Context) error {
 		return errorResponse(c, err)
 	}
 
+	h.setRefreshCookie(c, authResult.GetRefreshToken(), authResult.GetRefreshExpiresIn())
+	c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
 	return c.JSON(http.StatusCreated, authJSON(authResult))
 }
 
@@ -102,6 +129,9 @@ func (h *Handler) register(c echo.Context) error {
 // @Failure 500 {object} ErrorResponse
 // @Router /api/v1/auth/login [post]
 func (h *Handler) login(c echo.Context) error {
+	if !h.isTrustedOrigin(c) {
+		return c.JSON(http.StatusForbidden, errorBody("untrusted request origin"))
+	}
 	request := LoginRequest{}
 	if err := c.Bind(&request); err != nil {
 		return errorResponse(c, err)
@@ -116,7 +146,67 @@ func (h *Handler) login(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, err)
 	}
+	h.setRefreshCookie(c, response.GetRefreshToken(), response.GetRefreshExpiresIn())
+	c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
 	return c.JSON(http.StatusOK, authJSON(response))
+}
+
+// refresh godoc
+// @Summary Refresh an access token
+// @Description Rotates the HttpOnly refresh cookie and returns a new short-lived access token.
+// @Tags Auth
+// @Produce json
+// @Success 200 {object} AuthResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/auth/refresh [post]
+func (h *Handler) refresh(c echo.Context) error {
+	if !h.isTrustedOrigin(c) {
+		return c.JSON(http.StatusForbidden, errorBody("untrusted request origin"))
+	}
+	cookie, err := c.Cookie(h.refreshCookie.Name)
+	if err != nil || cookie.Value == "" {
+		h.clearRefreshCookie(c)
+		return c.JSON(http.StatusUnauthorized, errorBody("invalid refresh token"))
+	}
+
+	ctx, cancel := contextWithTimeout(c)
+	defer cancel()
+	response, err := h.auth.Refresh(ctx, &bookstorev1.RefreshRequest{RefreshToken: cookie.Value})
+	if err != nil {
+		h.clearRefreshCookie(c)
+		return errorResponse(c, err)
+	}
+
+	h.setRefreshCookie(c, response.GetRefreshToken(), response.GetRefreshExpiresIn())
+	c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
+	return c.JSON(http.StatusOK, authJSON(response))
+}
+
+// logout godoc
+// @Summary Log out
+// @Description Revokes the current refresh session and clears its HttpOnly cookie.
+// @Tags Auth
+// @Success 204
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/auth/logout [post]
+func (h *Handler) logout(c echo.Context) error {
+	if !h.isTrustedOrigin(c) {
+		return c.JSON(http.StatusForbidden, errorBody("untrusted request origin"))
+	}
+	cookie, err := c.Cookie(h.refreshCookie.Name)
+	if err == nil && cookie.Value != "" {
+		ctx, cancel := contextWithTimeout(c)
+		defer cancel()
+		if _, err := h.auth.Logout(ctx, &bookstorev1.LogoutRequest{RefreshToken: cookie.Value}); err != nil {
+			h.clearRefreshCookie(c)
+			return errorResponse(c, err)
+		}
+	}
+	h.clearRefreshCookie(c)
+	return c.NoContent(http.StatusNoContent)
 }
 
 // getMe godoc
@@ -179,17 +269,20 @@ func (h *Handler) updateMe(c echo.Context) error {
 // @Description Returns a paginated list of books.
 // @Tags Books
 // @Produce json
-// @Param page query int false "Page number" default(1) minimum(1)
-// @Param page_size query int false "Items per page" default(20) minimum(1) maximum(100)
+// @Param limit query int false "Items per request" default(20) minimum(1) maximum(100)
+// @Param cursor query string false "Opaque cursor returned by the previous request"
 // @Success 200 {object} BookListResponse
+// @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /api/v1/books [get]
 func (h *Handler) listBooks(c echo.Context) error {
-	page := int32Query(c, "page", 1)
-	pageSize := int32Query(c, "page_size", 20)
+	limit := int32Query(c, "limit", 20)
 	ctx, cancel := contextWithTimeout(c)
 	defer cancel()
-	response, err := h.books.ListBooks(ctx, &bookstorev1.ListBooksRequest{Page: page, PageSize: pageSize})
+	response, err := h.books.ListBooks(ctx, &bookstorev1.ListBooksRequest{
+		Limit:  limit,
+		Cursor: c.QueryParam("cursor"),
+	})
 	if err != nil {
 		return errorResponse(c, err)
 	}
@@ -200,7 +293,10 @@ func (h *Handler) listBooks(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, BookListResponse{
 		Data: books,
-		Meta: PaginationMeta{Page: page, PageSize: pageSize, Total: response.GetTotal()},
+		Pagination: CursorPagination{
+			NextCursor: response.GetNextCursor(),
+			HasMore:    response.GetHasMore(),
+		},
 	})
 }
 

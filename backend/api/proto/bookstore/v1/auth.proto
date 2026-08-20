@@ -7,6 +7,8 @@ option go_package = "github.com/thinhnguyenwilliam/book-store/backend/gen/bookst
 service AuthService {
   rpc Register(RegisterRequest) returns (AuthResponse);
   rpc Login(LoginRequest) returns (AuthResponse);
+  rpc Refresh(RefreshRequest) returns (AuthResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
   rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
 }
 
@@ -25,7 +27,19 @@ message AuthResponse {
   string access_token = 1;
   string user_id = 2;
   int64 expires_in = 3;
+  string refresh_token = 4;
+  int64 refresh_expires_in = 5;
 }
+
+message RefreshRequest {
+  string refresh_token = 1;
+}
+
+message LogoutRequest {
+  string refresh_token = 1;
+}
+
+message LogoutResponse {}
 
 message VerifyTokenRequest {
   string access_token = 1;

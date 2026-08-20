@@ -243,8 +243,8 @@ func (x *GetBookRequest) GetId() string {
 
 type ListBooksRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Page          int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
-	PageSize      int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	Cursor        string                 `protobuf:"bytes,4,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -279,24 +279,25 @@ func (*ListBooksRequest) Descriptor() ([]byte, []int) {
 	return file_bookstore_v1_book_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *ListBooksRequest) GetPage() int32 {
+func (x *ListBooksRequest) GetLimit() int32 {
 	if x != nil {
-		return x.Page
+		return x.Limit
 	}
 	return 0
 }
 
-func (x *ListBooksRequest) GetPageSize() int32 {
+func (x *ListBooksRequest) GetCursor() string {
 	if x != nil {
-		return x.PageSize
+		return x.Cursor
 	}
-	return 0
+	return ""
 }
 
 type ListBooksResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Books         []*Book                `protobuf:"bytes,1,rep,name=books,proto3" json:"books,omitempty"`
-	Total         int64                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	NextCursor    string                 `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
+	HasMore       bool                   `protobuf:"varint,4,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -338,11 +339,18 @@ func (x *ListBooksResponse) GetBooks() []*Book {
 	return nil
 }
 
-func (x *ListBooksResponse) GetTotal() int64 {
+func (x *ListBooksResponse) GetNextCursor() string {
 	if x != nil {
-		return x.Total
+		return x.NextCursor
 	}
-	return 0
+	return ""
+}
+
+func (x *ListBooksResponse) GetHasMore() bool {
+	if x != nil {
+		return x.HasMore
+	}
+	return false
 }
 
 type UpdateBookRequest struct {
@@ -534,13 +542,15 @@ const file_bookstore_v1_book_proto_rawDesc = "" +
 	"priceCents\x12\x14\n" +
 	"\x05stock\x18\x05 \x01(\x05R\x05stock\" \n" +
 	"\x0eGetBookRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"C\n" +
-	"\x10ListBooksRequest\x12\x12\n" +
-	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\"S\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"]\n" +
+	"\x10ListBooksRequest\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06cursor\x18\x04 \x01(\tR\x06cursorJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03R\x04pageR\tpage_size\"\x86\x01\n" +
 	"\x11ListBooksResponse\x12(\n" +
-	"\x05books\x18\x01 \x03(\v2\x12.bookstore.v1.BookR\x05books\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x03R\x05total\"\x9c\x01\n" +
+	"\x05books\x18\x01 \x03(\v2\x12.bookstore.v1.BookR\x05books\x12\x1f\n" +
+	"\vnext_cursor\x18\x03 \x01(\tR\n" +
+	"nextCursor\x12\x19\n" +
+	"\bhas_more\x18\x04 \x01(\bR\ahasMoreJ\x04\b\x02\x10\x03R\x05total\"\x9c\x01\n" +
 	"\x11UpdateBookRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x16\n" +

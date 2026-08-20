@@ -1,6 +1,7 @@
 @baseUrl = http://localhost:8080
-@email = reader.http1@example.com
+@email = reader.http@example.com
 @password = password123
+@bookPageLimit = 2
 
 ### 1. Gateway health check
 GET {{baseUrl}}/healthz
@@ -20,7 +21,8 @@ Accept: application/json
 }
 
 ### 3. Login
-# Cac request can xac thuc ben duoi tu dong lay access_token tu response nay.
+# Response tra access token ngan han. Refresh token nam trong cookie HttpOnly va
+# duoc HTTP client luu tu dong; JavaScript khong doc duoc cookie nay.
 # @name login
 POST {{baseUrl}}/api/v1/auth/login
 Content-Type: application/json
@@ -30,6 +32,16 @@ Accept: application/json
   "email": "{{email}}",
   "password": "{{password}}"
 }
+
+### 3.1. Refresh access token and rotate HttpOnly cookie
+# @name refresh
+POST {{baseUrl}}/api/v1/auth/refresh
+Accept: application/json
+
+### 3.2. Logout and revoke current refresh session
+# Chay request nay sau cung vi no xoa cookie refresh.
+POST {{baseUrl}}/api/v1/auth/logout
+Accept: application/json
 
 ### 4. Get current profile
 # Profile duoc tao bat dong bo qua RabbitMQ. Neu vua register ma gap 404,
@@ -49,7 +61,14 @@ Authorization: Bearer {{login.response.body.$.access_token}}
 }
 
 ### 6. List books - public API
-GET {{baseUrl}}/api/v1/books?page=1&page_size=20
+# Dung limit nho de de nhin thay next_cursor voi du lieu test.
+# @name firstBookPage
+GET {{baseUrl}}/api/v1/books?limit={{bookPageLimit}}
+Accept: application/json
+
+### 6.1. List next book page - run after request 6
+# Chi chay request nay khi response 6 co has_more=true va next_cursor.
+GET {{baseUrl}}/api/v1/books?limit={{bookPageLimit}}&cursor={{firstBookPage.response.body.$.pagination.next_cursor}}
 Accept: application/json
 
 ### Admin setup
@@ -59,7 +78,7 @@ Accept: application/json
 #    UPDATE auth.accounts
 #    SET roles = ARRAY['customer', 'admin']::TEXT[], updated_at = NOW()
 #    WHERE email = 'reader.http@example.com';
-# 3. Chay lai request "3. Login" de JWT moi chua role admin.
+# 3. Chay lai request "3. Login" de access token moi chua role admin.
 
 ### 7. Create a book - admin only
 # @name createBook
@@ -69,11 +88,11 @@ Accept: application/json
 Authorization: Bearer {{login.response.body.$.access_token}}
 
 {
-  "title": "Clean Architecture",
-  "author": "Robert C. Martin",
-  "isbn": "9780134494166",
-  "price_cents": 3999,
-  "stock": 10
+  "title": "Clean Architecture2",
+  "author": "Robert C. Martin2",
+  "isbn": "97801344941612",
+  "price_cents": 3992,
+  "stock": 12
 }
 
 ### 8. Get the created book - public API

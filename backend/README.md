@@ -56,6 +56,20 @@ rabbitmq:
   account_registered_routing_key: "account.registered"
 ```
 
+Auth local dùng access token JWT `5m` và refresh session `168h`. Gateway đặt refresh token vào cookie `HttpOnly`, `SameSite=Lax`, còn PostgreSQL chỉ lưu SHA-256 hash của token:
+
+```yaml
+gateway:
+  allowed_origins: ["http://localhost:5173"]
+  refresh_cookie_name: "bookstore_refresh"
+  refresh_cookie_secure: false # production bắt buộc true với HTTPS
+  refresh_cookie_same_site: "lax"
+
+auth:
+  access_token_ttl: "5m"
+  refresh_token_ttl: "168h"
+```
+
 Compose mount file này read-only vào container và truyền đường dẫn bằng CLI flag:
 
 ```text
@@ -227,9 +241,22 @@ curl -X POST http://localhost:8080/api/v1/auth/register \
 Đăng nhập:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/auth/login \
+curl -c /tmp/bookstore-cookies.txt -X POST http://localhost:8080/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"reader@example.com","password":"password123"}'
+```
+
+Làm mới access token và rotate refresh token:
+
+```bash
+curl -b /tmp/bookstore-cookies.txt -c /tmp/bookstore-cookies.txt \
+  -X POST http://localhost:8080/api/v1/auth/refresh
+```
+
+Đăng xuất và revoke refresh session:
+
+```bash
+curl -b /tmp/bookstore-cookies.txt -X POST http://localhost:8080/api/v1/auth/logout
 ```
 
 Đọc profile:
@@ -244,7 +271,7 @@ Profile được tạo bất đồng bộ. Ngay sau register có thể có một
 Danh sách sách là public:
 
 ```bash
-curl 'http://localhost:8080/api/v1/books?page=1&page_size=20'
+curl 'http://localhost:8080/api/v1/books?limit=20'
 ```
 
 Endpoint ghi sách yêu cầu role `admin`. Để gán role khi phát triển local:
@@ -300,9 +327,11 @@ make watch-gateway
 
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
 - `GET /api/v1/users/me`
 - `PUT /api/v1/users/me`
-- `GET /api/v1/books`
+- `GET /api/v1/books?limit=20&cursor=<opaque-cursor>`
 - `GET /api/v1/books/:id`
 - `POST /api/v1/admin/books`
 - `PUT /api/v1/admin/books/:id`
@@ -311,6 +340,7 @@ make watch-gateway
 ## Ghi chú production
 
 - Transactional outbox đã dùng PostgreSQL + RabbitMQ publisher confirms. Production nên chạy RabbitMQ cluster ba node, áp policy at-least-once cho DLX, thêm metrics/alert cho pending event và archive bảng outbox.
-- JWT demo dùng HMAC. Khi chuyển Keycloak/Auth0, thay token adapter bằng OIDC/JWKS; application và domain không cần đổi.
+- Access token JWT dùng HMAC và sống `5m`; refresh token opaque sống `168h`, được rotate mỗi lần dùng, revoke theo session family khi phát hiện token cũ bị dùng lại và chỉ lưu hash trong `auth.refresh_sessions`. Production phải bật HTTPS, đặt `refresh_cookie_secure: true`, dùng secret manager cho JWT secret và chỉ whitelist origin storefront thật.
+- Khi chuyển Keycloak/Auth0, thay token adapter bằng OIDC/JWKS; application và domain không cần đổi.
 - gRPC đang dùng plaintext trong private Docker network. Production nên bật mTLS/service identity.
 - `docker-entrypoint-initdb.d` chỉ phù hợp bootstrap local. CI/CD production nên chạy migration job có version riêng.

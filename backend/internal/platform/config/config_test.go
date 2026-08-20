@@ -11,6 +11,10 @@ func TestLoadYAML(t *testing.T) {
 	content := []byte(`
 gateway:
   http_address: ":8080"
+  allowed_origins: ["http://localhost:5173"]
+  refresh_cookie_name: "bookstore_refresh"
+  refresh_cookie_secure: false
+  refresh_cookie_same_site: "lax"
 grpc:
   auth_address: "auth:50051"
   user_address: "user:50052"
@@ -23,7 +27,8 @@ postgres:
 auth:
   jwt_secret: "12345678901234567890123456789012"
   jwt_issuer: "book-store-auth"
-  jwt_ttl: "15m"
+  access_token_ttl: "15m"
+  refresh_token_ttl: "168h"
 redis:
   address: "redis:6379"
   password: ""

@@ -44,16 +44,20 @@ func (h *Handler) GetBook(ctx context.Context, request *bookstorev1.GetBookReque
 }
 
 func (h *Handler) ListBooks(ctx context.Context, request *bookstorev1.ListBooksRequest) (*bookstorev1.ListBooksResponse, error) {
-	books, total, err := h.service.List(ctx, request.GetPage(), request.GetPageSize())
+	page, err := h.service.List(ctx, request.GetCursor(), request.GetLimit())
 	if err != nil {
 		return nil, mapError(err)
 	}
 
-	result := make([]*bookstorev1.Book, 0, len(books))
-	for _, book := range books {
+	result := make([]*bookstorev1.Book, 0, len(page.Books))
+	for _, book := range page.Books {
 		result = append(result, toProto(book))
 	}
-	return &bookstorev1.ListBooksResponse{Books: result, Total: total}, nil
+	return &bookstorev1.ListBooksResponse{
+		Books:      result,
+		NextCursor: page.NextCursor,
+		HasMore:    page.HasMore,
+	}, nil
 }
 
 func (h *Handler) UpdateBook(ctx context.Context, request *bookstorev1.UpdateBookRequest) (*bookstorev1.Book, error) {

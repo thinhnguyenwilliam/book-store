@@ -1,5 +1,11 @@
 gateway:
   http_address: ":8080"
+  allowed_origins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+  refresh_cookie_name: "bookstore_refresh"
+  refresh_cookie_secure: false
+  refresh_cookie_same_site: "lax"
 
 grpc:
   auth_address: "auth-service:50051"
@@ -15,7 +21,8 @@ postgres:
 auth:
   jwt_secret: "local-development-secret-change-me-32"
   jwt_issuer: "book-store-auth"
-  jwt_ttl: "15m"
+  access_token_ttl: "5m"
+  refresh_token_ttl: "168h"
 
 redis:
   address: "redis:6379"

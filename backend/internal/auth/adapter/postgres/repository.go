@@ -13,6 +13,7 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/domain"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/messaging"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Repository struct {
@@ -41,6 +42,18 @@ type outboxModel struct {
 	CreatedAt    time.Time `gorm:"not null"`
 }
 
+type refreshSessionModel struct {
+	ID           string    `gorm:"type:uuid;primaryKey"`
+	AccountID    string    `gorm:"type:uuid;not null;index"`
+	FamilyID     string    `gorm:"type:uuid;not null;index"`
+	TokenHash    string    `gorm:"type:char(64);not null;uniqueIndex"`
+	ExpiresAt    time.Time `gorm:"not null"`
+	RevokedAt    *time.Time
+	ReplacedByID *string `gorm:"type:uuid"`
+	LastUsedAt   *time.Time
+	CreatedAt    time.Time `gorm:"not null"`
+}
+
 func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
@@ -49,6 +62,7 @@ func (r *Repository) Create(
 	ctx context.Context,
 	account *domain.Account,
 	profile application.ProfileRegistration,
+	session *domain.RefreshSession,
 ) error {
 	payload, err := json.Marshal(messaging.AccountRegisteredPayload{
 		UserID:      account.ID,
@@ -80,13 +94,113 @@ func (r *Repository) Create(
 			AvailableAt: account.CreatedAt,
 			CreatedAt:   account.CreatedAt,
 		}
-		return tx.Table("auth.outbox_events").Create(&event).Error
+		if err := tx.Table("auth.outbox_events").Create(&event).Error; err != nil {
+			return err
+		}
+
+		return tx.Table("auth.refresh_sessions").Create(refreshSessionRecord(session)).Error
 	})
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
 		return domain.ErrEmailAlreadyExists
 	}
 	if err != nil {
 		return fmt.Errorf("create account with outbox event: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) CreateRefreshSession(ctx context.Context, session *domain.RefreshSession) error {
+	if err := r.db.WithContext(ctx).
+		Table("auth.refresh_sessions").
+		Create(refreshSessionRecord(session)).Error; err != nil {
+		return fmt.Errorf("create refresh session: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) RotateRefreshSession(
+	ctx context.Context,
+	tokenHash string,
+	replacement *domain.RefreshSession,
+	now time.Time,
+) (*domain.Account, error) {
+	var account *domain.Account
+	var sessionError error
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current refreshSessionModel
+		err := tx.Table("auth.refresh_sessions").
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("token_hash = ?", tokenHash).
+			First(&current).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.ErrInvalidRefreshToken
+		}
+		if err != nil {
+			return err
+		}
+
+		if current.RevokedAt != nil {
+			if err := tx.Table("auth.refresh_sessions").
+				Where("family_id = ? AND revoked_at IS NULL", current.FamilyID).
+				Update("revoked_at", now).Error; err != nil {
+				return err
+			}
+			sessionError = domain.ErrRefreshTokenReused
+			return nil
+		}
+		if !current.ExpiresAt.After(now) {
+			if err := tx.Table("auth.refresh_sessions").
+				Where("id = ?", current.ID).
+				Updates(map[string]any{"revoked_at": now, "last_used_at": now}).Error; err != nil {
+				return err
+			}
+			sessionError = domain.ErrInvalidRefreshToken
+			return nil
+		}
+
+		replacement.AccountID = current.AccountID
+		replacement.FamilyID = current.FamilyID
+		if err := tx.Table("auth.refresh_sessions").Create(refreshSessionRecord(replacement)).Error; err != nil {
+			return err
+		}
+		if err := tx.Table("auth.refresh_sessions").
+			Where("id = ? AND revoked_at IS NULL", current.ID).
+			Updates(map[string]any{
+				"revoked_at":     now,
+				"last_used_at":   now,
+				"replaced_by_id": replacement.ID,
+			}).Error; err != nil {
+			return err
+		}
+
+		var record accountModel
+		if err := tx.Table("auth.accounts").Where("id = ?", current.AccountID).First(&record).Error; err != nil {
+			return err
+		}
+		account = accountFromRecord(record)
+		return nil
+	})
+	if errors.Is(err, domain.ErrInvalidRefreshToken) {
+		return nil, err
+	}
+	if err != nil {
+		return nil, fmt.Errorf("rotate refresh session: %w", err)
+	}
+	if sessionError != nil {
+		return nil, sessionError
+	}
+	return account, nil
+}
+
+func (r *Repository) RevokeRefreshSession(ctx context.Context, tokenHash string, now time.Time) error {
+	if tokenHash == "" {
+		return nil
+	}
+	if err := r.db.WithContext(ctx).
+		Table("auth.refresh_sessions").
+		Where("token_hash = ? AND revoked_at IS NULL", tokenHash).
+		Updates(map[string]any{"revoked_at": now, "last_used_at": now}).Error; err != nil {
+		return fmt.Errorf("revoke refresh session: %w", err)
 	}
 	return nil
 }
@@ -104,6 +218,10 @@ func (r *Repository) FindByEmail(ctx context.Context, email string) (*domain.Acc
 		return nil, fmt.Errorf("find account by email: %w", err)
 	}
 
+	return accountFromRecord(record), nil
+}
+
+func accountFromRecord(record accountModel) *domain.Account {
 	return &domain.Account{
 		ID:           record.ID,
 		Email:        record.Email,
@@ -111,5 +229,19 @@ func (r *Repository) FindByEmail(ctx context.Context, email string) (*domain.Acc
 		Roles:        []string(record.Roles),
 		CreatedAt:    record.CreatedAt,
 		UpdatedAt:    record.UpdatedAt,
-	}, nil
+	}
+}
+
+func refreshSessionRecord(session *domain.RefreshSession) refreshSessionModel {
+	return refreshSessionModel{
+		ID:           session.ID,
+		AccountID:    session.AccountID,
+		FamilyID:     session.FamilyID,
+		TokenHash:    session.TokenHash,
+		ExpiresAt:    session.ExpiresAt,
+		RevokedAt:    session.RevokedAt,
+		ReplacedByID: session.ReplacedByID,
+		LastUsedAt:   session.LastUsedAt,
+		CreatedAt:    session.CreatedAt,
+	}
 }

@@ -13,20 +13,37 @@ import (
 )
 
 type AuthResult struct {
-	AccessToken string
-	UserID      string
-	ExpiresIn   int64
+	AccessToken      string
+	RefreshToken     string
+	UserID           string
+	ExpiresIn        int64
+	RefreshExpiresIn int64
 }
 
 type Service struct {
-	repository AccountRepository
-	hasher     PasswordHasher
-	tokens     TokenManager
-	now        func() time.Time
+	repository    AccountRepository
+	hasher        PasswordHasher
+	accessTokens  TokenManager
+	refreshTokens RefreshTokenManager
+	refreshTTL    time.Duration
+	now           func() time.Time
 }
 
-func NewService(repository AccountRepository, hasher PasswordHasher, tokens TokenManager) *Service {
-	return &Service{repository: repository, hasher: hasher, tokens: tokens, now: time.Now}
+func NewService(
+	repository AccountRepository,
+	hasher PasswordHasher,
+	accessTokens TokenManager,
+	refreshTokens RefreshTokenManager,
+	refreshTTL time.Duration,
+) *Service {
+	return &Service{
+		repository:    repository,
+		hasher:        hasher,
+		accessTokens:  accessTokens,
+		refreshTokens: refreshTokens,
+		refreshTTL:    refreshTTL,
+		now:           time.Now,
+	}
 }
 
 func (s *Service) Register(ctx context.Context, email, password, displayName string) (AuthResult, error) {
@@ -50,11 +67,14 @@ func (s *Service) Register(ctx context.Context, email, password, displayName str
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
-	if err := s.repository.Create(ctx, account, ProfileRegistration{DisplayName: displayName}); err != nil {
+	result, session, err := s.issueSession(account, now)
+	if err != nil {
 		return AuthResult{}, err
 	}
-
-	return s.issue(account)
+	if err := s.repository.Create(ctx, account, ProfileRegistration{DisplayName: displayName}, session); err != nil {
+		return AuthResult{}, err
+	}
+	return result, nil
 }
 
 func (s *Service) Login(ctx context.Context, email, password string) (AuthResult, error) {
@@ -70,31 +90,119 @@ func (s *Service) Login(ctx context.Context, email, password string) (AuthResult
 		return AuthResult{}, domain.ErrInvalidCredentials
 	}
 
-	return s.issue(account)
+	now := s.now().UTC()
+	result, session, err := s.issueSession(account, now)
+	if err != nil {
+		return AuthResult{}, err
+	}
+	if err := s.repository.CreateRefreshSession(ctx, session); err != nil {
+		return AuthResult{}, err
+	}
+	return result, nil
+}
+
+func (s *Service) Refresh(ctx context.Context, rawRefreshToken string) (AuthResult, error) {
+	if strings.TrimSpace(rawRefreshToken) == "" {
+		return AuthResult{}, domain.ErrInvalidRefreshToken
+	}
+
+	now := s.now().UTC()
+	rawReplacement, replacementHash, err := s.refreshTokens.Generate()
+	if err != nil {
+		return AuthResult{}, fmt.Errorf("generate refresh token: %w", err)
+	}
+	replacement := &domain.RefreshSession{
+		ID:        uuid.NewString(),
+		TokenHash: replacementHash,
+		ExpiresAt: now.Add(s.refreshTTL),
+		CreatedAt: now,
+	}
+	account, err := s.repository.RotateRefreshSession(
+		ctx,
+		s.refreshTokens.Hash(rawRefreshToken),
+		replacement,
+		now,
+	)
+	if err != nil {
+		return AuthResult{}, err
+	}
+
+	accessToken, expiresAt, err := s.issueAccessToken(account)
+	if err != nil {
+		return AuthResult{}, err
+	}
+	return AuthResult{
+		AccessToken:      accessToken,
+		RefreshToken:     rawReplacement,
+		UserID:           account.ID,
+		ExpiresIn:        secondsUntil(now, expiresAt),
+		RefreshExpiresIn: secondsUntil(now, replacement.ExpiresAt),
+	}, nil
+}
+
+func (s *Service) Logout(ctx context.Context, rawRefreshToken string) error {
+	if strings.TrimSpace(rawRefreshToken) == "" {
+		return nil
+	}
+	return s.repository.RevokeRefreshSession(
+		ctx,
+		s.refreshTokens.Hash(rawRefreshToken),
+		s.now().UTC(),
+	)
 }
 
 func (s *Service) VerifyToken(_ context.Context, token string) (Claims, error) {
 	if strings.TrimSpace(token) == "" {
 		return Claims{}, domain.ErrInvalidToken
 	}
-	return s.tokens.Verify(token)
+	return s.accessTokens.Verify(token)
 }
 
-func (s *Service) issue(account *domain.Account) (AuthResult, error) {
-	token, expiresAt, err := s.tokens.Issue(Claims{
+func (s *Service) issueSession(account *domain.Account, now time.Time) (AuthResult, *domain.RefreshSession, error) {
+	accessToken, expiresAt, err := s.issueAccessToken(account)
+	if err != nil {
+		return AuthResult{}, nil, err
+	}
+	rawRefreshToken, refreshHash, err := s.refreshTokens.Generate()
+	if err != nil {
+		return AuthResult{}, nil, fmt.Errorf("generate refresh token: %w", err)
+	}
+	refreshExpiresAt := now.Add(s.refreshTTL)
+	session := &domain.RefreshSession{
+		ID:        uuid.NewString(),
+		AccountID: account.ID,
+		FamilyID:  uuid.NewString(),
+		TokenHash: refreshHash,
+		ExpiresAt: refreshExpiresAt,
+		CreatedAt: now,
+	}
+	return AuthResult{
+		AccessToken:      accessToken,
+		RefreshToken:     rawRefreshToken,
+		UserID:           account.ID,
+		ExpiresIn:        secondsUntil(now, expiresAt),
+		RefreshExpiresIn: secondsUntil(now, refreshExpiresAt),
+	}, session, nil
+}
+
+func (s *Service) issueAccessToken(account *domain.Account) (string, time.Time, error) {
+	token, expiresAt, err := s.accessTokens.Issue(Claims{
 		UserID: account.ID,
 		Email:  account.Email,
 		Roles:  account.Roles,
 	})
 	if err != nil {
-		return AuthResult{}, fmt.Errorf("issue access token: %w", err)
+		return "", time.Time{}, fmt.Errorf("issue access token: %w", err)
 	}
+	return token, expiresAt, nil
+}
 
-	return AuthResult{
-		AccessToken: token,
-		UserID:      account.ID,
-		ExpiresIn:   int64(time.Until(expiresAt).Seconds()),
-	}, nil
+func secondsUntil(now, expiresAt time.Time) int64 {
+	seconds := int64(expiresAt.Sub(now).Seconds())
+	if seconds < 0 {
+		return 0
+	}
+	return seconds
 }
 
 func validEmail(email string) bool {

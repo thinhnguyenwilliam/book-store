@@ -8,8 +8,11 @@ import (
 )
 
 type AccountRepository interface {
-	Create(ctx context.Context, account *domain.Account, profile ProfileRegistration) error
+	Create(ctx context.Context, account *domain.Account, profile ProfileRegistration, session *domain.RefreshSession) error
 	FindByEmail(ctx context.Context, email string) (*domain.Account, error)
+	CreateRefreshSession(ctx context.Context, session *domain.RefreshSession) error
+	RotateRefreshSession(ctx context.Context, tokenHash string, replacement *domain.RefreshSession, now time.Time) (*domain.Account, error)
+	RevokeRefreshSession(ctx context.Context, tokenHash string, now time.Time) error
 }
 
 type ProfileRegistration struct {
@@ -30,4 +33,9 @@ type Claims struct {
 type TokenManager interface {
 	Issue(claims Claims) (token string, expiresAt time.Time, err error)
 	Verify(token string) (Claims, error)
+}
+
+type RefreshTokenManager interface {
+	Generate() (rawToken string, tokenHash string, err error)
+	Hash(rawToken string) string
 }

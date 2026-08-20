@@ -36,6 +36,21 @@ func (h *Handler) Login(ctx context.Context, request *bookstorev1.LoginRequest) 
 	return authResponse(result), nil
 }
 
+func (h *Handler) Refresh(ctx context.Context, request *bookstorev1.RefreshRequest) (*bookstorev1.AuthResponse, error) {
+	result, err := h.service.Refresh(ctx, request.GetRefreshToken())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return authResponse(result), nil
+}
+
+func (h *Handler) Logout(ctx context.Context, request *bookstorev1.LogoutRequest) (*bookstorev1.LogoutResponse, error) {
+	if err := h.service.Logout(ctx, request.GetRefreshToken()); err != nil {
+		return nil, mapError(err)
+	}
+	return &bookstorev1.LogoutResponse{}, nil
+}
+
 func (h *Handler) VerifyToken(ctx context.Context, request *bookstorev1.VerifyTokenRequest) (*bookstorev1.VerifyTokenResponse, error) {
 	claims, err := h.service.VerifyToken(ctx, request.GetAccessToken())
 	if err != nil {
@@ -50,9 +65,11 @@ func (h *Handler) VerifyToken(ctx context.Context, request *bookstorev1.VerifyTo
 
 func authResponse(result application.AuthResult) *bookstorev1.AuthResponse {
 	return &bookstorev1.AuthResponse{
-		AccessToken: result.AccessToken,
-		UserId:      result.UserID,
-		ExpiresIn:   result.ExpiresIn,
+		AccessToken:      result.AccessToken,
+		UserId:           result.UserID,
+		ExpiresIn:        result.ExpiresIn,
+		RefreshToken:     result.RefreshToken,
+		RefreshExpiresIn: result.RefreshExpiresIn,
 	}
 }
 
@@ -62,7 +79,10 @@ func mapError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrEmailAlreadyExists):
 		return status.Error(codes.AlreadyExists, err.Error())
-	case errors.Is(err, domain.ErrInvalidCredentials), errors.Is(err, domain.ErrInvalidToken):
+	case errors.Is(err, domain.ErrInvalidCredentials),
+		errors.Is(err, domain.ErrInvalidToken),
+		errors.Is(err, domain.ErrInvalidRefreshToken),
+		errors.Is(err, domain.ErrRefreshTokenReused):
 		return status.Error(codes.Unauthenticated, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal server error")

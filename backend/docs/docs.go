@@ -264,6 +264,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/auth/logout": {
+            "post": {
+                "description": "Revokes the current refresh session and clears its HttpOnly cookie.",
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Log out",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/refresh": {
+            "post": {
+                "description": "Rotates the HttpOnly refresh cookie and returns a new short-lived access token.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Refresh an access token",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.AuthResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/register": {
             "post": {
                 "description": "Creates an auth account and schedules profile creation through the transactional outbox.",
@@ -328,20 +392,18 @@ const docTemplate = `{
                 "summary": "List books",
                 "parameters": [
                     {
-                        "minimum": 1,
-                        "type": "integer",
-                        "default": 1,
-                        "description": "Page number",
-                        "name": "page",
-                        "in": "query"
-                    },
-                    {
                         "maximum": 100,
                         "minimum": 1,
                         "type": "integer",
                         "default": 20,
-                        "description": "Items per page",
-                        "name": "page_size",
+                        "description": "Items per request",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Opaque cursor returned by the previous request",
+                        "name": "cursor",
                         "in": "query"
                     }
                 ],
@@ -350,6 +412,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/http.BookListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
                         }
                     },
                     "500": {
@@ -558,8 +626,8 @@ const docTemplate = `{
                         "$ref": "#/definitions/http.BookResponse"
                     }
                 },
-                "meta": {
-                    "$ref": "#/definitions/http.PaginationMeta"
+                "pagination": {
+                    "$ref": "#/definitions/http.CursorPagination"
                 }
             }
         },
@@ -625,6 +693,18 @@ const docTemplate = `{
                 }
             }
         },
+        "http.CursorPagination": {
+            "type": "object",
+            "properties": {
+                "has_more": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
         "http.ErrorDetail": {
             "type": "object",
             "properties": {
@@ -661,23 +741,6 @@ const docTemplate = `{
                 "password": {
                     "type": "string",
                     "example": "password123"
-                }
-            }
-        },
-        "http.PaginationMeta": {
-            "type": "object",
-            "properties": {
-                "page": {
-                    "type": "integer",
-                    "example": 1
-                },
-                "page_size": {
-                    "type": "integer",
-                    "example": 20
-                },
-                "total": {
-                    "type": "integer",
-                    "example": 1
                 }
             }
         },

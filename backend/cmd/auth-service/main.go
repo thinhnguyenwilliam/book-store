@@ -40,7 +40,11 @@ func run(configPath string) error {
 	if err != nil {
 		return err
 	}
-	ttl, err := time.ParseDuration(cfg.Auth.JWTTTL)
+	ttl, err := time.ParseDuration(cfg.Auth.AccessTokenTTL)
+	if err != nil {
+		return err
+	}
+	refreshTTL, err := time.ParseDuration(cfg.Auth.RefreshTokenTTL)
 	if err != nil {
 		return err
 	}
@@ -63,8 +67,9 @@ func run(configPath string) error {
 
 	repository := postgres.NewRepository(db)
 	hasher := security.NewPasswordHasher()
-	tokens := security.NewTokenManager(cfg.Auth.JWTSecret, cfg.Auth.JWTIssuer, ttl)
-	service := application.NewService(repository, hasher, tokens)
+	accessTokens := security.NewTokenManager(cfg.Auth.JWTSecret, cfg.Auth.JWTIssuer, ttl)
+	refreshTokens := security.NewRefreshTokenManager()
+	service := application.NewService(repository, hasher, accessTokens, refreshTokens, refreshTTL)
 	handler := authgrpc.NewHandler(service)
 
 	publisher := rabbitmqadapter.NewPublisher(rabbitmqadapter.Config{

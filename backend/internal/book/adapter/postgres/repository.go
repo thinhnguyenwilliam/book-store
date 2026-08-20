@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/book/application"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/book/domain"
 	"gorm.io/gorm"
 )
@@ -50,23 +51,25 @@ func (r *Repository) FindByID(ctx context.Context, id string) (*domain.Book, err
 	return toDomain(record), nil
 }
 
-func (r *Repository) List(ctx context.Context, limit, offset int32) ([]*domain.Book, int64, error) {
-	db := r.db.WithContext(ctx).Table("catalog.books")
-	var total int64
-	if err := db.Count(&total).Error; err != nil {
-		return nil, 0, fmt.Errorf("count books: %w", err)
+func (r *Repository) List(ctx context.Context, limit int32, cursor *application.BookCursor) ([]*domain.Book, error) {
+	db := r.db.WithContext(ctx).
+		Table("catalog.books").
+		Order("created_at DESC").
+		Order("id DESC").
+		Limit(int(limit))
+	if cursor != nil {
+		db = db.Where("(created_at, id) < (?, ?)", cursor.CreatedAt, cursor.ID)
 	}
-
 	var records []bookModel
-	if err := db.Order("created_at DESC").Limit(int(limit)).Offset(int(offset)).Find(&records).Error; err != nil {
-		return nil, 0, fmt.Errorf("list books: %w", err)
+	if err := db.Find(&records).Error; err != nil {
+		return nil, fmt.Errorf("list books: %w", err)
 	}
 
 	books := make([]*domain.Book, 0, len(records))
 	for _, record := range records {
 		books = append(books, toDomain(record))
 	}
-	return books, total, nil
+	return books, nil
 }
 
 func (r *Repository) Update(ctx context.Context, book *domain.Book) error {

@@ -20,8 +20,8 @@ definitions:
         items:
           $ref: '#/definitions/http.BookResponse'
         type: array
-      meta:
-        $ref: '#/definitions/http.PaginationMeta'
+      pagination:
+        $ref: '#/definitions/http.CursorPagination'
     type: object
   http.BookRequest:
     properties:
@@ -68,6 +68,14 @@ definitions:
         format: date-time
         type: string
     type: object
+  http.CursorPagination:
+    properties:
+      has_more:
+        example: true
+        type: boolean
+      next_cursor:
+        type: string
+    type: object
   http.ErrorDetail:
     properties:
       message:
@@ -93,18 +101,6 @@ definitions:
       password:
         example: password123
         type: string
-    type: object
-  http.PaginationMeta:
-    properties:
-      page:
-        example: 1
-        type: integer
-      page_size:
-        example: 20
-        type: integer
-      total:
-        example: 1
-        type: integer
     type: object
   http.RegisterRequest:
     properties:
@@ -309,6 +305,49 @@ paths:
       summary: Log in
       tags:
       - Auth
+  /api/v1/auth/logout:
+    post:
+      description: Revokes the current refresh session and clears its HttpOnly cookie.
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Log out
+      tags:
+      - Auth
+  /api/v1/auth/refresh:
+    post:
+      description: Rotates the HttpOnly refresh cookie and returns a new short-lived
+        access token.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.AuthResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Refresh an access token
+      tags:
+      - Auth
   /api/v1/auth/register:
     post:
       consumes:
@@ -348,19 +387,17 @@ paths:
     get:
       description: Returns a paginated list of books.
       parameters:
-      - default: 1
-        description: Page number
-        in: query
-        minimum: 1
-        name: page
-        type: integer
       - default: 20
-        description: Items per page
+        description: Items per request
         in: query
         maximum: 100
         minimum: 1
-        name: page_size
+        name: limit
         type: integer
+      - description: Opaque cursor returned by the previous request
+        in: query
+        name: cursor
+        type: string
       produces:
       - application/json
       responses:
@@ -368,6 +405,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/http.BookListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:

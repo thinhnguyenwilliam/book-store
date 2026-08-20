@@ -61,17 +61,16 @@ type BookResponse struct {
 	UpdatedAt  string `json:"updated_at" format:"date-time"`
 }
 
-// PaginationMeta describes a paginated response.
-type PaginationMeta struct {
-	Page     int32 `json:"page" example:"1"`
-	PageSize int32 `json:"page_size" example:"20"`
-	Total    int64 `json:"total" example:"1"`
+// CursorPagination describes the next position in a cursor-paginated response.
+type CursorPagination struct {
+	NextCursor string `json:"next_cursor,omitempty"`
+	HasMore    bool   `json:"has_more" example:"true"`
 }
 
 // BookListResponse is returned by the book listing endpoint.
 type BookListResponse struct {
-	Data []BookResponse `json:"data"`
-	Meta PaginationMeta `json:"meta"`
+	Data       []BookResponse   `json:"data"`
+	Pagination CursorPagination `json:"pagination"`
 }
 
 // ErrorDetail contains a safe error message for API clients.

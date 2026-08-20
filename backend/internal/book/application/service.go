@@ -13,6 +13,12 @@ type Service struct {
 	now        func() time.Time
 }
 
+type BookPage struct {
+	Books      []*domain.Book
+	NextCursor string
+	HasMore    bool
+}
+
 func NewService(repository BookRepository) *Service {
 	return &Service{repository: repository, now: time.Now}
 }
@@ -38,17 +44,37 @@ func (s *Service) Get(ctx context.Context, id string) (*domain.Book, error) {
 	return s.repository.FindByID(ctx, id)
 }
 
-func (s *Service) List(ctx context.Context, page, pageSize int32) ([]*domain.Book, int64, error) {
-	if page < 1 {
-		page = 1
+func (s *Service) List(ctx context.Context, rawCursor string, limit int32) (BookPage, error) {
+	if limit < 1 {
+		limit = 20
 	}
-	if pageSize < 1 {
-		pageSize = 20
+	if limit > 100 {
+		limit = 100
 	}
-	if pageSize > 100 {
-		pageSize = 100
+	cursor, err := decodeCursor(rawCursor)
+	if err != nil {
+		return BookPage{}, err
 	}
-	return s.repository.List(ctx, pageSize, (page-1)*pageSize)
+
+	books, err := s.repository.List(ctx, limit+1, cursor)
+	if err != nil {
+		return BookPage{}, err
+	}
+	hasMore := len(books) > int(limit)
+	if hasMore {
+		books = books[:limit]
+	}
+
+	page := BookPage{Books: books, HasMore: hasMore}
+	if !hasMore || len(books) == 0 {
+		return page, nil
+	}
+	lastBook := books[len(books)-1]
+	page.NextCursor, err = encodeCursor(BookCursor{CreatedAt: lastBook.CreatedAt, ID: lastBook.ID})
+	if err != nil {
+		return BookPage{}, err
+	}
+	return page, nil
 }
 
 func (s *Service) Update(ctx context.Context, book *domain.Book) (*domain.Book, error) {

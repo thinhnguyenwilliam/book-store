@@ -20,7 +20,11 @@ type Config struct {
 }
 
 type GatewayConfig struct {
-	HTTPAddress string `mapstructure:"http_address"`
+	HTTPAddress           string   `mapstructure:"http_address"`
+	AllowedOrigins        []string `mapstructure:"allowed_origins"`
+	RefreshCookieName     string   `mapstructure:"refresh_cookie_name"`
+	RefreshCookieSecure   bool     `mapstructure:"refresh_cookie_secure"`
+	RefreshCookieSameSite string   `mapstructure:"refresh_cookie_same_site"`
 }
 
 type GRPCConfig struct {
@@ -37,9 +41,10 @@ type PostgresConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret string `mapstructure:"jwt_secret"`
-	JWTIssuer string `mapstructure:"jwt_issuer"`
-	JWTTTL    string `mapstructure:"jwt_ttl"`
+	JWTSecret       string `mapstructure:"jwt_secret"`
+	JWTIssuer       string `mapstructure:"jwt_issuer"`
+	AccessTokenTTL  string `mapstructure:"access_token_ttl"`
+	RefreshTokenTTL string `mapstructure:"refresh_token_ttl"`
 }
 
 type RedisConfig struct {
@@ -88,6 +93,8 @@ func Load(path string) (Config, error) {
 func (c Config) validate() error {
 	required := map[string]string{
 		"gateway.http_address":                    c.Gateway.HTTPAddress,
+		"gateway.refresh_cookie_name":             c.Gateway.RefreshCookieName,
+		"gateway.refresh_cookie_same_site":        c.Gateway.RefreshCookieSameSite,
 		"grpc.auth_address":                       c.GRPC.AuthAddress,
 		"grpc.user_address":                       c.GRPC.UserAddress,
 		"grpc.book_address":                       c.GRPC.BookAddress,
@@ -97,7 +104,8 @@ func (c Config) validate() error {
 		"postgres.url":                            c.Postgres.URL,
 		"auth.jwt_secret":                         c.Auth.JWTSecret,
 		"auth.jwt_issuer":                         c.Auth.JWTIssuer,
-		"auth.jwt_ttl":                            c.Auth.JWTTTL,
+		"auth.access_token_ttl":                   c.Auth.AccessTokenTTL,
+		"auth.refresh_token_ttl":                  c.Auth.RefreshTokenTTL,
 		"redis.address":                           c.Redis.Address,
 		"rabbitmq.url":                            c.RabbitMQ.URL,
 		"rabbitmq.exchange":                       c.RabbitMQ.Exchange,
@@ -114,6 +122,25 @@ func (c Config) validate() error {
 	}
 	if len(c.Auth.JWTSecret) < 32 {
 		return fmt.Errorf("auth.jwt_secret must contain at least 32 characters")
+	}
+	if len(c.Gateway.AllowedOrigins) == 0 {
+		return fmt.Errorf("gateway.allowed_origins must contain at least one trusted origin")
+	}
+	sameSite := strings.ToLower(c.Gateway.RefreshCookieSameSite)
+	if sameSite != "strict" && sameSite != "lax" && sameSite != "none" {
+		return fmt.Errorf("gateway.refresh_cookie_same_site must be strict, lax, or none")
+	}
+	if sameSite == "none" && !c.Gateway.RefreshCookieSecure {
+		return fmt.Errorf("gateway.refresh_cookie_secure must be true when SameSite is none")
+	}
+	for key, value := range map[string]string{
+		"auth.access_token_ttl":  c.Auth.AccessTokenTTL,
+		"auth.refresh_token_ttl": c.Auth.RefreshTokenTTL,
+	} {
+		duration, err := time.ParseDuration(value)
+		if err != nil || duration <= 0 {
+			return fmt.Errorf("%s must be a positive duration", key)
+		}
 	}
 	if c.RabbitMQ.ConsumerConcurrency < 1 {
 		return fmt.Errorf("rabbitmq.consumer_concurrency must be greater than zero")

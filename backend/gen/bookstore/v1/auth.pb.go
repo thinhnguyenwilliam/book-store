@@ -134,12 +134,14 @@ func (x *LoginRequest) GetPassword() string {
 }
 
 type AuthResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
-	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	ExpiresIn     int64                  `protobuf:"varint,3,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken      string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	UserId           string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	ExpiresIn        int64                  `protobuf:"varint,3,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
+	RefreshToken     string                 `protobuf:"bytes,4,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	RefreshExpiresIn int64                  `protobuf:"varint,5,opt,name=refresh_expires_in,json=refreshExpiresIn,proto3" json:"refresh_expires_in,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *AuthResponse) Reset() {
@@ -193,6 +195,144 @@ func (x *AuthResponse) GetExpiresIn() int64 {
 	return 0
 }
 
+func (x *AuthResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+func (x *AuthResponse) GetRefreshExpiresIn() int64 {
+	if x != nil {
+		return x.RefreshExpiresIn
+	}
+	return 0
+}
+
+type RefreshRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RefreshToken  string                 `protobuf:"bytes,1,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RefreshRequest) Reset() {
+	*x = RefreshRequest{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RefreshRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RefreshRequest) ProtoMessage() {}
+
+func (x *RefreshRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RefreshRequest.ProtoReflect.Descriptor instead.
+func (*RefreshRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *RefreshRequest) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+type LogoutRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RefreshToken  string                 `protobuf:"bytes,1,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogoutRequest) Reset() {
+	*x = LogoutRequest{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogoutRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogoutRequest) ProtoMessage() {}
+
+func (x *LogoutRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogoutRequest.ProtoReflect.Descriptor instead.
+func (*LogoutRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *LogoutRequest) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+type LogoutResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogoutResponse) Reset() {
+	*x = LogoutResponse{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogoutResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogoutResponse) ProtoMessage() {}
+
+func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogoutResponse.ProtoReflect.Descriptor instead.
+func (*LogoutResponse) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{5}
+}
+
 type VerifyTokenRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
@@ -202,7 +342,7 @@ type VerifyTokenRequest struct {
 
 func (x *VerifyTokenRequest) Reset() {
 	*x = VerifyTokenRequest{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[3]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -214,7 +354,7 @@ func (x *VerifyTokenRequest) String() string {
 func (*VerifyTokenRequest) ProtoMessage() {}
 
 func (x *VerifyTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[3]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -227,7 +367,7 @@ func (x *VerifyTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyTokenRequest.ProtoReflect.Descriptor instead.
 func (*VerifyTokenRequest) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{3}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *VerifyTokenRequest) GetAccessToken() string {
@@ -248,7 +388,7 @@ type VerifyTokenResponse struct {
 
 func (x *VerifyTokenResponse) Reset() {
 	*x = VerifyTokenResponse{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[4]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -260,7 +400,7 @@ func (x *VerifyTokenResponse) String() string {
 func (*VerifyTokenResponse) ProtoMessage() {}
 
 func (x *VerifyTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[4]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -273,7 +413,7 @@ func (x *VerifyTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyTokenResponse.ProtoReflect.Descriptor instead.
 func (*VerifyTokenResponse) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{4}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *VerifyTokenResponse) GetUserId() string {
@@ -308,21 +448,30 @@ const file_bookstore_v1_auth_proto_rawDesc = "" +
 	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\"@\n" +
 	"\fLoginRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\"i\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"\xbc\x01\n" +
 	"\fAuthResponse\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1d\n" +
 	"\n" +
-	"expires_in\x18\x03 \x01(\x03R\texpiresIn\"7\n" +
+	"expires_in\x18\x03 \x01(\x03R\texpiresIn\x12#\n" +
+	"\rrefresh_token\x18\x04 \x01(\tR\frefreshToken\x12,\n" +
+	"\x12refresh_expires_in\x18\x05 \x01(\x03R\x10refreshExpiresIn\"5\n" +
+	"\x0eRefreshRequest\x12#\n" +
+	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"4\n" +
+	"\rLogoutRequest\x12#\n" +
+	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"\x10\n" +
+	"\x0eLogoutResponse\"7\n" +
 	"\x12VerifyTokenRequest\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\"Z\n" +
 	"\x13VerifyTokenResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x14\n" +
-	"\x05roles\x18\x03 \x03(\tR\x05roles2\xe9\x01\n" +
+	"\x05roles\x18\x03 \x03(\tR\x05roles2\xf3\x02\n" +
 	"\vAuthService\x12E\n" +
 	"\bRegister\x12\x1d.bookstore.v1.RegisterRequest\x1a\x1a.bookstore.v1.AuthResponse\x12?\n" +
-	"\x05Login\x12\x1a.bookstore.v1.LoginRequest\x1a\x1a.bookstore.v1.AuthResponse\x12R\n" +
+	"\x05Login\x12\x1a.bookstore.v1.LoginRequest\x1a\x1a.bookstore.v1.AuthResponse\x12C\n" +
+	"\aRefresh\x12\x1c.bookstore.v1.RefreshRequest\x1a\x1a.bookstore.v1.AuthResponse\x12C\n" +
+	"\x06Logout\x12\x1b.bookstore.v1.LogoutRequest\x1a\x1c.bookstore.v1.LogoutResponse\x12R\n" +
 	"\vVerifyToken\x12 .bookstore.v1.VerifyTokenRequest\x1a!.bookstore.v1.VerifyTokenResponseBOZMgithub.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1;bookstorev1b\x06proto3"
 
 var (
@@ -337,23 +486,30 @@ func file_bookstore_v1_auth_proto_rawDescGZIP() []byte {
 	return file_bookstore_v1_auth_proto_rawDescData
 }
 
-var file_bookstore_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_bookstore_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_bookstore_v1_auth_proto_goTypes = []any{
 	(*RegisterRequest)(nil),     // 0: bookstore.v1.RegisterRequest
 	(*LoginRequest)(nil),        // 1: bookstore.v1.LoginRequest
 	(*AuthResponse)(nil),        // 2: bookstore.v1.AuthResponse
-	(*VerifyTokenRequest)(nil),  // 3: bookstore.v1.VerifyTokenRequest
-	(*VerifyTokenResponse)(nil), // 4: bookstore.v1.VerifyTokenResponse
+	(*RefreshRequest)(nil),      // 3: bookstore.v1.RefreshRequest
+	(*LogoutRequest)(nil),       // 4: bookstore.v1.LogoutRequest
+	(*LogoutResponse)(nil),      // 5: bookstore.v1.LogoutResponse
+	(*VerifyTokenRequest)(nil),  // 6: bookstore.v1.VerifyTokenRequest
+	(*VerifyTokenResponse)(nil), // 7: bookstore.v1.VerifyTokenResponse
 }
 var file_bookstore_v1_auth_proto_depIdxs = []int32{
 	0, // 0: bookstore.v1.AuthService.Register:input_type -> bookstore.v1.RegisterRequest
 	1, // 1: bookstore.v1.AuthService.Login:input_type -> bookstore.v1.LoginRequest
-	3, // 2: bookstore.v1.AuthService.VerifyToken:input_type -> bookstore.v1.VerifyTokenRequest
-	2, // 3: bookstore.v1.AuthService.Register:output_type -> bookstore.v1.AuthResponse
-	2, // 4: bookstore.v1.AuthService.Login:output_type -> bookstore.v1.AuthResponse
-	4, // 5: bookstore.v1.AuthService.VerifyToken:output_type -> bookstore.v1.VerifyTokenResponse
-	3, // [3:6] is the sub-list for method output_type
-	0, // [0:3] is the sub-list for method input_type
+	3, // 2: bookstore.v1.AuthService.Refresh:input_type -> bookstore.v1.RefreshRequest
+	4, // 3: bookstore.v1.AuthService.Logout:input_type -> bookstore.v1.LogoutRequest
+	6, // 4: bookstore.v1.AuthService.VerifyToken:input_type -> bookstore.v1.VerifyTokenRequest
+	2, // 5: bookstore.v1.AuthService.Register:output_type -> bookstore.v1.AuthResponse
+	2, // 6: bookstore.v1.AuthService.Login:output_type -> bookstore.v1.AuthResponse
+	2, // 7: bookstore.v1.AuthService.Refresh:output_type -> bookstore.v1.AuthResponse
+	5, // 8: bookstore.v1.AuthService.Logout:output_type -> bookstore.v1.LogoutResponse
+	7, // 9: bookstore.v1.AuthService.VerifyToken:output_type -> bookstore.v1.VerifyTokenResponse
+	5, // [5:10] is the sub-list for method output_type
+	0, // [0:5] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -370,7 +526,7 @@ func file_bookstore_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_bookstore_v1_auth_proto_rawDesc), len(file_bookstore_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

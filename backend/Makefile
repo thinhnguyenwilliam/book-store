@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help tools generate proto swagger tidy fmt test vet build check \
+.PHONY: help tools generate proto swagger tidy fmt test vet build check migrate \
 	docker-config docker-build up run up-foreground down down-volumes restart ps logs \
 	dev dev-foreground dev-build dev-logs dev-ps dev-down dev-restart \
 	air-tool infra-up infra-stop infra-ps infra-logs app-stop local-prepare \
@@ -74,6 +74,9 @@ check: test vet build docker-config ## Chạy toàn bộ kiểm tra trước khi
 
 docker-config: ## Kiểm tra cú pháp Docker Compose
 	docker compose config --quiet
+
+migrate: ## Áp dụng các migration idempotent vào PostgreSQL local đang chạy
+	docker compose exec -T postgres sh -c 'set -e; for migration in /docker-entrypoint-initdb.d/*.sql; do psql -v ON_ERROR_STOP=1 -U bookstore -d bookstore -f "$$migration"; done'
 
 docker-build: ## Build toàn bộ Docker images
 	docker compose build

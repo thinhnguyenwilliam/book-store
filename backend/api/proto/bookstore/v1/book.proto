@@ -36,13 +36,18 @@ message GetBookRequest {
 }
 
 message ListBooksRequest {
-  int32 page = 1;
-  int32 page_size = 2;
+  reserved 1, 2;
+  reserved "page", "page_size";
+  int32 limit = 3;
+  string cursor = 4;
 }
 
 message ListBooksResponse {
   repeated Book books = 1;
-  int64 total = 2;
+  reserved 2;
+  reserved "total";
+  string next_cursor = 3;
+  bool has_more = 4;
 }
 
 message UpdateBookRequest {
@@ -59,4 +64,3 @@ message DeleteBookRequest {
 }
 
 message DeleteBookResponse {}
-

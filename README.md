@@ -1,8 +1,8 @@
 # Book Store
 
-Book Store là backend Golang theo hướng microservice, Clean Architecture và DDD. Gateway public dùng Echo/HTTP, các service nội bộ giao tiếp bằng gRPC, dữ liệu lưu trong PostgreSQL qua GORM và domain event được xử lý bằng transactional outbox + RabbitMQ.
+Book Store gồm backend Golang theo hướng microservice, Clean Architecture và DDD cùng storefront Vue 3 + TypeScript. Gateway public dùng Echo/HTTP, các service nội bộ giao tiếp bằng gRPC, dữ liệu lưu trong PostgreSQL qua GORM và domain event được xử lý bằng transactional outbox + RabbitMQ.
 
-Hiện repository đã có backend. `storefront/` và `admin-portal/` sẽ được bổ sung sau.
+Hiện repository đã có `backend/` và `storefront/`. `admin-portal/` sẽ được bổ sung sau.
 
 ## Kiến trúc
 
@@ -27,6 +27,8 @@ RabbitMQ -> Worker       |
 ```
 
 Redis được giữ riêng cho cache/rate-limit. RabbitMQ chịu trách nhiệm truyền domain event.
+
+Auth dùng access token JWT ngắn hạn `5m` và refresh token opaque `168h`. Storefront chỉ giữ access token trong memory; refresh token được Gateway đặt trong cookie `HttpOnly` và rotate qua PostgreSQL mỗi lần làm mới phiên.
 
 ## Yêu cầu
 
@@ -60,6 +62,12 @@ Build và chạy toàn bộ stack ở background:
 
 ```bash
 make up
+```
+
+Nếu đã có PostgreSQL volume từ phiên bản cũ, áp migration mới trước khi thử auth:
+
+```bash
+make migrate
 ```
 
 Nếu máy không có `make`, dùng trực tiếp:
@@ -137,9 +145,29 @@ make dev-down
 
 Các Go process hỗ trợ graceful shutdown cho HTTP, gRPC, outbox và RabbitMQ worker. Timeout nội bộ được cấu hình bằng `shutdown.timeout` (`12s` ở local); Air và Docker chờ `15s` trước khi force kill.
 
+## Chạy storefront Vue trên máy
+
+Sau khi Gateway chạy tại `http://localhost:8080`, mở terminal mới:
+
+```bash
+cd storefront
+cp .env.example .env
+pnpm install
+pnpm dev
+```
+
+Mở <http://localhost:5173>. Source được hot reload bởi Vite. Chạy toàn bộ type-check, lint, unit test và production build bằng:
+
+```bash
+pnpm check
+```
+
+Xem thêm cấu hình `.env`, Docker/Nginx và cấu trúc source tại [storefront/README.md](storefront/README.md).
+
 ## Địa chỉ dịch vụ
 
 - API Gateway: <http://localhost:8080>
+- Storefront: <http://localhost:5173>
 - Swagger UI: <http://localhost:8080/swagger/index.html>
 - PostgreSQL: `localhost:5432`
 - pgAdmin: <http://localhost:5050>
