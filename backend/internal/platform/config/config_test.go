@@ -38,6 +38,8 @@ rabbitmq:
   prefetch: 4
 outbox:
   outbox_poll_interval: "2s"
+shutdown:
+  timeout: "12s"
 `)
 	if err := os.WriteFile(path, content, 0o600); err != nil {
 		t.Fatalf("write test config: %v", err)
@@ -49,5 +51,8 @@ outbox:
 	}
 	if cfg.Postgres.URL == "" || cfg.Redis.Address != "redis:6379" {
 		t.Fatalf("unexpected config: %+v", cfg)
+	}
+	if cfg.Shutdown.Timeout != "12s" {
+		t.Fatalf("Shutdown.Timeout = %q, want %q", cfg.Shutdown.Timeout, "12s")
 	}
 }

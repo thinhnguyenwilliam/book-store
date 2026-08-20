@@ -9,16 +9,18 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/lifecycle"
 )
 
 type Handler func(context.Context, []byte) error
 
 type Consumer struct {
-	config Config
+	config          Config
+	shutdownTimeout time.Duration
 }
 
-func NewConsumer(config Config) *Consumer {
-	return &Consumer{config: config}
+func NewConsumer(config Config, shutdownTimeout time.Duration) *Consumer {
+	return &Consumer{config: config, shutdownTimeout: shutdownTimeout}
 }
 
 func (c *Consumer) Run(ctx context.Context, handler Handler) error {
@@ -63,23 +65,33 @@ func (c *Consumer) Run(ctx context.Context, handler Handler) error {
 
 	semaphore := make(chan struct{}, c.config.Concurrency)
 	var workers sync.WaitGroup
-	defer workers.Wait()
 
+	var consumeErr error
+consumeLoop:
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			break consumeLoop
 		case delivery, ok := <-deliveries:
 			if !ok {
-				return errors.New("RabbitMQ delivery channel closed")
+				if ctx.Err() == nil {
+					consumeErr = errors.New("RabbitMQ delivery channel closed")
+				}
+				break consumeLoop
 			}
-			semaphore <- struct{}{}
+			select {
+			case semaphore <- struct{}{}:
+			case <-ctx.Done():
+				break consumeLoop
+			}
 			workers.Add(1)
 			go func(delivery amqp.Delivery) {
 				defer workers.Done()
 				defer func() { <-semaphore }()
 
-				if err := handler(ctx, delivery.Body); err != nil {
+				handlerCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), c.shutdownTimeout)
+				defer cancel()
+				if err := handler(handlerCtx, delivery.Body); err != nil {
 					slog.Error("process RabbitMQ message", "message_id", delivery.MessageId, "error", err)
 					if nackErr := delivery.Nack(false, true); nackErr != nil {
 						slog.Error("nack RabbitMQ message", "message_id", delivery.MessageId, "error", nackErr)
@@ -92,4 +104,13 @@ func (c *Consumer) Run(ctx context.Context, handler Handler) error {
 			}(delivery)
 		}
 	}
+
+	slog.Info("RabbitMQ consumer graceful shutdown started", "timeout", c.shutdownTimeout)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), c.shutdownTimeout)
+	defer cancel()
+	if err := lifecycle.WaitGroup(shutdownCtx, &workers); err != nil {
+		return errors.Join(consumeErr, fmt.Errorf("wait for RabbitMQ workers shutdown: %w", err))
+	}
+	slog.Info("RabbitMQ consumer graceful shutdown completed")
+	return consumeErr
 }

@@ -135,6 +135,8 @@ make dev-down
 
 `make up` dùng image production-like, không mount source và không hot reload. `make dev` dùng [backend/Dockerfile.dev](backend/Dockerfile.dev), [backend/.air.toml](backend/.air.toml) và [backend/docker-compose.dev.yml](backend/docker-compose.dev.yml).
 
+Các Go process hỗ trợ graceful shutdown cho HTTP, gRPC, outbox và RabbitMQ worker. Timeout nội bộ được cấu hình bằng `shutdown.timeout` (`12s` ở local); Air và Docker chờ `15s` trước khi force kill.
+
 ## Địa chỉ dịch vụ
 
 - API Gateway: <http://localhost:8080>

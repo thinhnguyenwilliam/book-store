@@ -5,6 +5,8 @@ import (
 	"flag"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
@@ -31,10 +33,14 @@ func run(configPath string) error {
 	if err != nil {
 		return err
 	}
+	shutdownTimeout, err := time.ParseDuration(cfg.Shutdown.Timeout)
+	if err != nil {
+		return err
+	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	startupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db, err := database.Open(ctx, cfg.Postgres.URL)
+	db, err := database.Open(startupCtx, cfg.Postgres.URL)
 	if err != nil {
 		return err
 	}
@@ -44,7 +50,9 @@ func run(configPath string) error {
 	service := application.NewService(repository)
 	handler := usergrpc.NewHandler(service)
 
-	return grpcserver.Run(cfg.GRPC.UserListenAddress, func(server *grpc.Server) {
+	serverCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	return grpcserver.Run(serverCtx, cfg.GRPC.UserListenAddress, shutdownTimeout, func(server *grpc.Server) {
 		bookstorev1.RegisterUserServiceServer(server, handler)
 	})
 }

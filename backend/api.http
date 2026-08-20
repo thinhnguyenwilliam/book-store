@@ -1,5 +1,5 @@
 @baseUrl = http://localhost:8080
-@email = reader.http@example.com
+@email = reader.http1@example.com
 @password = password123
 
 ### 1. Gateway health check

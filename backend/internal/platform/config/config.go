@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -15,6 +16,7 @@ type Config struct {
 	Redis    RedisConfig    `mapstructure:"redis"`
 	RabbitMQ RabbitMQConfig `mapstructure:"rabbitmq"`
 	Outbox   OutboxConfig   `mapstructure:"outbox"`
+	Shutdown ShutdownConfig `mapstructure:"shutdown"`
 }
 
 type GatewayConfig struct {
@@ -60,6 +62,10 @@ type OutboxConfig struct {
 	PollInterval string `mapstructure:"outbox_poll_interval"`
 }
 
+type ShutdownConfig struct {
+	Timeout string `mapstructure:"timeout"`
+}
+
 func Load(path string) (Config, error) {
 	v := viper.New()
 	v.SetConfigFile(path)
@@ -99,6 +105,7 @@ func (c Config) validate() error {
 		"rabbitmq.account_registered_routing_key": c.RabbitMQ.AccountRegisteredRoutingKey,
 		"rabbitmq.consumer_name":                  c.RabbitMQ.ConsumerName,
 		"outbox.outbox_poll_interval":             c.Outbox.PollInterval,
+		"shutdown.timeout":                        c.Shutdown.Timeout,
 	}
 	for key, value := range required {
 		if strings.TrimSpace(value) == "" {
@@ -113,6 +120,10 @@ func (c Config) validate() error {
 	}
 	if c.RabbitMQ.Prefetch < 1 {
 		return fmt.Errorf("rabbitmq.prefetch must be greater than zero")
+	}
+	shutdownTimeout, err := time.ParseDuration(c.Shutdown.Timeout)
+	if err != nil || shutdownTimeout <= 0 {
+		return fmt.Errorf("shutdown.timeout must be a positive duration")
 	}
 	return nil
 }

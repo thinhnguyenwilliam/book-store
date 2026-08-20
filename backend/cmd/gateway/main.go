@@ -45,6 +45,10 @@ func run(configPath string) error {
 	if err != nil {
 		return err
 	}
+	shutdownTimeout, err := time.ParseDuration(cfg.Shutdown.Timeout)
+	if err != nil {
+		return err
+	}
 
 	authConnection, err := grpc.NewClient(
 		cfg.GRPC.AuthAddress,
@@ -111,8 +115,13 @@ func run(configPath string) error {
 		}
 		return err
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		slog.Info("HTTP gateway graceful shutdown started", "timeout", shutdownTimeout)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
-		return e.Shutdown(shutdownCtx)
+		if err := e.Shutdown(shutdownCtx); err != nil {
+			return err
+		}
+		slog.Info("HTTP gateway graceful shutdown completed")
+		return nil
 	}
 }

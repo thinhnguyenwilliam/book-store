@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
 	rabbitmqadapter "github.com/thinhnguyenwilliam/book-store/backend/internal/messaging/rabbitmq"
@@ -30,6 +31,10 @@ func run(configPath string) error {
 	if err != nil {
 		return err
 	}
+	shutdownTimeout, err := time.ParseDuration(cfg.Shutdown.Timeout)
+	if err != nil {
+		return err
+	}
 
 	userConnection, err := grpc.NewClient(
 		cfg.GRPC.UserAddress,
@@ -48,7 +53,7 @@ func run(configPath string) error {
 		ConsumerName: cfg.RabbitMQ.ConsumerName,
 		Concurrency:  cfg.RabbitMQ.ConsumerConcurrency,
 		Prefetch:     cfg.RabbitMQ.Prefetch,
-	})
+	}, shutdownTimeout)
 	profileHandler := worker.NewProfileHandler(bookstorev1.NewUserServiceClient(userConnection))
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

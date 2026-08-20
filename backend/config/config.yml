@@ -33,3 +33,6 @@ rabbitmq:
 
 outbox:
   outbox_poll_interval: "2s"
+
+shutdown:
+  timeout: "12s"

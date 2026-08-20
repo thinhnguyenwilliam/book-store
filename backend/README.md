@@ -113,6 +113,16 @@ Account và outbox event được GORM ghi trong cùng một PostgreSQL transact
 
 Đây là mô hình **at-least-once delivery**: chấp nhận event có thể đến nhiều lần, nhưng không được làm dữ liệu bị nhân đôi.
 
+## Graceful shutdown
+
+Gateway, các gRPC service, outbox dispatcher và RabbitMQ worker xử lý `SIGINT`/`SIGTERM` theo grace period cấu hình tại `shutdown.timeout`. Giá trị local mặc định là `12s`; Docker và Air chờ `15s` trước khi force kill để process có thời gian:
+
+- ngừng nhận HTTP/gRPC request và RabbitMQ delivery mới;
+- hoàn tất request, publisher confirm và message handler đang chạy;
+- đóng RabbitMQ channel/connection, gRPC connection và PostgreSQL pool theo đúng thứ tự.
+
+Nếu worker không drain xong trước deadline, service trả lỗi shutdown thay vì chờ vô hạn. Message chưa ACK sẽ được RabbitMQ đưa lại queue.
+
 ## Chạy toàn bộ bằng Docker
 
 ```bash

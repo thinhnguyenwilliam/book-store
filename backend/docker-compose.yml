@@ -8,6 +8,7 @@ x-service-defaults: &service-defaults
 x-app-defaults: &app-defaults
   <<: *service-defaults
   command: ["-config", "/app/config.yml"]
+  stop_grace_period: 15s
   volumes:
     - ./config/config.yml:/app/config.yml:ro
 

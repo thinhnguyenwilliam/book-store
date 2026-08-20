@@ -2,9 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
@@ -17,6 +22,7 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/config"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/database"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcserver"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/lifecycle"
 	"google.golang.org/grpc"
 )
 
@@ -42,10 +48,14 @@ func run(configPath string) error {
 	if err != nil {
 		return err
 	}
+	shutdownTimeout, err := time.ParseDuration(cfg.Shutdown.Timeout)
+	if err != nil {
+		return err
+	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	startupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db, err := database.Open(ctx, cfg.Postgres.URL)
+	db, err := database.Open(startupCtx, cfg.Postgres.URL)
 	if err != nil {
 		return err
 	}
@@ -65,11 +75,27 @@ func run(configPath string) error {
 		ConsumerName: cfg.RabbitMQ.ConsumerName,
 	})
 	defer publisher.Close()
-	dispatcherCtx, stopDispatcher := context.WithCancel(context.Background())
-	defer stopDispatcher()
-	go outbox.NewDispatcher(db, publisher, pollInterval).Run(dispatcherCtx)
+	serverCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	dispatcherCtx, stopDispatcher := context.WithCancel(serverCtx)
+	dispatcherWorkers := &sync.WaitGroup{}
+	dispatcherWorkers.Add(1)
+	go func() {
+		defer dispatcherWorkers.Done()
+		outbox.NewDispatcher(db, publisher, pollInterval).Run(dispatcherCtx)
+	}()
 
-	return grpcserver.Run(cfg.GRPC.AuthListenAddress, func(server *grpc.Server) {
+	serverErr := grpcserver.Run(serverCtx, cfg.GRPC.AuthListenAddress, shutdownTimeout, func(server *grpc.Server) {
 		bookstorev1.RegisterAuthServiceServer(server, handler)
 	})
+	slog.Info("outbox dispatcher graceful shutdown started", "timeout", shutdownTimeout)
+	stopDispatcher()
+
+	waitCtx, cancelWait := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancelWait()
+	if err := lifecycle.WaitGroup(waitCtx, dispatcherWorkers); err != nil {
+		return errors.Join(serverErr, fmt.Errorf("wait for outbox dispatcher shutdown: %w", err))
+	}
+	slog.Info("outbox dispatcher graceful shutdown completed")
+	return serverErr
 }

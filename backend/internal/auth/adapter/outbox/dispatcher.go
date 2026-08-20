@@ -56,18 +56,25 @@ func (d *Dispatcher) dispatch(ctx context.Context) {
 	}
 
 	for _, event := range events {
-		publishCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		if ctx.Err() != nil {
+			return
+		}
+
+		// Once an event is being published, allow its publisher confirm and
+		// database bookkeeping to finish even when process shutdown starts.
+		publishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		err := d.publisher.Publish(publishCtx, event.ID, event.EventType, event.Payload)
-		cancel()
 		if err != nil {
-			d.releaseWithError(ctx, event, err)
+			d.releaseWithError(publishCtx, event, err)
+			cancel()
 			continue
 		}
-		if err := d.markPublished(ctx, event.ID); err != nil {
+		if err := d.markPublished(publishCtx, event.ID); err != nil {
 			// The task may be delivered again if this update fails. Consumers must
 			// therefore be idempotent; this is normal at-least-once delivery.
 			slog.Error("mark outbox event published", "event_id", event.ID, "error", err)
 		}
+		cancel()
 	}
 }
 

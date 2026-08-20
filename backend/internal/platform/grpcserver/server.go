@@ -5,8 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"net"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"google.golang.org/grpc"
@@ -14,12 +12,15 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-func Run(addr string, register func(*grpc.Server)) error {
+func Run(ctx context.Context, addr string, shutdownTimeout time.Duration, register func(*grpc.Server)) error {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}
+	return run(ctx, listener, shutdownTimeout, register)
+}
 
+func run(ctx context.Context, listener net.Listener, shutdownTimeout time.Duration, register func(*grpc.Server)) error {
 	server := grpc.NewServer()
 	register(server)
 
@@ -27,12 +28,9 @@ func Run(addr string, register func(*grpc.Server)) error {
 	healthpb.RegisterHealthServer(server, healthServer)
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
 	errCh := make(chan error, 1)
 	go func() {
-		slog.Info("gRPC server started", "address", addr)
+		slog.Info("gRPC server started", "address", listener.Addr().String())
 		errCh <- server.Serve(listener)
 	}()
 
@@ -40,6 +38,7 @@ func Run(addr string, register func(*grpc.Server)) error {
 	case err := <-errCh:
 		return err
 	case <-ctx.Done():
+		slog.Info("gRPC graceful shutdown started", "timeout", shutdownTimeout)
 		healthServer.Shutdown()
 		stopped := make(chan struct{})
 		go func() {
@@ -49,8 +48,10 @@ func Run(addr string, register func(*grpc.Server)) error {
 
 		select {
 		case <-stopped:
+			slog.Info("gRPC graceful shutdown completed")
 			return nil
-		case <-time.After(10 * time.Second):
+		case <-time.After(shutdownTimeout):
+			slog.Warn("gRPC graceful shutdown timed out; forcing stop", "timeout", shutdownTimeout)
 			server.Stop()
 			return errors.New("gRPC server forced to stop after timeout")
 		}
