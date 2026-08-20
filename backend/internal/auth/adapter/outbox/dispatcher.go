@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	apptrace "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/trace"
 	"gorm.io/gorm"
 )
 
@@ -14,6 +15,7 @@ const batchSize = 50
 type event struct {
 	ID          string    `gorm:"column:id"`
 	EventType   string    `gorm:"column:event_type"`
+	TraceID     string    `gorm:"column:trace_id"`
 	Payload     []byte    `gorm:"column:payload"`
 	Attempts    int       `gorm:"column:attempts"`
 	AvailableAt time.Time `gorm:"column:available_at"`
@@ -63,6 +65,7 @@ func (d *Dispatcher) dispatch(ctx context.Context) {
 		// Once an event is being published, allow its publisher confirm and
 		// database bookkeeping to finish even when process shutdown starts.
 		publishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		publishCtx = apptrace.ContextWithID(publishCtx, event.TraceID)
 		err := d.publisher.Publish(publishCtx, event.ID, event.EventType, event.Payload)
 		if err != nil {
 			d.releaseWithError(publishCtx, event, err)
@@ -72,7 +75,9 @@ func (d *Dispatcher) dispatch(ctx context.Context) {
 		if err := d.markPublished(publishCtx, event.ID); err != nil {
 			// The task may be delivered again if this update fails. Consumers must
 			// therefore be idempotent; this is normal at-least-once delivery.
-			slog.Error("mark outbox event published", "event_id", event.ID, "error", err)
+			slog.ErrorContext(publishCtx, "mark outbox event published", "event_id", event.ID, "error", err)
+		} else {
+			slog.InfoContext(publishCtx, "outbox event published", "event_id", event.ID, "event_type", event.EventType)
 		}
 		cancel()
 	}
@@ -82,7 +87,7 @@ func (d *Dispatcher) claim(ctx context.Context) ([]event, error) {
 	claimed := make([]event, 0, batchSize)
 	err := d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		const query = `
-			SELECT id, event_type, payload, attempts, available_at
+			SELECT id, event_type, trace_id, payload, attempts, available_at
 			FROM auth.outbox_events
 			WHERE published_at IS NULL
 			  AND available_at <= NOW()
@@ -135,8 +140,8 @@ func (d *Dispatcher) releaseWithError(ctx context.Context, event event, publishE
 			"last_error":    publishErr.Error(),
 		}).Error
 	if err != nil {
-		slog.Error("release failed outbox event", "event_id", event.ID, "error", err)
+		slog.ErrorContext(ctx, "release failed outbox event", "event_id", event.ID, "error", err)
 		return
 	}
-	slog.Warn("publish outbox event failed; scheduled retry", "event_id", event.ID, "error", publishErr)
+	slog.WarnContext(ctx, "publish outbox event failed; scheduled retry", "event_id", event.ID, "error", publishErr)
 }

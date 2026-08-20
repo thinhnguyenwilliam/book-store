@@ -3,6 +3,7 @@ gateway:
   allowed_origins:
     - "http://localhost:3000"
     - "http://localhost:5173"
+    - "http://localhost:5174"
   refresh_cookie_name: "bookstore_refresh"
   refresh_cookie_secure: false
   refresh_cookie_same_site: "lax"
@@ -34,6 +35,7 @@ rabbitmq:
   exchange: "bookstore.events"
   user_profile_queue: "user.profile.create"
   account_registered_routing_key: "account.registered"
+  account_deleted_routing_key: "account.deleted"
   consumer_name: "bookstore-user-profile-worker"
   consumer_concurrency: 10
   prefetch: 20
@@ -43,3 +45,10 @@ outbox:
 
 shutdown:
   timeout: "12s"
+
+logging:
+  directory: "logs"
+  level: "info"
+  format: "json"
+  timezone: "Asia/Ho_Chi_Minh"
+  also_stdout: true

@@ -54,6 +54,7 @@ rabbitmq:
   exchange: "bookstore.events"
   user_profile_queue: "user.profile.create"
   account_registered_routing_key: "account.registered"
+  account_deleted_routing_key: "account.deleted"
 ```
 
 Auth local dùng access token JWT `5m` và refresh session `168h`. Gateway đặt refresh token vào cookie `HttpOnly`, `SameSite=Lax`, còn PostgreSQL chỉ lưu SHA-256 hash của token:
@@ -73,7 +74,7 @@ auth:
 Compose mount file này read-only vào container và truyền đường dẫn bằng CLI flag:
 
 ```text
-/service -config /app/config.yml
+/app/service -config /app/config.yml
 ```
 
 File hiện chứa credentials local để chạy nhanh. Không commit secret production; production nên mount một `config.yml` riêng bằng secret manager hoặc Docker/Kubernetes Secret.
@@ -94,6 +95,68 @@ migrations/                      schema của database bookstore
 ```
 
 Các PostgreSQL adapter sử dụng GORM. Domain không import Echo, gRPC, GORM, Viper hoặc JWT.
+
+## Structured log và xoay file hằng ngày
+
+Khi chạy Go/Air local, mỗi process ghi structured log ra terminal và một file riêng trong `backend/logs`:
+
+```text
+logs/gateway-2026-08-20.log
+logs/authservice-2026-08-20.log
+logs/userservice-2026-08-20.log
+logs/bookservice-2026-08-20.log
+logs/workerservice-2026-08-20.log
+```
+
+Một rotation worker chạy trong từng process và mở file mới đúng `00:00` theo `logging.timezone`. Writer cũng kiểm tra lại ngày ở mỗi lần ghi, nên vẫn đổi đúng file nếu máy sleep hoặc timer bị trễ. Khi shutdown, worker được dừng và file được đóng. Thư mục log đã nằm trong `.gitignore`.
+
+Khi chạy Docker, file nằm ở `/app/logs` và được giữ trong named volume `app-logs`; `also_stdout` vẫn cho phép xem bằng `make logs` và chuyển log sang Loki/ELK/OpenSearch ở production.
+
+Local dùng text với thời gian dễ đọc như `20/08/2026 16:10:30.189 +07:00`; cấu hình Docker dùng JSON với timestamp RFC3339 để hệ thống thu thập log dễ parse:
+
+```yaml
+logging:
+  directory: "logs"
+  level: "info"
+  format: "json"
+  timezone: "Asia/Ho_Chi_Minh"
+  also_stdout: true
+```
+
+Log HTTP chứa request ID, trace ID, method, URI, status, latency và response size. Password, JWT, refresh token và request body không được ghi log.
+
+### Trace ID xuyên microservice
+
+Gateway nhận header `X-Trace-ID` gồm 32 ký tự hex hoặc tự sinh một ID mới, rồi trả ID đó trong response header. ID được đặt vào context để structured logger tự thêm trường `trace_id` và được truyền qua:
+
+```text
+HTTP Gateway
+  -> gRPC metadata -> Auth/User/Book
+  -> outbox trace_id -> RabbitMQ header
+  -> Worker -> gRPC metadata -> User
+```
+
+`request_id` nhận diện một HTTP request cụ thể; `trace_id` là correlation ID được giữ xuyên các service và cả đoạn xử lý bất đồng bộ. Có thể gửi ID cố định lúc debug:
+
+```bash
+curl -i http://localhost:8080/api/v1/books?limit=2 \
+  -H 'X-Trace-ID: 0123456789abcdef0123456789abcdef'
+
+rg '0123456789abcdef0123456789abcdef' logs/
+```
+
+Request register mẫu trong `api.http` dùng trace ID dễ nhận biết. Outbox lưu ID trong cột `auth.outbox_events.trace_id`, vì vậy trace không bị mất nếu RabbitMQ down hoặc event được retry sau khi HTTP request đã kết thúc.
+
+## Các kiểu gRPC trong backend
+
+gRPC hỗ trợ bốn kiểu RPC:
+
+- Unary: client gửi một request, server trả một response.
+- Server streaming: client gửi một request, server trả một luồng nhiều response.
+- Client streaming: client gửi một luồng nhiều request, server trả một response.
+- Bidirectional streaming: client và server đồng thời gửi nhiều message trên cùng connection.
+
+Các contract Auth, User và Book hiện đều là unary vì CRUD, login và cursor pagination là mô hình request/response thông thường. Streaming chỉ nên thêm khi nghiệp vụ cần, ví dụ live inventory, import sách theo batch hoặc đồng bộ sự kiện hai chiều. Server đã đăng ký cả unary và stream interceptor; Gateway/Worker cũng đăng ký cả unary và stream client interceptor, nên RPC streaming thêm sau này vẫn được log và recover panic mà không phải thay hạ tầng chung.
 
 ## Transactional outbox giải quyết vấn đề gì?
 
@@ -126,6 +189,17 @@ Account và outbox event được GORM ghi trong cùng một PostgreSQL transact
 - Dispatcher crash sau khi enqueue nhưng trước khi đánh dấu published: job có thể được giao lại, vì vậy user repository xử lý idempotent theo `user_id`.
 
 Đây là mô hình **at-least-once delivery**: chấp nhận event có thể đến nhiều lần, nhưng không được làm dữ liệu bị nhân đôi.
+
+Xoá khách hàng dùng cùng nguyên tắc theo chiều ngược lại:
+
+```text
+DELETE /api/v1/admin/customers/:id
+  -> Auth Service: DELETE auth.accounts + INSERT account.deleted (cùng transaction)
+  -> 202 Accepted
+  -> outbox -> RabbitMQ -> Worker -> User Service: DELETE users.user_profiles
+```
+
+Refresh sessions bị PostgreSQL xoá cascade cùng account. `VerifyToken` kiểm tra account còn tồn tại nên access token cũ mất hiệu lực ngay. Consumer xoá profile theo cách idempotent; event được giao lặp lại vẫn thành công. Gateway không cho admin tự xoá chính tài khoản đang đăng nhập.
 
 ## Graceful shutdown
 

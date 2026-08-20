@@ -6,12 +6,21 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	apptrace "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/trace"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
 func contextWithTimeout(c echo.Context) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(c.Request().Context(), requestTimeout)
+	ctx := c.Request().Context()
+	if requestID := c.Response().Header().Get(echo.HeaderXRequestID); requestID != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "x-request-id", requestID)
+	}
+	if traceID := apptrace.IDFromContext(ctx); traceID != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, apptrace.MetadataKey, traceID)
+	}
+	return context.WithTimeout(ctx, requestTimeout)
 }
 
 func errorResponse(c echo.Context, err error) error {

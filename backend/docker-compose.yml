@@ -11,6 +11,7 @@ x-app-defaults: &app-defaults
   stop_grace_period: 15s
   volumes:
     - ./config/config.yml:/app/config.yml:ro
+    - app-logs:/app/logs
 
 services:
   gateway:
@@ -155,3 +156,4 @@ volumes:
   redis-data:
   redisinsight-data:
   rabbitmq-data:
+  app-logs:

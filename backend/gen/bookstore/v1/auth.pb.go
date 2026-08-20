@@ -333,6 +333,86 @@ func (*LogoutResponse) Descriptor() ([]byte, []int) {
 	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{5}
 }
 
+type DeleteAccountRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteAccountRequest) Reset() {
+	*x = DeleteAccountRequest{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteAccountRequest) ProtoMessage() {}
+
+func (x *DeleteAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteAccountRequest.ProtoReflect.Descriptor instead.
+func (*DeleteAccountRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *DeleteAccountRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteAccountResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteAccountResponse) Reset() {
+	*x = DeleteAccountResponse{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteAccountResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteAccountResponse) ProtoMessage() {}
+
+func (x *DeleteAccountResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteAccountResponse.ProtoReflect.Descriptor instead.
+func (*DeleteAccountResponse) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{7}
+}
+
 type VerifyTokenRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
@@ -342,7 +422,7 @@ type VerifyTokenRequest struct {
 
 func (x *VerifyTokenRequest) Reset() {
 	*x = VerifyTokenRequest{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[6]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -354,7 +434,7 @@ func (x *VerifyTokenRequest) String() string {
 func (*VerifyTokenRequest) ProtoMessage() {}
 
 func (x *VerifyTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[6]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -367,7 +447,7 @@ func (x *VerifyTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyTokenRequest.ProtoReflect.Descriptor instead.
 func (*VerifyTokenRequest) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{6}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *VerifyTokenRequest) GetAccessToken() string {
@@ -388,7 +468,7 @@ type VerifyTokenResponse struct {
 
 func (x *VerifyTokenResponse) Reset() {
 	*x = VerifyTokenResponse{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[7]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -400,7 +480,7 @@ func (x *VerifyTokenResponse) String() string {
 func (*VerifyTokenResponse) ProtoMessage() {}
 
 func (x *VerifyTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[7]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -413,7 +493,7 @@ func (x *VerifyTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyTokenResponse.ProtoReflect.Descriptor instead.
 func (*VerifyTokenResponse) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{7}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *VerifyTokenResponse) GetUserId() string {
@@ -460,18 +540,22 @@ const file_bookstore_v1_auth_proto_rawDesc = "" +
 	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"4\n" +
 	"\rLogoutRequest\x12#\n" +
 	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"\x10\n" +
-	"\x0eLogoutResponse\"7\n" +
+	"\x0eLogoutResponse\"&\n" +
+	"\x14DeleteAccountRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x17\n" +
+	"\x15DeleteAccountResponse\"7\n" +
 	"\x12VerifyTokenRequest\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\"Z\n" +
 	"\x13VerifyTokenResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x14\n" +
-	"\x05roles\x18\x03 \x03(\tR\x05roles2\xf3\x02\n" +
+	"\x05roles\x18\x03 \x03(\tR\x05roles2\xcd\x03\n" +
 	"\vAuthService\x12E\n" +
 	"\bRegister\x12\x1d.bookstore.v1.RegisterRequest\x1a\x1a.bookstore.v1.AuthResponse\x12?\n" +
 	"\x05Login\x12\x1a.bookstore.v1.LoginRequest\x1a\x1a.bookstore.v1.AuthResponse\x12C\n" +
 	"\aRefresh\x12\x1c.bookstore.v1.RefreshRequest\x1a\x1a.bookstore.v1.AuthResponse\x12C\n" +
-	"\x06Logout\x12\x1b.bookstore.v1.LogoutRequest\x1a\x1c.bookstore.v1.LogoutResponse\x12R\n" +
+	"\x06Logout\x12\x1b.bookstore.v1.LogoutRequest\x1a\x1c.bookstore.v1.LogoutResponse\x12X\n" +
+	"\rDeleteAccount\x12\".bookstore.v1.DeleteAccountRequest\x1a#.bookstore.v1.DeleteAccountResponse\x12R\n" +
 	"\vVerifyToken\x12 .bookstore.v1.VerifyTokenRequest\x1a!.bookstore.v1.VerifyTokenResponseBOZMgithub.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1;bookstorev1b\x06proto3"
 
 var (
@@ -486,30 +570,34 @@ func file_bookstore_v1_auth_proto_rawDescGZIP() []byte {
 	return file_bookstore_v1_auth_proto_rawDescData
 }
 
-var file_bookstore_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_bookstore_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_bookstore_v1_auth_proto_goTypes = []any{
-	(*RegisterRequest)(nil),     // 0: bookstore.v1.RegisterRequest
-	(*LoginRequest)(nil),        // 1: bookstore.v1.LoginRequest
-	(*AuthResponse)(nil),        // 2: bookstore.v1.AuthResponse
-	(*RefreshRequest)(nil),      // 3: bookstore.v1.RefreshRequest
-	(*LogoutRequest)(nil),       // 4: bookstore.v1.LogoutRequest
-	(*LogoutResponse)(nil),      // 5: bookstore.v1.LogoutResponse
-	(*VerifyTokenRequest)(nil),  // 6: bookstore.v1.VerifyTokenRequest
-	(*VerifyTokenResponse)(nil), // 7: bookstore.v1.VerifyTokenResponse
+	(*RegisterRequest)(nil),       // 0: bookstore.v1.RegisterRequest
+	(*LoginRequest)(nil),          // 1: bookstore.v1.LoginRequest
+	(*AuthResponse)(nil),          // 2: bookstore.v1.AuthResponse
+	(*RefreshRequest)(nil),        // 3: bookstore.v1.RefreshRequest
+	(*LogoutRequest)(nil),         // 4: bookstore.v1.LogoutRequest
+	(*LogoutResponse)(nil),        // 5: bookstore.v1.LogoutResponse
+	(*DeleteAccountRequest)(nil),  // 6: bookstore.v1.DeleteAccountRequest
+	(*DeleteAccountResponse)(nil), // 7: bookstore.v1.DeleteAccountResponse
+	(*VerifyTokenRequest)(nil),    // 8: bookstore.v1.VerifyTokenRequest
+	(*VerifyTokenResponse)(nil),   // 9: bookstore.v1.VerifyTokenResponse
 }
 var file_bookstore_v1_auth_proto_depIdxs = []int32{
 	0, // 0: bookstore.v1.AuthService.Register:input_type -> bookstore.v1.RegisterRequest
 	1, // 1: bookstore.v1.AuthService.Login:input_type -> bookstore.v1.LoginRequest
 	3, // 2: bookstore.v1.AuthService.Refresh:input_type -> bookstore.v1.RefreshRequest
 	4, // 3: bookstore.v1.AuthService.Logout:input_type -> bookstore.v1.LogoutRequest
-	6, // 4: bookstore.v1.AuthService.VerifyToken:input_type -> bookstore.v1.VerifyTokenRequest
-	2, // 5: bookstore.v1.AuthService.Register:output_type -> bookstore.v1.AuthResponse
-	2, // 6: bookstore.v1.AuthService.Login:output_type -> bookstore.v1.AuthResponse
-	2, // 7: bookstore.v1.AuthService.Refresh:output_type -> bookstore.v1.AuthResponse
-	5, // 8: bookstore.v1.AuthService.Logout:output_type -> bookstore.v1.LogoutResponse
-	7, // 9: bookstore.v1.AuthService.VerifyToken:output_type -> bookstore.v1.VerifyTokenResponse
-	5, // [5:10] is the sub-list for method output_type
-	0, // [0:5] is the sub-list for method input_type
+	6, // 4: bookstore.v1.AuthService.DeleteAccount:input_type -> bookstore.v1.DeleteAccountRequest
+	8, // 5: bookstore.v1.AuthService.VerifyToken:input_type -> bookstore.v1.VerifyTokenRequest
+	2, // 6: bookstore.v1.AuthService.Register:output_type -> bookstore.v1.AuthResponse
+	2, // 7: bookstore.v1.AuthService.Login:output_type -> bookstore.v1.AuthResponse
+	2, // 8: bookstore.v1.AuthService.Refresh:output_type -> bookstore.v1.AuthResponse
+	5, // 9: bookstore.v1.AuthService.Logout:output_type -> bookstore.v1.LogoutResponse
+	7, // 10: bookstore.v1.AuthService.DeleteAccount:output_type -> bookstore.v1.DeleteAccountResponse
+	9, // 11: bookstore.v1.AuthService.VerifyToken:output_type -> bookstore.v1.VerifyTokenResponse
+	6, // [6:12] is the sub-list for method output_type
+	0, // [0:6] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -526,7 +614,7 @@ func file_bookstore_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_bookstore_v1_auth_proto_rawDesc), len(file_bookstore_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

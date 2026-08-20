@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/logger"
 )
 
 type Config struct {
@@ -17,6 +18,7 @@ type Config struct {
 	RabbitMQ RabbitMQConfig `mapstructure:"rabbitmq"`
 	Outbox   OutboxConfig   `mapstructure:"outbox"`
 	Shutdown ShutdownConfig `mapstructure:"shutdown"`
+	Logging  logger.Config  `mapstructure:"logging"`
 }
 
 type GatewayConfig struct {
@@ -58,6 +60,7 @@ type RabbitMQConfig struct {
 	Exchange                    string `mapstructure:"exchange"`
 	UserProfileQueue            string `mapstructure:"user_profile_queue"`
 	AccountRegisteredRoutingKey string `mapstructure:"account_registered_routing_key"`
+	AccountDeletedRoutingKey    string `mapstructure:"account_deleted_routing_key"`
 	ConsumerName                string `mapstructure:"consumer_name"`
 	ConsumerConcurrency         int    `mapstructure:"consumer_concurrency"`
 	Prefetch                    int    `mapstructure:"prefetch"`
@@ -111,9 +114,14 @@ func (c Config) validate() error {
 		"rabbitmq.exchange":                       c.RabbitMQ.Exchange,
 		"rabbitmq.user_profile_queue":             c.RabbitMQ.UserProfileQueue,
 		"rabbitmq.account_registered_routing_key": c.RabbitMQ.AccountRegisteredRoutingKey,
+		"rabbitmq.account_deleted_routing_key":    c.RabbitMQ.AccountDeletedRoutingKey,
 		"rabbitmq.consumer_name":                  c.RabbitMQ.ConsumerName,
 		"outbox.outbox_poll_interval":             c.Outbox.PollInterval,
 		"shutdown.timeout":                        c.Shutdown.Timeout,
+		"logging.directory":                       c.Logging.Directory,
+		"logging.level":                           c.Logging.Level,
+		"logging.format":                          c.Logging.Format,
+		"logging.timezone":                        c.Logging.TimeZone,
 	}
 	for key, value := range required {
 		if strings.TrimSpace(value) == "" {
@@ -151,6 +159,12 @@ func (c Config) validate() error {
 	shutdownTimeout, err := time.ParseDuration(c.Shutdown.Timeout)
 	if err != nil || shutdownTimeout <= 0 {
 		return fmt.Errorf("shutdown.timeout must be a positive duration")
+	}
+	if _, err := time.LoadLocation(c.Logging.TimeZone); err != nil {
+		return fmt.Errorf("logging.timezone is invalid: %w", err)
+	}
+	if format := strings.ToLower(c.Logging.Format); format != "json" && format != "text" {
+		return fmt.Errorf("logging.format must be json or text")
 	}
 	return nil
 }

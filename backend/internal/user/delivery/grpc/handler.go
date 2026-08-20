@@ -37,12 +37,37 @@ func (h *Handler) GetProfile(ctx context.Context, request *bookstorev1.GetProfil
 	return toProto(user), nil
 }
 
+func (h *Handler) ListProfiles(ctx context.Context, request *bookstorev1.ListProfilesRequest) (*bookstorev1.ListProfilesResponse, error) {
+	page, err := h.service.List(ctx, request.GetCursor(), request.GetLimit())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	users := make([]*bookstorev1.User, 0, len(page.Users))
+	for _, user := range page.Users {
+		users = append(users, toProto(user))
+	}
+	return &bookstorev1.ListProfilesResponse{
+		Users:      users,
+		NextCursor: page.NextCursor,
+		HasMore:    page.HasMore,
+	}, nil
+}
+
 func (h *Handler) UpdateProfile(ctx context.Context, request *bookstorev1.UpdateProfileRequest) (*bookstorev1.User, error) {
 	user, err := h.service.Update(ctx, request.GetId(), request.GetDisplayName())
 	if err != nil {
 		return nil, mapError(err)
 	}
 	return toProto(user), nil
+}
+
+func (h *Handler) DeleteProfile(ctx context.Context, request *bookstorev1.DeleteProfileRequest) (*bookstorev1.DeleteProfileResponse, error) {
+	// Keep deletion idempotent because RabbitMQ uses at-least-once delivery and
+	// may redeliver account.deleted events after a worker restart or ACK failure.
+	if err := h.service.Delete(ctx, request.GetId()); err != nil {
+		return nil, mapError(err)
+	}
+	return &bookstorev1.DeleteProfileResponse{}, nil
 }
 
 func toProto(user *domain.User) *bookstorev1.User {

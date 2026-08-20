@@ -21,7 +21,10 @@ func Run(ctx context.Context, addr string, shutdownTimeout time.Duration, regist
 }
 
 func run(ctx context.Context, listener net.Listener, shutdownTimeout time.Duration, register func(*grpc.Server)) error {
-	server := grpc.NewServer()
+	server := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(unaryInterceptor),
+		grpc.ChainStreamInterceptor(streamInterceptor),
+	)
 	register(server)
 
 	healthServer := health.NewServer()

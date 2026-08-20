@@ -14,6 +14,7 @@ type accountRepositoryStub struct {
 	createdSession *domain.RefreshSession
 	account        *domain.Account
 	revokedHash    string
+	deletedID      string
 }
 
 func (r *accountRepositoryStub) Create(
@@ -32,6 +33,18 @@ func (r *accountRepositoryStub) FindByEmail(_ context.Context, _ string) (*domai
 		return r.account, nil
 	}
 	return nil, domain.ErrInvalidCredentials
+}
+
+func (r *accountRepositoryStub) FindByID(_ context.Context, id string) (*domain.Account, error) {
+	if r.account != nil && r.account.ID == id {
+		return r.account, nil
+	}
+	return nil, domain.ErrNotFound
+}
+
+func (r *accountRepositoryStub) Delete(_ context.Context, id string, _ time.Time) error {
+	r.deletedID = id
+	return nil
 }
 
 func (r *accountRepositoryStub) CreateRefreshSession(_ context.Context, session *domain.RefreshSession) error {
@@ -72,7 +85,7 @@ func (tokenManagerStub) Issue(Claims) (string, time.Time, error) {
 	return "access-token", time.Now().Add(15 * time.Minute), nil
 }
 
-func (tokenManagerStub) Verify(string) (Claims, error) { return Claims{}, nil }
+func (tokenManagerStub) Verify(string) (Claims, error) { return Claims{UserID: "user-id"}, nil }
 
 type refreshTokenManagerStub struct{}
 
@@ -167,5 +180,27 @@ func TestLogoutHashesAndRevokesRefreshToken(t *testing.T) {
 	}
 	if repository.revokedHash != "hash:refresh-token" {
 		t.Fatalf("revoked hash = %q", repository.revokedHash)
+	}
+}
+
+func TestDeleteAccountValidatesIDAndCallsRepository(t *testing.T) {
+	repository := &accountRepositoryStub{}
+	service := newTestService(repository)
+	id := "6b92edb2-f406-43dd-851a-ac7acb13cfc2"
+
+	if err := service.DeleteAccount(context.Background(), id); err != nil {
+		t.Fatalf("DeleteAccount() error = %v", err)
+	}
+	if repository.deletedID != id {
+		t.Fatalf("deleted ID = %q, want %q", repository.deletedID, id)
+	}
+}
+
+func TestVerifyTokenRejectsDeletedAccount(t *testing.T) {
+	service := newTestService(&accountRepositoryStub{})
+
+	_, err := service.VerifyToken(context.Background(), "validly-signed-token")
+	if !errors.Is(err, domain.ErrInvalidToken) {
+		t.Fatalf("VerifyToken() error = %v, want %v", err, domain.ErrInvalidToken)
 	}
 }

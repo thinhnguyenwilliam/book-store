@@ -51,6 +51,13 @@ func (h *Handler) Logout(ctx context.Context, request *bookstorev1.LogoutRequest
 	return &bookstorev1.LogoutResponse{}, nil
 }
 
+func (h *Handler) DeleteAccount(ctx context.Context, request *bookstorev1.DeleteAccountRequest) (*bookstorev1.DeleteAccountResponse, error) {
+	if err := h.service.DeleteAccount(ctx, request.GetId()); err != nil {
+		return nil, mapError(err)
+	}
+	return &bookstorev1.DeleteAccountResponse{}, nil
+}
+
 func (h *Handler) VerifyToken(ctx context.Context, request *bookstorev1.VerifyTokenRequest) (*bookstorev1.VerifyTokenResponse, error) {
 	claims, err := h.service.VerifyToken(ctx, request.GetAccessToken())
 	if err != nil {
@@ -79,6 +86,8 @@ func mapError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrEmailAlreadyExists):
 		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, domain.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, domain.ErrInvalidCredentials),
 		errors.Is(err, domain.ErrInvalidToken),
 		errors.Is(err, domain.ErrInvalidRefreshToken),

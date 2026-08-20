@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/user/application"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/user/domain"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -72,6 +73,27 @@ func (r *Repository) FindByID(ctx context.Context, id string) (*domain.User, err
 	return toDomain(record), nil
 }
 
+func (r *Repository) List(ctx context.Context, limit int32, cursor *application.UserCursor) ([]*domain.User, error) {
+	db := r.db.WithContext(ctx).
+		Table("users.user_profiles").
+		Order("created_at DESC").
+		Order("id DESC").
+		Limit(int(limit))
+	if cursor != nil {
+		db = db.Where("(created_at, id) < (?, ?)", cursor.CreatedAt, cursor.ID)
+	}
+
+	var records []userModel
+	if err := db.Find(&records).Error; err != nil {
+		return nil, fmt.Errorf("list user profiles: %w", err)
+	}
+	users := make([]*domain.User, 0, len(records))
+	for _, record := range records {
+		users = append(users, toDomain(record))
+	}
+	return users, nil
+}
+
 func (r *Repository) Update(ctx context.Context, user *domain.User) error {
 	result := r.db.WithContext(ctx).
 		Table("users.user_profiles").
@@ -86,6 +108,18 @@ func (r *Repository) Update(ctx context.Context, user *domain.User) error {
 	if result.RowsAffected == 0 {
 		return domain.ErrNotFound
 	}
+	return nil
+}
+
+func (r *Repository) Delete(ctx context.Context, id string) error {
+	if err := r.db.WithContext(ctx).
+		Table("users.user_profiles").
+		Where("id = ?", id).
+		Delete(&userModel{}).Error; err != nil {
+		return fmt.Errorf("delete user profile: %w", err)
+	}
+	// Deletion events can be delivered more than once. A profile that no longer
+	// exists is already in the desired state, so this operation is idempotent.
 	return nil
 }
 

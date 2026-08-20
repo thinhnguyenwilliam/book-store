@@ -13,6 +13,7 @@ var (
 	ErrInvalidToken        = errors.New("invalid access token")
 	ErrInvalidRefreshToken = errors.New("invalid refresh token")
 	ErrRefreshTokenReused  = errors.New("refresh token reuse detected")
+	ErrNotFound            = errors.New("account not found")
 )
 
 type Account struct {

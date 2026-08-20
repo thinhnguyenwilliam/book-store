@@ -63,6 +63,10 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 
 	admin := secured.Group("/admin")
 	admin.Use(RequireRole("admin"))
+	admin.GET("/customers", h.listCustomers)
+	admin.GET("/customers/:id", h.getCustomer)
+	admin.PUT("/customers/:id", h.updateCustomer)
+	admin.DELETE("/customers/:id", h.deleteCustomer)
 	admin.POST("/books", h.createBook)
 	admin.PUT("/books/:id", h.updateBook)
 	admin.DELETE("/books/:id", h.deleteBook)
@@ -262,6 +266,131 @@ func (h *Handler) updateMe(c echo.Context) error {
 		return errorResponse(c, err)
 	}
 	return c.JSON(http.StatusOK, userJSON(user))
+}
+
+// listCustomers godoc
+// @Summary List customers
+// @Description Returns user profiles using cursor pagination. The bearer token must contain the admin role.
+// @Tags Admin Customers
+// @Produce json
+// @Security BearerAuth
+// @Param limit query int false "Items per request" default(20) minimum(1) maximum(100)
+// @Param cursor query string false "Opaque cursor returned by the previous request"
+// @Success 200 {object} CustomerListResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/admin/customers [get]
+func (h *Handler) listCustomers(c echo.Context) error {
+	ctx, cancel := contextWithTimeout(c)
+	defer cancel()
+	response, err := h.users.ListProfiles(ctx, &bookstorev1.ListProfilesRequest{
+		Limit:  int32Query(c, "limit", 20),
+		Cursor: c.QueryParam("cursor"),
+	})
+	if err != nil {
+		return errorResponse(c, err)
+	}
+
+	customers := make([]UserResponse, 0, len(response.GetUsers()))
+	for _, user := range response.GetUsers() {
+		customers = append(customers, userJSON(user))
+	}
+	return c.JSON(http.StatusOK, CustomerListResponse{
+		Data: customers,
+		Pagination: CursorPagination{
+			NextCursor: response.GetNextCursor(),
+			HasMore:    response.GetHasMore(),
+		},
+	})
+}
+
+// getCustomer godoc
+// @Summary Get a customer
+// @Description Returns one user profile by ID. The bearer token must contain the admin role.
+// @Tags Admin Customers
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Customer ID" format(uuid)
+// @Success 200 {object} UserResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/admin/customers/{id} [get]
+func (h *Handler) getCustomer(c echo.Context) error {
+	ctx, cancel := contextWithTimeout(c)
+	defer cancel()
+	user, err := h.users.GetProfile(ctx, &bookstorev1.GetProfileRequest{Id: c.Param("id")})
+	if err != nil {
+		return errorResponse(c, err)
+	}
+	return c.JSON(http.StatusOK, userJSON(user))
+}
+
+// updateCustomer godoc
+// @Summary Update a customer
+// @Description Updates a customer's display name. The bearer token must contain the admin role.
+// @Tags Admin Customers
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Customer ID" format(uuid)
+// @Param request body UpdateProfileRequest true "Customer profile payload"
+// @Success 200 {object} UserResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/admin/customers/{id} [put]
+func (h *Handler) updateCustomer(c echo.Context) error {
+	request := UpdateProfileRequest{}
+	if err := c.Bind(&request); err != nil {
+		return errorResponse(c, err)
+	}
+
+	ctx, cancel := contextWithTimeout(c)
+	defer cancel()
+	user, err := h.users.UpdateProfile(ctx, &bookstorev1.UpdateProfileRequest{
+		Id:          c.Param("id"),
+		DisplayName: request.DisplayName,
+	})
+	if err != nil {
+		return errorResponse(c, err)
+	}
+	return c.JSON(http.StatusOK, userJSON(user))
+}
+
+// deleteCustomer godoc
+// @Summary Delete a customer account
+// @Description Deletes the auth account transactionally and queues asynchronous profile deletion through the outbox. The bearer token must contain the admin role.
+// @Tags Admin Customers
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Customer ID" format(uuid)
+// @Success 202 {object} DeletionAcceptedResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/admin/customers/{id} [delete]
+func (h *Handler) deleteCustomer(c echo.Context) error {
+	principal := principalFromContext(c)
+	if principal.UserID == c.Param("id") {
+		return c.JSON(http.StatusConflict, errorBody("you cannot delete your own admin account"))
+	}
+
+	ctx, cancel := contextWithTimeout(c)
+	defer cancel()
+	if _, err := h.auth.DeleteAccount(ctx, &bookstorev1.DeleteAccountRequest{Id: c.Param("id")}); err != nil {
+		return errorResponse(c, err)
+	}
+	return c.JSON(http.StatusAccepted, DeletionAcceptedResponse{Status: "accepted"})
 }
 
 // listBooks godoc

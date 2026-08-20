@@ -1,8 +1,8 @@
 # Book Store
 
-Book Store gồm backend Golang theo hướng microservice, Clean Architecture và DDD cùng storefront Vue 3 + TypeScript. Gateway public dùng Echo/HTTP, các service nội bộ giao tiếp bằng gRPC, dữ liệu lưu trong PostgreSQL qua GORM và domain event được xử lý bằng transactional outbox + RabbitMQ.
+Book Store gồm backend Golang theo hướng microservice, Clean Architecture và DDD cùng storefront và admin portal Vue 3 + TypeScript. Gateway public dùng Echo/HTTP, các service nội bộ giao tiếp bằng gRPC, dữ liệu lưu trong PostgreSQL qua GORM và domain event được xử lý bằng transactional outbox + RabbitMQ.
 
-Hiện repository đã có `backend/` và `storefront/`. `admin-portal/` sẽ được bổ sung sau.
+Repository gồm `backend/`, `storefront/` và `admin-portal/`.
 
 ## Kiến trúc
 
@@ -164,10 +164,24 @@ pnpm check
 
 Xem thêm cấu hình `.env`, Docker/Nginx và cấu trúc source tại [storefront/README.md](storefront/README.md).
 
+## Chạy admin portal
+
+Sau khi Gateway chạy, mở terminal mới:
+
+```bash
+cd admin-portal
+cp .env.example .env
+pnpm install
+pnpm dev
+```
+
+Mở <http://localhost:5174>. Tài khoản phải có role `admin`; xem lệnh cấp role local và tài liệu vận hành tại [admin-portal/README.md](admin-portal/README.md).
+
 ## Địa chỉ dịch vụ
 
 - API Gateway: <http://localhost:8080>
 - Storefront: <http://localhost:5173>
+- Admin portal: <http://localhost:5174>
 - Swagger UI: <http://localhost:8080/swagger/index.html>
 - PostgreSQL: `localhost:5432`
 - pgAdmin: <http://localhost:5050>
@@ -209,6 +223,8 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 ```
 
 Profile được tạo bất đồng bộ qua RabbitMQ. Ngay sau khi register có thể có độ trễ ngắn trước khi endpoint `/api/v1/users/me` trả về profile.
+
+Admin quản lý khách hàng qua `/api/v1/admin/customers`. Khi xoá, Auth Service commit account và event `account.deleted` trong cùng transaction; Worker nhận event qua RabbitMQ rồi xoá profile idempotent ở User Service.
 
 ## Quản lý chương trình
 
@@ -329,8 +345,8 @@ Book-store/
 │   ├── migrations/      # PostgreSQL bootstrap migrations
 │   ├── docker-compose.yml
 │   └── Makefile
-├── storefront/          # planned
-└── admin-portal/        # planned
+├── storefront/          # Vue storefront cho khách hàng
+└── admin-portal/        # Vue back-office quản trị
 ```
 
 Tài liệu kiến trúc backend chi tiết nằm tại [backend/README.md](backend/README.md).

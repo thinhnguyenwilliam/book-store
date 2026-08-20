@@ -7,7 +7,9 @@ option go_package = "github.com/thinhnguyenwilliam/book-store/backend/gen/bookst
 service UserService {
   rpc CreateProfile(CreateProfileRequest) returns (User);
   rpc GetProfile(GetProfileRequest) returns (User);
+  rpc ListProfiles(ListProfilesRequest) returns (ListProfilesResponse);
   rpc UpdateProfile(UpdateProfileRequest) returns (User);
+  rpc DeleteProfile(DeleteProfileRequest) returns (DeleteProfileResponse);
 }
 
 message User {
@@ -28,8 +30,24 @@ message GetProfileRequest {
   string id = 1;
 }
 
+message ListProfilesRequest {
+  int32 limit = 1;
+  string cursor = 2;
+}
+
+message ListProfilesResponse {
+  repeated User users = 1;
+  string next_cursor = 2;
+  bool has_more = 3;
+}
+
 message UpdateProfileRequest {
   string id = 1;
   string display_name = 2;
 }
 
+message DeleteProfileRequest {
+  string id = 1;
+}
+
+message DeleteProfileResponse {}

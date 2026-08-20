@@ -8,6 +8,7 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	apptrace "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/trace"
 )
 
 type Publisher struct {
@@ -37,7 +38,10 @@ func (p *Publisher) Publish(ctx context.Context, eventID, eventType string, payl
 		true,
 		false,
 		amqp.Publishing{
-			Headers:      amqp.Table{"event_id": eventID},
+			Headers: amqp.Table{
+				"event_id": eventID,
+				"trace_id": apptrace.IDFromContext(ctx),
+			},
 			ContentType:  "application/json",
 			DeliveryMode: amqp.Persistent,
 			MessageId:    eventID,

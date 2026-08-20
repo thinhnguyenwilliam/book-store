@@ -1,0 +1,16 @@
+function required(name: keyof ImportMetaEnv): string {
+  const value = import.meta.env[name]?.trim()
+  if (!value) throw new Error(`Missing required environment variable: ${name}`)
+  return value
+}
+
+function positiveNumber(value: string | undefined, fallback: number): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+export const env = Object.freeze({
+  apiBaseUrl: required('VITE_API_BASE_URL').replace(/\/$/, ''),
+  apiTimeoutMs: positiveNumber(import.meta.env.VITE_API_TIMEOUT_MS, 10_000),
+  storefrontUrl: required('VITE_STOREFRONT_URL').replace(/\/$/, ''),
+})

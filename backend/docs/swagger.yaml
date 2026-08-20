@@ -76,6 +76,21 @@ definitions:
       next_cursor:
         type: string
     type: object
+  http.CustomerListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/http.UserResponse'
+        type: array
+      pagination:
+        $ref: '#/definitions/http.CursorPagination'
+    type: object
+  http.DeletionAcceptedResponse:
+    properties:
+      status:
+        example: accepted
+        type: string
+    type: object
   http.ErrorDetail:
     properties:
       message:
@@ -271,6 +286,190 @@ paths:
       summary: Update a book
       tags:
       - Admin Books
+  /api/v1/admin/customers:
+    get:
+      description: Returns user profiles using cursor pagination. The bearer token
+        must contain the admin role.
+      parameters:
+      - default: 20
+        description: Items per request
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - description: Opaque cursor returned by the previous request
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.CustomerListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List customers
+      tags:
+      - Admin Customers
+  /api/v1/admin/customers/{id}:
+    delete:
+      description: Deletes the auth account transactionally and queues asynchronous
+        profile deletion through the outbox. The bearer token must contain the admin
+        role.
+      parameters:
+      - description: Customer ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/http.DeletionAcceptedResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a customer account
+      tags:
+      - Admin Customers
+    get:
+      description: Returns one user profile by ID. The bearer token must contain the
+        admin role.
+      parameters:
+      - description: Customer ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a customer
+      tags:
+      - Admin Customers
+    put:
+      consumes:
+      - application/json
+      description: Updates a customer's display name. The bearer token must contain
+        the admin role.
+      parameters:
+      - description: Customer ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Customer profile payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a customer
+      tags:
+      - Admin Customers
   /api/v1/auth/login:
     post:
       consumes:

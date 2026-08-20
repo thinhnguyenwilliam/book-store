@@ -201,6 +201,118 @@ func (x *GetProfileRequest) GetId() string {
 	return ""
 }
 
+type ListProfilesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	Cursor        string                 `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListProfilesRequest) Reset() {
+	*x = ListProfilesRequest{}
+	mi := &file_bookstore_v1_user_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListProfilesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListProfilesRequest) ProtoMessage() {}
+
+func (x *ListProfilesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_user_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListProfilesRequest.ProtoReflect.Descriptor instead.
+func (*ListProfilesRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_user_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ListProfilesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListProfilesRequest) GetCursor() string {
+	if x != nil {
+		return x.Cursor
+	}
+	return ""
+}
+
+type ListProfilesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Users         []*User                `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	NextCursor    string                 `protobuf:"bytes,2,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
+	HasMore       bool                   `protobuf:"varint,3,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListProfilesResponse) Reset() {
+	*x = ListProfilesResponse{}
+	mi := &file_bookstore_v1_user_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListProfilesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListProfilesResponse) ProtoMessage() {}
+
+func (x *ListProfilesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_user_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListProfilesResponse.ProtoReflect.Descriptor instead.
+func (*ListProfilesResponse) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_user_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ListProfilesResponse) GetUsers() []*User {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
+func (x *ListProfilesResponse) GetNextCursor() string {
+	if x != nil {
+		return x.NextCursor
+	}
+	return ""
+}
+
+func (x *ListProfilesResponse) GetHasMore() bool {
+	if x != nil {
+		return x.HasMore
+	}
+	return false
+}
+
 type UpdateProfileRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -211,7 +323,7 @@ type UpdateProfileRequest struct {
 
 func (x *UpdateProfileRequest) Reset() {
 	*x = UpdateProfileRequest{}
-	mi := &file_bookstore_v1_user_proto_msgTypes[3]
+	mi := &file_bookstore_v1_user_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -223,7 +335,7 @@ func (x *UpdateProfileRequest) String() string {
 func (*UpdateProfileRequest) ProtoMessage() {}
 
 func (x *UpdateProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_user_proto_msgTypes[3]
+	mi := &file_bookstore_v1_user_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -236,7 +348,7 @@ func (x *UpdateProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProfileRequest.ProtoReflect.Descriptor instead.
 func (*UpdateProfileRequest) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_user_proto_rawDescGZIP(), []int{3}
+	return file_bookstore_v1_user_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *UpdateProfileRequest) GetId() string {
@@ -251,6 +363,86 @@ func (x *UpdateProfileRequest) GetDisplayName() string {
 		return x.DisplayName
 	}
 	return ""
+}
+
+type DeleteProfileRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteProfileRequest) Reset() {
+	*x = DeleteProfileRequest{}
+	mi := &file_bookstore_v1_user_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteProfileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteProfileRequest) ProtoMessage() {}
+
+func (x *DeleteProfileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_user_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteProfileRequest.ProtoReflect.Descriptor instead.
+func (*DeleteProfileRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_user_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *DeleteProfileRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteProfileResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteProfileResponse) Reset() {
+	*x = DeleteProfileResponse{}
+	mi := &file_bookstore_v1_user_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteProfileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteProfileResponse) ProtoMessage() {}
+
+func (x *DeleteProfileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_user_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteProfileResponse.ProtoReflect.Descriptor instead.
+func (*DeleteProfileResponse) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_user_proto_rawDescGZIP(), []int{7}
 }
 
 var File_bookstore_v1_user_proto protoreflect.FileDescriptor
@@ -271,15 +463,28 @@ const file_bookstore_v1_user_proto_rawDesc = "" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12!\n" +
 	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\"#\n" +
 	"\x11GetProfileRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"I\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"C\n" +
+	"\x13ListProfilesRequest\x12\x14\n" +
+	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06cursor\x18\x02 \x01(\tR\x06cursor\"|\n" +
+	"\x14ListProfilesResponse\x12(\n" +
+	"\x05users\x18\x01 \x03(\v2\x12.bookstore.v1.UserR\x05users\x12\x1f\n" +
+	"\vnext_cursor\x18\x02 \x01(\tR\n" +
+	"nextCursor\x12\x19\n" +
+	"\bhas_more\x18\x03 \x01(\bR\ahasMore\"I\n" +
 	"\x14UpdateProfileRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
-	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName2\xe2\x01\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\"&\n" +
+	"\x14DeleteProfileRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x17\n" +
+	"\x15DeleteProfileResponse2\x93\x03\n" +
 	"\vUserService\x12G\n" +
 	"\rCreateProfile\x12\".bookstore.v1.CreateProfileRequest\x1a\x12.bookstore.v1.User\x12A\n" +
 	"\n" +
-	"GetProfile\x12\x1f.bookstore.v1.GetProfileRequest\x1a\x12.bookstore.v1.User\x12G\n" +
-	"\rUpdateProfile\x12\".bookstore.v1.UpdateProfileRequest\x1a\x12.bookstore.v1.UserBOZMgithub.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1;bookstorev1b\x06proto3"
+	"GetProfile\x12\x1f.bookstore.v1.GetProfileRequest\x1a\x12.bookstore.v1.User\x12U\n" +
+	"\fListProfiles\x12!.bookstore.v1.ListProfilesRequest\x1a\".bookstore.v1.ListProfilesResponse\x12G\n" +
+	"\rUpdateProfile\x12\".bookstore.v1.UpdateProfileRequest\x1a\x12.bookstore.v1.User\x12X\n" +
+	"\rDeleteProfile\x12\".bookstore.v1.DeleteProfileRequest\x1a#.bookstore.v1.DeleteProfileResponseBOZMgithub.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1;bookstorev1b\x06proto3"
 
 var (
 	file_bookstore_v1_user_proto_rawDescOnce sync.Once
@@ -293,25 +498,34 @@ func file_bookstore_v1_user_proto_rawDescGZIP() []byte {
 	return file_bookstore_v1_user_proto_rawDescData
 }
 
-var file_bookstore_v1_user_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_bookstore_v1_user_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_bookstore_v1_user_proto_goTypes = []any{
-	(*User)(nil),                 // 0: bookstore.v1.User
-	(*CreateProfileRequest)(nil), // 1: bookstore.v1.CreateProfileRequest
-	(*GetProfileRequest)(nil),    // 2: bookstore.v1.GetProfileRequest
-	(*UpdateProfileRequest)(nil), // 3: bookstore.v1.UpdateProfileRequest
+	(*User)(nil),                  // 0: bookstore.v1.User
+	(*CreateProfileRequest)(nil),  // 1: bookstore.v1.CreateProfileRequest
+	(*GetProfileRequest)(nil),     // 2: bookstore.v1.GetProfileRequest
+	(*ListProfilesRequest)(nil),   // 3: bookstore.v1.ListProfilesRequest
+	(*ListProfilesResponse)(nil),  // 4: bookstore.v1.ListProfilesResponse
+	(*UpdateProfileRequest)(nil),  // 5: bookstore.v1.UpdateProfileRequest
+	(*DeleteProfileRequest)(nil),  // 6: bookstore.v1.DeleteProfileRequest
+	(*DeleteProfileResponse)(nil), // 7: bookstore.v1.DeleteProfileResponse
 }
 var file_bookstore_v1_user_proto_depIdxs = []int32{
-	1, // 0: bookstore.v1.UserService.CreateProfile:input_type -> bookstore.v1.CreateProfileRequest
-	2, // 1: bookstore.v1.UserService.GetProfile:input_type -> bookstore.v1.GetProfileRequest
-	3, // 2: bookstore.v1.UserService.UpdateProfile:input_type -> bookstore.v1.UpdateProfileRequest
-	0, // 3: bookstore.v1.UserService.CreateProfile:output_type -> bookstore.v1.User
-	0, // 4: bookstore.v1.UserService.GetProfile:output_type -> bookstore.v1.User
-	0, // 5: bookstore.v1.UserService.UpdateProfile:output_type -> bookstore.v1.User
-	3, // [3:6] is the sub-list for method output_type
-	0, // [0:3] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: bookstore.v1.ListProfilesResponse.users:type_name -> bookstore.v1.User
+	1, // 1: bookstore.v1.UserService.CreateProfile:input_type -> bookstore.v1.CreateProfileRequest
+	2, // 2: bookstore.v1.UserService.GetProfile:input_type -> bookstore.v1.GetProfileRequest
+	3, // 3: bookstore.v1.UserService.ListProfiles:input_type -> bookstore.v1.ListProfilesRequest
+	5, // 4: bookstore.v1.UserService.UpdateProfile:input_type -> bookstore.v1.UpdateProfileRequest
+	6, // 5: bookstore.v1.UserService.DeleteProfile:input_type -> bookstore.v1.DeleteProfileRequest
+	0, // 6: bookstore.v1.UserService.CreateProfile:output_type -> bookstore.v1.User
+	0, // 7: bookstore.v1.UserService.GetProfile:output_type -> bookstore.v1.User
+	4, // 8: bookstore.v1.UserService.ListProfiles:output_type -> bookstore.v1.ListProfilesResponse
+	0, // 9: bookstore.v1.UserService.UpdateProfile:output_type -> bookstore.v1.User
+	7, // 10: bookstore.v1.UserService.DeleteProfile:output_type -> bookstore.v1.DeleteProfileResponse
+	6, // [6:11] is the sub-list for method output_type
+	1, // [1:6] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_bookstore_v1_user_proto_init() }
@@ -325,7 +539,7 @@ func file_bookstore_v1_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_bookstore_v1_user_proto_rawDesc), len(file_bookstore_v1_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

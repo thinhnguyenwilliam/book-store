@@ -12,6 +12,7 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/application"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/domain"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/messaging"
+	apptrace "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/trace"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -33,6 +34,7 @@ type outboxModel struct {
 	ID           string    `gorm:"type:uuid;primaryKey"`
 	AggregateID  string    `gorm:"type:uuid;not null"`
 	EventType    string    `gorm:"not null"`
+	TraceID      string    `gorm:"type:varchar(32);not null"`
 	Payload      []byte    `gorm:"type:jsonb;not null"`
 	Attempts     int       `gorm:"not null;default:0"`
 	AvailableAt  time.Time `gorm:"not null"`
@@ -86,10 +88,18 @@ func (r *Repository) Create(
 			return err
 		}
 
+		traceID := apptrace.IDFromContext(ctx)
+		if traceID == "" {
+			traceID, err = apptrace.NewID()
+			if err != nil {
+				return fmt.Errorf("generate outbox trace ID: %w", err)
+			}
+		}
 		event := outboxModel{
 			ID:          uuid.NewString(),
 			AggregateID: account.ID,
 			EventType:   messaging.EventAccountRegistered,
+			TraceID:     traceID,
 			Payload:     payload,
 			AvailableAt: account.CreatedAt,
 			CreatedAt:   account.CreatedAt,
@@ -203,6 +213,66 @@ func (r *Repository) RevokeRefreshSession(ctx context.Context, tokenHash string,
 		return fmt.Errorf("revoke refresh session: %w", err)
 	}
 	return nil
+}
+
+func (r *Repository) Delete(ctx context.Context, id string, deletedAt time.Time) error {
+	payload, err := json.Marshal(messaging.AccountDeletedPayload{
+		UserID:    id,
+		DeletedAt: deletedAt.UTC().Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		return fmt.Errorf("marshal account deleted event: %w", err)
+	}
+
+	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Table("auth.accounts").Where("id = ?", id).Delete(&accountModel{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return domain.ErrNotFound
+		}
+
+		traceID := apptrace.IDFromContext(ctx)
+		if traceID == "" {
+			traceID, err = apptrace.NewID()
+			if err != nil {
+				return fmt.Errorf("generate outbox trace ID: %w", err)
+			}
+		}
+		event := outboxModel{
+			ID:          uuid.NewString(),
+			AggregateID: id,
+			EventType:   messaging.EventAccountDeleted,
+			TraceID:     traceID,
+			Payload:     payload,
+			AvailableAt: deletedAt,
+			CreatedAt:   deletedAt,
+		}
+		return tx.Table("auth.outbox_events").Create(&event).Error
+	})
+	if errors.Is(err, domain.ErrNotFound) {
+		return err
+	}
+	if err != nil {
+		return fmt.Errorf("delete account with outbox event: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) FindByID(ctx context.Context, id string) (*domain.Account, error) {
+	var record accountModel
+	err := r.db.WithContext(ctx).
+		Table("auth.accounts").
+		Where("id = ?", id).
+		First(&record).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find account by ID: %w", err)
+	}
+	return accountFromRecord(record), nil
 }
 
 func (r *Repository) FindByEmail(ctx context.Context, email string) (*domain.Account, error) {

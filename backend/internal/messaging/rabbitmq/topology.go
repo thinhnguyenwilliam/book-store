@@ -10,7 +10,7 @@ type Config struct {
 	URL          string
 	Exchange     string
 	Queue        string
-	RoutingKey   string
+	RoutingKeys  []string
 	ConsumerName string
 	Concurrency  int
 	Prefetch     int
@@ -84,14 +84,16 @@ func declareTopology(channel *amqp.Channel, cfg Config) error {
 	); err != nil {
 		return fmt.Errorf("declare user profile queue: %w", err)
 	}
-	if err := channel.QueueBind(
-		cfg.Queue,
-		cfg.RoutingKey,
-		cfg.Exchange,
-		false,
-		nil,
-	); err != nil {
-		return fmt.Errorf("bind user profile queue: %w", err)
+	for _, routingKey := range cfg.RoutingKeys {
+		if err := channel.QueueBind(
+			cfg.Queue,
+			routingKey,
+			cfg.Exchange,
+			false,
+			nil,
+		); err != nil {
+			return fmt.Errorf("bind user profile queue to %s: %w", routingKey, err)
+		}
 	}
 	return nil
 }

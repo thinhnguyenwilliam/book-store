@@ -73,6 +73,17 @@ type BookListResponse struct {
 	Pagination CursorPagination `json:"pagination"`
 }
 
+// CustomerListResponse is returned by the admin customer listing endpoint.
+type CustomerListResponse struct {
+	Data       []UserResponse   `json:"data"`
+	Pagination CursorPagination `json:"pagination"`
+}
+
+// DeletionAcceptedResponse confirms that asynchronous cleanup was queued.
+type DeletionAcceptedResponse struct {
+	Status string `json:"status" example:"accepted"`
+}
+
 // ErrorDetail contains a safe error message for API clients.
 type ErrorDetail struct {
 	Message string `json:"message" example:"invalid request"`

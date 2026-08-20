@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS auth.outbox_events (
     id UUID PRIMARY KEY,
     aggregate_id UUID NOT NULL,
     event_type TEXT NOT NULL,
+    trace_id VARCHAR(32) NOT NULL DEFAULT '',
     payload JSONB NOT NULL,
     attempts INTEGER NOT NULL DEFAULT 0,
     available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

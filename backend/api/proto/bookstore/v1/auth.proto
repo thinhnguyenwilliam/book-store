@@ -9,6 +9,7 @@ service AuthService {
   rpc Login(LoginRequest) returns (AuthResponse);
   rpc Refresh(RefreshRequest) returns (AuthResponse);
   rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
   rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
 }
 
@@ -40,6 +41,12 @@ message LogoutRequest {
 }
 
 message LogoutResponse {}
+
+message DeleteAccountRequest {
+  string id = 1;
+}
+
+message DeleteAccountResponse {}
 
 message VerifyTokenRequest {
   string access_token = 1;

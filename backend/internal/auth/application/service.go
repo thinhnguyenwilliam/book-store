@@ -151,11 +151,29 @@ func (s *Service) Logout(ctx context.Context, rawRefreshToken string) error {
 	)
 }
 
-func (s *Service) VerifyToken(_ context.Context, token string) (Claims, error) {
+func (s *Service) DeleteAccount(ctx context.Context, id string) error {
+	if _, err := uuid.Parse(id); err != nil {
+		return domain.ErrInvalidInput
+	}
+	return s.repository.Delete(ctx, id, s.now().UTC())
+}
+
+func (s *Service) VerifyToken(ctx context.Context, token string) (Claims, error) {
 	if strings.TrimSpace(token) == "" {
 		return Claims{}, domain.ErrInvalidToken
 	}
-	return s.accessTokens.Verify(token)
+	claims, err := s.accessTokens.Verify(token)
+	if err != nil {
+		return Claims{}, err
+	}
+	account, err := s.repository.FindByID(ctx, claims.UserID)
+	if errors.Is(err, domain.ErrNotFound) {
+		return Claims{}, domain.ErrInvalidToken
+	}
+	if err != nil {
+		return Claims{}, err
+	}
+	return Claims{UserID: account.ID, Email: account.Email, Roles: account.Roles}, nil
 }
 
 func (s *Service) issueSession(account *domain.Account, now time.Time) (AuthResult, *domain.RefreshSession, error) {

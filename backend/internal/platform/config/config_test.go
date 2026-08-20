@@ -38,6 +38,7 @@ rabbitmq:
   exchange: "bookstore.events"
   user_profile_queue: "user.profile.create"
   account_registered_routing_key: "account.registered"
+  account_deleted_routing_key: "account.deleted"
   consumer_name: "test-worker"
   consumer_concurrency: 2
   prefetch: 4
@@ -45,6 +46,12 @@ outbox:
   outbox_poll_interval: "2s"
 shutdown:
   timeout: "12s"
+logging:
+  directory: "logs"
+  level: "info"
+  format: "json"
+  timezone: "Asia/Ho_Chi_Minh"
+  also_stdout: true
 `)
 	if err := os.WriteFile(path, content, 0o600); err != nil {
 		t.Fatalf("write test config: %v", err)

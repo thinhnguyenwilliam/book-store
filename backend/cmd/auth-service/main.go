@@ -23,23 +23,34 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/database"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcserver"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/lifecycle"
+	appLogger "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/logger"
 	"google.golang.org/grpc"
 )
 
 func main() {
 	configPath := flag.String("config", "config/config.yml", "path to YAML configuration")
 	flag.Parse()
-	if err := run(*configPath); err != nil {
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		slog.Error("load auth service config", "error", err)
+		os.Exit(1)
+	}
+	logManager, err := appLogger.New("authservice", cfg.Logging)
+	if err != nil {
+		slog.Error("initialize auth service logger", "error", err)
+		os.Exit(1)
+	}
+	slog.SetDefault(logManager.Logger())
+	defer func() { _ = logManager.Close() }()
+
+	if err := run(cfg); err != nil {
 		slog.Error("auth service stopped", "error", err)
+		_ = logManager.Close()
 		os.Exit(1)
 	}
 }
 
-func run(configPath string) error {
-	cfg, err := config.Load(configPath)
-	if err != nil {
-		return err
-	}
+func run(cfg config.Config) error {
 	ttl, err := time.ParseDuration(cfg.Auth.AccessTokenTTL)
 	if err != nil {
 		return err
@@ -73,10 +84,13 @@ func run(configPath string) error {
 	handler := authgrpc.NewHandler(service)
 
 	publisher := rabbitmqadapter.NewPublisher(rabbitmqadapter.Config{
-		URL:          cfg.RabbitMQ.URL,
-		Exchange:     cfg.RabbitMQ.Exchange,
-		Queue:        cfg.RabbitMQ.UserProfileQueue,
-		RoutingKey:   cfg.RabbitMQ.AccountRegisteredRoutingKey,
+		URL:      cfg.RabbitMQ.URL,
+		Exchange: cfg.RabbitMQ.Exchange,
+		Queue:    cfg.RabbitMQ.UserProfileQueue,
+		RoutingKeys: []string{
+			cfg.RabbitMQ.AccountRegisteredRoutingKey,
+			cfg.RabbitMQ.AccountDeletedRoutingKey,
+		},
 		ConsumerName: cfg.RabbitMQ.ConsumerName,
 	})
 	defer publisher.Close()

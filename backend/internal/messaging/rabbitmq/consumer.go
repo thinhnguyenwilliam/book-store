@@ -10,9 +10,12 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/lifecycle"
+	apptrace "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/trace"
 )
 
-type Handler func(context.Context, []byte) error
+type Handler func(context.Context, string, []byte) error
+
+const maxDeliveryAttempts = 20
 
 type Consumer struct {
 	config          Config
@@ -91,16 +94,31 @@ consumeLoop:
 
 				handlerCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), c.shutdownTimeout)
 				defer cancel()
-				if err := handler(handlerCtx, delivery.Body); err != nil {
-					slog.Error("process RabbitMQ message", "message_id", delivery.MessageId, "error", err)
-					if nackErr := delivery.Nack(false, true); nackErr != nil {
-						slog.Error("nack RabbitMQ message", "message_id", delivery.MessageId, "error", nackErr)
+				handlerCtx = contextWithDeliveryTraceID(handlerCtx, delivery)
+				if err := handler(handlerCtx, delivery.Type, delivery.Body); err != nil {
+					attempt := deliveryAttempt(delivery)
+					requeue := attempt < maxDeliveryAttempts
+					retryIn := retryDelay(attempt)
+					slog.ErrorContext(handlerCtx, "process RabbitMQ message",
+						"message_id", delivery.MessageId,
+						"delivery_attempt", attempt,
+						"retry_in", retryIn,
+						"dead_letter", !requeue,
+						"error", err,
+					)
+					if requeue {
+						waitForRetry(handlerCtx, retryIn)
+					}
+					if nackErr := delivery.Nack(false, requeue); nackErr != nil {
+						slog.ErrorContext(handlerCtx, "nack RabbitMQ message", "message_id", delivery.MessageId, "error", nackErr)
 					}
 					return
 				}
 				if ackErr := delivery.Ack(false); ackErr != nil {
-					slog.Error("ack RabbitMQ message", "message_id", delivery.MessageId, "error", ackErr)
+					slog.ErrorContext(handlerCtx, "ack RabbitMQ message", "message_id", delivery.MessageId, "error", ackErr)
+					return
 				}
+				slog.InfoContext(handlerCtx, "RabbitMQ message processed", "message_id", delivery.MessageId, "event_type", delivery.Type)
 			}(delivery)
 		}
 	}
@@ -113,4 +131,50 @@ consumeLoop:
 	}
 	slog.Info("RabbitMQ consumer graceful shutdown completed")
 	return consumeErr
+}
+
+func deliveryAttempt(delivery amqp.Delivery) int {
+	value := delivery.Headers["x-delivery-count"]
+	count := 0
+	switch typed := value.(type) {
+	case int64:
+		count = int(typed)
+	case int32:
+		count = int(typed)
+	case int:
+		count = typed
+	}
+	// RabbitMQ's x-delivery-count starts at zero. Logs and retry policy use a
+	// human-friendly one-based attempt number.
+	return count + 1
+}
+
+func retryDelay(attempt int) time.Duration {
+	if attempt < 1 {
+		attempt = 1
+	}
+	delay := 500 * time.Millisecond * time.Duration(1<<min(attempt-1, 4))
+	return min(delay, 5*time.Second)
+}
+
+func waitForRetry(ctx context.Context, delay time.Duration) {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+	case <-timer.C:
+	}
+}
+
+func contextWithDeliveryTraceID(ctx context.Context, delivery amqp.Delivery) context.Context {
+	if value, ok := delivery.Headers["trace_id"].(string); ok {
+		if traceID := apptrace.Normalize(value); traceID != "" {
+			return apptrace.ContextWithID(ctx, traceID)
+		}
+	}
+	traceID, err := apptrace.NewID()
+	if err != nil {
+		return ctx
+	}
+	return apptrace.ContextWithID(ctx, traceID)
 }

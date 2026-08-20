@@ -2,6 +2,7 @@
 @email = reader.http@example.com
 @password = password123
 @bookPageLimit = 2
+@registerTraceId = 11111111111111111111111111111111
 
 ### 1. Gateway health check
 GET {{baseUrl}}/healthz
@@ -13,6 +14,7 @@ Accept: application/json
 POST {{baseUrl}}/api/v1/auth/register
 Content-Type: application/json
 Accept: application/json
+X-Trace-ID: {{registerTraceId}}
 
 {
   "email": "{{email}}",
@@ -88,11 +90,11 @@ Accept: application/json
 Authorization: Bearer {{login.response.body.$.access_token}}
 
 {
-  "title": "Clean Architecture2",
-  "author": "Robert C. Martin2",
-  "isbn": "97801344941612",
-  "price_cents": 3992,
-  "stock": 12
+  "title": "Clean Architecture3",
+  "author": "Robert C. Martin3",
+  "isbn": "97801344941613",
+  "price_cents": 3993,
+  "stock": 13
 }
 
 ### 8. Get the created book - public API
@@ -118,6 +120,39 @@ DELETE {{baseUrl}}/api/v1/admin/books/{{createBook.response.body.$.id}}
 Accept: application/json
 Authorization: Bearer {{login.response.body.$.access_token}}
 
-### 11. Swagger JSON
+### 11. List customers - admin only
+# @name firstCustomerPage
+GET {{baseUrl}}/api/v1/admin/customers?limit=20
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 11.1. List next customer page - run only when has_more=true
+GET {{baseUrl}}/api/v1/admin/customers?limit=20&cursor={{firstCustomerPage.response.body.$.pagination.next_cursor}}
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 12. Get a customer - admin only
+GET {{baseUrl}}/api/v1/admin/customers/{{register.response.body.$.user_id}}
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 13. Update a customer profile - admin only
+PUT {{baseUrl}}/api/v1/admin/customers/{{register.response.body.$.user_id}}
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "display_name": "Customer managed by admin"
+}
+
+### 13.1. Delete a customer - admin only
+# API tra 202 khi account va outbox event da commit. User profile se duoc worker
+# xoa bat dong bo qua RabbitMQ. Khong dung ID cua chinh admin dang dang nhap.
+DELETE {{baseUrl}}/api/v1/admin/customers/{{register.response.body.$.user_id}}
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 14. Swagger JSON
 GET {{baseUrl}}/swagger/doc.json
 Accept: application/json

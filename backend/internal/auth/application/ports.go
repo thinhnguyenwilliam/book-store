@@ -9,7 +9,9 @@ import (
 
 type AccountRepository interface {
 	Create(ctx context.Context, account *domain.Account, profile ProfileRegistration, session *domain.RefreshSession) error
+	FindByID(ctx context.Context, id string) (*domain.Account, error)
 	FindByEmail(ctx context.Context, email string) (*domain.Account, error)
+	Delete(ctx context.Context, id string, deletedAt time.Time) error
 	CreateRefreshSession(ctx context.Context, session *domain.RefreshSession) error
 	RotateRefreshSession(ctx context.Context, tokenHash string, replacement *domain.RefreshSession, now time.Time) (*domain.Account, error)
 	RevokeRefreshSession(ctx context.Context, tokenHash string, now time.Time) error

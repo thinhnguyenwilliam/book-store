@@ -9,7 +9,10 @@ ARG SERVICE
 RUN CGO_ENABLED=0 GOOS=linux go build -buildvcs=false -trimpath -o /out/service ./cmd/${SERVICE}
 
 FROM alpine:3.22
-RUN adduser -D -H -u 10001 appuser
+RUN adduser -D -H -u 10001 appuser \
+    && mkdir -p /app/logs \
+    && chown -R appuser:appuser /app
+WORKDIR /app
 USER appuser
-COPY --from=builder /out/service /service
-ENTRYPOINT ["/service"]
+COPY --from=builder /out/service /app/service
+ENTRYPOINT ["/app/service"]
