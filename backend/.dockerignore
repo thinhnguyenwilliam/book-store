@@ -1,6 +1,7 @@
 .cache
 .git
 .tools
+.air
 .env
 .env.*
 .idea

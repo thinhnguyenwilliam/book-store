@@ -1,0 +1,40 @@
+x-air-service: &air-service
+  build:
+    context: .
+    dockerfile: Dockerfile.dev
+    args:
+      AIR_VERSION: v1.66.1
+  command: ["air", "-c", ".air.toml"]
+  working_dir: /app
+  stdin_open: true
+  tty: true
+  volumes: !override
+    - .:/app
+  tmpfs:
+    - /app/.air:exec,mode=1777
+
+services:
+  gateway:
+    <<: *air-service
+    environment:
+      SERVICE: gateway
+
+  auth-service:
+    <<: *air-service
+    environment:
+      SERVICE: auth-service
+
+  user-service:
+    <<: *air-service
+    environment:
+      SERVICE: user-service
+
+  book-service:
+    <<: *air-service
+    environment:
+      SERVICE: book-service
+
+  worker-service:
+    <<: *air-service
+    environment:
+      SERVICE: worker-service

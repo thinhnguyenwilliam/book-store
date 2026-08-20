@@ -27,6 +27,7 @@ Thumbs.db
 # Go backend tools, caches and build artifacts
 backend/.cache/
 backend/.tools/
+backend/.air/
 backend/bin/
 backend/tmp/
 backend/vendor/

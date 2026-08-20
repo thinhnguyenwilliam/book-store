@@ -117,8 +117,21 @@ Account và outbox event được GORM ghi trong cùng một PostgreSQL transact
 
 ```bash
 cd ~/WorkSpace/Book-store/backend
-docker compose up --build
+make up
 ```
+
+Lệnh trên tương đương `docker compose up -d --build`. Dùng `make logs` để theo dõi log và `make ps` để xem trạng thái container.
+
+### Air hot reload
+
+Để phát triển với live reload cho Gateway, auth-service, user-service, book-service và worker-service:
+
+```bash
+make dev
+make dev-logs
+```
+
+Air theo dõi source được mount vào container và tự build/restart process khi file `.go`, `.toml`, `.yaml` hoặc `.yml` thay đổi. Dùng `make dev-down` để dừng development stack nhưng giữ nguyên Docker volumes.
 
 Các địa chỉ:
 
@@ -195,11 +208,22 @@ Sau đó đăng nhập lại để nhận JWT mới.
 ## Lệnh phát triển
 
 ```bash
+make help
+make check
+make generate
 make proto
 make swagger
 make fmt
 make test
+make vet
 make build
+make up
+make ps
+make logs
+make down
+make dev
+make dev-logs
+make dev-down
 ```
 
 `make proto` cài Buf và protobuf plugins vào `backend/.tools`, không cài `protoc` toàn hệ thống.

@@ -1,0 +1,38 @@
+root = "."
+tmp_dir = ".air"
+
+[build]
+cmd = "go build -buildvcs=false -o ./.air/service ./cmd/${SERVICE}"
+entrypoint = ["./.air/service"]
+args_bin = ["-config", "/app/config/config.yml"]
+delay = 500
+exclude_dir = [".air", ".cache", ".git", ".tools", "vendor"]
+exclude_regex = ["_test.go"]
+exclude_unchanged = true
+follow_symlink = false
+include_ext = ["go", "toml", "yaml", "yml"]
+kill_delay = "1s"
+log = "air-build-errors.log"
+poll = false
+rerun = false
+send_interrupt = true
+stop_on_error = false
+
+[color]
+app = ""
+build = "yellow"
+main = "magenta"
+runner = "green"
+watcher = "cyan"
+
+[log]
+main_only = false
+silent = false
+time = true
+
+[misc]
+clean_on_exit = true
+
+[screen]
+clear_on_rebuild = false
+keep_scroll = true
