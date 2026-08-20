@@ -88,7 +88,28 @@ Kết quả mong đợi:
 {"status":"ok"}
 ```
 
-## Phát triển với Air hot reload
+## Chạy Go service trực tiếp trên máy
+
+Chỉ khởi động PostgreSQL, pgAdmin, Redis, RedisInsight và RabbitMQ bằng Docker; năm service Go trong Docker sẽ được dừng để giải phóng port:
+
+```bash
+cd backend
+make local-prepare
+```
+
+Sau đó mở năm terminal và chạy từng service:
+
+```bash
+make local-auth
+make local-user
+make local-book
+make local-worker
+make local-gateway
+```
+
+Muốn hot reload trên máy, thay `local-*` bằng `watch-*`, ví dụ `make watch-auth`. Air được cài riêng vào `backend/.tools`, không cần cài global và không build Docker image. Các service local dùng [backend/config/local.yml](backend/config/local.yml) với hostname `localhost`.
+
+## Chạy toàn bộ bằng Docker với Air hot reload
 
 Chạy development stack có Air:
 
@@ -171,6 +192,7 @@ Theo dõi log:
 
 ```bash
 make logs
+make local-prepare
 make dev
 make dev-logs
 make dev-down

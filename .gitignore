@@ -28,6 +28,7 @@ Thumbs.db
 backend/.cache/
 backend/.tools/
 backend/.air/
+backend/.air-local/
 backend/bin/
 backend/tmp/
 backend/vendor/

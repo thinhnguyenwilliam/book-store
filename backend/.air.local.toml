@@ -1,0 +1,38 @@
+root = "."
+tmp_dir = ".air-local"
+
+[build]
+cmd = "go build -buildvcs=false -o ./.air-local/local-service ./cmd/gateway"
+entrypoint = ["./.air-local/local-service"]
+delay = 500
+exclude_dir = [".air", ".air-local", ".cache", ".git", ".tools", "vendor"]
+exclude_regex = ["_test.go"]
+exclude_unchanged = true
+follow_symlink = false
+include_ext = ["go", "toml", "yaml", "yml"]
+kill_delay = "1s"
+log = "local-build-errors.log"
+poll = false
+rerun = false
+send_interrupt = true
+stop_on_error = false
+
+[color]
+app = ""
+build = "yellow"
+main = "magenta"
+runner = "green"
+watcher = "cyan"
+
+[log]
+main_only = false
+silent = false
+time = true
+
+[misc]
+# Khong xoa ca thu muc .air-local khi mot trong nhieu service local dung lai.
+clean_on_exit = false
+
+[screen]
+clear_on_rebuild = false
+keep_scroll = true

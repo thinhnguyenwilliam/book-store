@@ -1,0 +1,104 @@
+@baseUrl = http://localhost:8080
+@email = reader.http@example.com
+@password = password123
+
+### 1. Gateway health check
+GET {{baseUrl}}/healthz
+Accept: application/json
+
+### 2. Register a customer account
+# Chay request nay mot lan. Neu email da ton tai, API se tra ve 409.
+# @name register
+POST {{baseUrl}}/api/v1/auth/register
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "display_name": "HTTP Test Reader"
+}
+
+### 3. Login
+# Cac request can xac thuc ben duoi tu dong lay access_token tu response nay.
+# @name login
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### 4. Get current profile
+# Profile duoc tao bat dong bo qua RabbitMQ. Neu vua register ma gap 404,
+# doi 1-2 giay roi chay lai request nay.
+GET {{baseUrl}}/api/v1/users/me
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 5. Update current profile
+PUT {{baseUrl}}/api/v1/users/me
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "display_name": "HTTP Test Reader Updated"
+}
+
+### 6. List books - public API
+GET {{baseUrl}}/api/v1/books?page=1&page_size=20
+Accept: application/json
+
+### Admin setup
+# Tai khoan moi mac dinh co role customer. Truoc khi chay request 7-10:
+# 1. Mo pgAdmin > bookstore > Query Tool.
+# 2. Chay SQL:
+#    UPDATE auth.accounts
+#    SET roles = ARRAY['customer', 'admin']::TEXT[], updated_at = NOW()
+#    WHERE email = 'reader.http@example.com';
+# 3. Chay lai request "3. Login" de JWT moi chua role admin.
+
+### 7. Create a book - admin only
+# @name createBook
+POST {{baseUrl}}/api/v1/admin/books
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "title": "Clean Architecture",
+  "author": "Robert C. Martin",
+  "isbn": "9780134494166",
+  "price_cents": 3999,
+  "stock": 10
+}
+
+### 8. Get the created book - public API
+GET {{baseUrl}}/api/v1/books/{{createBook.response.body.$.id}}
+Accept: application/json
+
+### 9. Update the created book - admin only
+PUT {{baseUrl}}/api/v1/admin/books/{{createBook.response.body.$.id}}
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "title": "Clean Architecture - Updated",
+  "author": "Robert C. Martin",
+  "isbn": "9780134494166",
+  "price_cents": 4299,
+  "stock": 20
+}
+
+### 10. Delete the created book - admin only
+DELETE {{baseUrl}}/api/v1/admin/books/{{createBook.response.body.$.id}}
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 11. Swagger JSON
+GET {{baseUrl}}/swagger/doc.json
+Accept: application/json

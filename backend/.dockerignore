@@ -2,6 +2,7 @@
 .git
 .tools
 .air
+.air-local
 .env
 .env.*
 .idea

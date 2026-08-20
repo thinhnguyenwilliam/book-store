@@ -113,7 +113,7 @@ Account và outbox event được GORM ghi trong cùng một PostgreSQL transact
 
 Đây là mô hình **at-least-once delivery**: chấp nhận event có thể đến nhiều lần, nhưng không được làm dữ liệu bị nhân đôi.
 
-## Chạy local
+## Chạy toàn bộ bằng Docker
 
 ```bash
 cd ~/WorkSpace/Book-store/backend
@@ -122,7 +122,48 @@ make up
 
 Lệnh trên tương đương `docker compose up -d --build`. Dùng `make logs` để theo dõi log và `make ps` để xem trạng thái container.
 
-### Air hot reload
+## Chạy Go service trực tiếp trên máy
+
+Chuẩn bị infrastructure nhưng không build/chạy container Go:
+
+```bash
+make local-prepare
+```
+
+Lệnh này dừng `gateway`, `auth-service`, `user-service`, `book-service`, `worker-service` trong Docker và chỉ giữ PostgreSQL, pgAdmin, Redis, RedisInsight, RabbitMQ. Các Docker volume dữ liệu không bị xóa.
+
+Mở năm terminal trong thư mục `backend`:
+
+```bash
+# Terminal 1
+make local-auth
+
+# Terminal 2
+make local-user
+
+# Terminal 3
+make local-book
+
+# Terminal 4
+make local-worker
+
+# Terminal 5
+make local-gateway
+```
+
+Các lệnh trên dùng `go run` và [config/local.yml](config/local.yml). Nếu muốn Air hot reload trực tiếp trên máy, dùng tương ứng:
+
+```bash
+make watch-auth
+make watch-user
+make watch-book
+make watch-worker
+make watch-gateway
+```
+
+Air được cài vào `.tools/air` ở lần chạy `watch-*` đầu tiên, không cài global và không build Docker image.
+
+### Air hot reload bên trong Docker
 
 Để phát triển với live reload cho Gateway, auth-service, user-service, book-service và worker-service:
 
@@ -224,6 +265,22 @@ make down
 make dev
 make dev-logs
 make dev-down
+make local-prepare
+make infra-up
+make infra-ps
+make infra-logs
+make infra-stop
+make app-stop
+make local-auth
+make local-user
+make local-book
+make local-worker
+make local-gateway
+make watch-auth
+make watch-user
+make watch-book
+make watch-worker
+make watch-gateway
 ```
 
 `make proto` cài Buf và protobuf plugins vào `backend/.tools`, không cài `protoc` toàn hệ thống.

@@ -1,0 +1,35 @@
+gateway:
+  http_address: ":8080"
+
+grpc:
+  auth_address: "localhost:50051"
+  user_address: "localhost:50052"
+  book_address: "localhost:50053"
+  auth_listen_address: ":50051"
+  user_listen_address: ":50052"
+  book_listen_address: ":50053"
+
+postgres:
+  url: "postgres://bookstore:bookstore@localhost:5432/bookstore?sslmode=disable"
+
+auth:
+  jwt_secret: "local-development-secret-change-me-32"
+  jwt_issuer: "book-store-auth"
+  jwt_ttl: "15m"
+
+redis:
+  address: "localhost:6379"
+  password: ""
+  database: 0
+
+rabbitmq:
+  url: "amqp://bookstore:bookstore@localhost:5672/"
+  exchange: "bookstore.events"
+  user_profile_queue: "user.profile.create"
+  account_registered_routing_key: "account.registered"
+  consumer_name: "bookstore-user-profile-worker-local"
+  consumer_concurrency: 10
+  prefetch: 20
+
+outbox:
+  outbox_poll_interval: "2s"
