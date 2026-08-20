@@ -31,7 +31,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: backend/go.mod
+          go-version: 1.26.x
           cache-dependency-path: backend/go.sum
 
       - name: Run backend checks
@@ -56,7 +56,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22.12.0
+          node-version: 22.22.1
           cache: pnpm
           cache-dependency-path: storefront/pnpm-lock.yaml
 
@@ -85,7 +85,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22.12.0
+          node-version: 22.22.1
           cache: pnpm
           cache-dependency-path: admin-portal/pnpm-lock.yaml
 
