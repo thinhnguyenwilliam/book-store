@@ -5,7 +5,7 @@
 	dev dev-foreground dev-build dev-logs dev-ps dev-down dev-restart \
 	air-tool infra-up infra-stop infra-ps infra-logs app-stop local-prepare \
 	local-gateway local-auth local-user local-book local-worker \
-	watch-gateway watch-auth watch-user watch-book watch-worker
+	watch-gateway watch-auth watch-user watch-book watch-worker hooks-install
 
 TOOLS_DIR := $(CURDIR)/.tools
 CACHE_DIR := $(CURDIR)/.cache
@@ -21,6 +21,7 @@ DEV_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.dev.yml
 LOCAL_CONFIG := config/local.yml
 INFRA_SERVICES := postgres pgadmin redis redisinsight rabbitmq
 APP_SERVICES := gateway auth-service user-service book-service worker-service
+REPO_ROOT := $(abspath $(CURDIR)/..)
 
 help: ## Hiển thị các lệnh có thể sử dụng
 	@awk 'BEGIN {FS = ":.*## "; printf "Book Store Backend\n\nUsage:\n  make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -62,6 +63,11 @@ proto: $(BUF) $(PROTOC_GEN_GO) $(PROTOC_GEN_GO_GRPC) ## Sinh Go code từ protob
 
 swagger: $(SWAG) ## Sinh Swagger docs từ HTTP annotations
 	GOCACHE=$(CACHE_DIR)/go-build $(SWAG) init -g main.go -d cmd/gateway,internal/gateway/http -o docs --parseInternal --outputTypes go,json,yaml
+
+hooks-install: ## Cài Git hooks được quản lý trong repository
+	git -C $(REPO_ROOT) config core.hooksPath .githooks
+	chmod +x $(REPO_ROOT)/.githooks/pre-commit
+	@echo "Git hooks installed from .githooks"
 
 tidy: ## Đồng bộ go.mod và go.sum
 	GOCACHE=$(CACHE_DIR)/go-build go mod tidy
