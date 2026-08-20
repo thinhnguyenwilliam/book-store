@@ -62,6 +62,9 @@ logging:
   format: "json"
   timezone: "Asia/Ho_Chi_Minh"
   also_stdout: true
+  max_size_mb: 100
+  max_age_days: 14
+  max_backups: 30
 `)
 	if err := os.WriteFile(path, content, 0o600); err != nil {
 		t.Fatalf("write test config: %v", err)

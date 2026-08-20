@@ -122,6 +122,12 @@ logs/workerservice-2026-08-20.log
 
 Một rotation worker chạy trong từng process và mở file mới đúng `00:00` theo `logging.timezone`. Writer cũng kiểm tra lại ngày ở mỗi lần ghi, nên vẫn đổi đúng file nếu máy sleep hoặc timer bị trễ. Khi shutdown, worker được dừng và file được đóng. Thư mục log đã nằm trong `.gitignore`.
 
+File đang ghi của mỗi ngày luôn giữ tên `service-YYYY-MM-DD.log`. Nếu file đạt `logging.max_size_mb`, writer lưu phần đầy thành `service-YYYY-MM-DD.001.log`, `.002.log`... rồi tiếp tục ghi vào file chính mới. Cleanup chỉ quản lý file có đúng prefix của service hiện tại:
+
+- `max_age_days`: xoá backup cũ hơn số ngày cấu hình; `0` để không giới hạn theo tuổi.
+- `max_backups`: chỉ giữ số backup mới nhất; `0` để không giới hạn số lượng.
+- File đang được ghi không bao giờ bị cleanup xoá.
+
 Khi chạy Docker, file nằm ở `/app/logs` và được giữ trong named volume `app-logs`; `also_stdout` vẫn cho phép xem bằng `make logs` và chuyển log sang Loki/ELK/OpenSearch ở production.
 
 Local dùng text với thời gian dễ đọc như `20/08/2026 16:10:30.189 +07:00`; cấu hình Docker dùng JSON với timestamp RFC3339 để hệ thống thu thập log dễ parse:
@@ -133,6 +139,9 @@ logging:
   format: "json"
   timezone: "Asia/Ho_Chi_Minh"
   also_stdout: true
+  max_size_mb: 100
+  max_age_days: 14
+  max_backups: 30
 ```
 
 Log HTTP chứa request ID, trace ID, method, URI, status, latency và response size. Password, JWT, refresh token và request body không được ghi log.

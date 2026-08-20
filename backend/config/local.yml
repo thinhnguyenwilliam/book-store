@@ -62,3 +62,6 @@ logging:
   format: "text"
   timezone: "Asia/Ho_Chi_Minh"
   also_stdout: true
+  max_size_mb: 100
+  max_age_days: 14
+  max_backups: 30

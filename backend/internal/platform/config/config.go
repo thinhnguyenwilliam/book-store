@@ -198,5 +198,14 @@ func (c Config) validate() error {
 	if format := strings.ToLower(c.Logging.Format); format != "json" && format != "text" {
 		return fmt.Errorf("logging.format must be json or text")
 	}
+	if c.Logging.MaxSizeMB < 1 {
+		return fmt.Errorf("logging.max_size_mb must be greater than zero")
+	}
+	if c.Logging.MaxAgeDays < 0 {
+		return fmt.Errorf("logging.max_age_days must not be negative")
+	}
+	if c.Logging.MaxBackups < 0 {
+		return fmt.Errorf("logging.max_backups must not be negative")
+	}
 	return nil
 }
