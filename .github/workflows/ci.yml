@@ -61,7 +61,18 @@ jobs:
           cache-dependency-path: storefront/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          set +e
+          install_output="$(pnpm install --frozen-lockfile 2>&1)"
+          install_status=$?
+          printf '%s\n' "$install_output"
+          if [ "$install_status" -ne 0 ]; then
+            annotation="${install_output//'%'/'%25'}"
+            annotation="${annotation//$'\r'/'%0D'}"
+            annotation="${annotation//$'\n'/'%0A'}"
+            printf '::error::%s\n' "$annotation"
+            exit "$install_status"
+          fi
 
       - name: Run storefront checks
         run: pnpm check
@@ -90,7 +101,18 @@ jobs:
           cache-dependency-path: admin-portal/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          set +e
+          install_output="$(pnpm install --frozen-lockfile 2>&1)"
+          install_status=$?
+          printf '%s\n' "$install_output"
+          if [ "$install_status" -ne 0 ]; then
+            annotation="${install_output//'%'/'%25'}"
+            annotation="${annotation//$'\r'/'%0D'}"
+            annotation="${annotation//$'\n'/'%0A'}"
+            printf '::error::%s\n' "$annotation"
+            exit "$install_status"
+          fi
 
       - name: Run admin portal checks
         run: pnpm check
