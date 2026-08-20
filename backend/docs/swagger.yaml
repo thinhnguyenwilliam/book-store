@@ -1,0 +1,495 @@
+basePath: /
+definitions:
+  http.AuthResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        example: 3600
+        type: integer
+      token_type:
+        example: Bearer
+        type: string
+      user_id:
+        format: uuid
+        type: string
+    type: object
+  http.BookListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/http.BookResponse'
+        type: array
+      meta:
+        $ref: '#/definitions/http.PaginationMeta'
+    type: object
+  http.BookRequest:
+    properties:
+      author:
+        example: Robert C. Martin
+        type: string
+      isbn:
+        example: "9780134494166"
+        type: string
+      price_cents:
+        example: 3999
+        type: integer
+      stock:
+        example: 10
+        type: integer
+      title:
+        example: Clean Architecture
+        type: string
+    type: object
+  http.BookResponse:
+    properties:
+      author:
+        example: Robert C. Martin
+        type: string
+      created_at:
+        format: date-time
+        type: string
+      id:
+        format: uuid
+        type: string
+      isbn:
+        example: "9780134494166"
+        type: string
+      price_cents:
+        example: 3999
+        type: integer
+      stock:
+        example: 10
+        type: integer
+      title:
+        example: Clean Architecture
+        type: string
+      updated_at:
+        format: date-time
+        type: string
+    type: object
+  http.ErrorDetail:
+    properties:
+      message:
+        example: invalid request
+        type: string
+    type: object
+  http.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/http.ErrorDetail'
+    type: object
+  http.HealthResponse:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
+  http.LoginRequest:
+    properties:
+      email:
+        example: reader@example.com
+        type: string
+      password:
+        example: password123
+        type: string
+    type: object
+  http.PaginationMeta:
+    properties:
+      page:
+        example: 1
+        type: integer
+      page_size:
+        example: 20
+        type: integer
+      total:
+        example: 1
+        type: integer
+    type: object
+  http.RegisterRequest:
+    properties:
+      display_name:
+        example: Reader
+        type: string
+      email:
+        example: reader@example.com
+        type: string
+      password:
+        example: password123
+        type: string
+    type: object
+  http.UpdateProfileRequest:
+    properties:
+      display_name:
+        example: Reader Nguyen
+        type: string
+    type: object
+  http.UserResponse:
+    properties:
+      created_at:
+        format: date-time
+        type: string
+      display_name:
+        example: Reader
+        type: string
+      email:
+        example: reader@example.com
+        type: string
+      id:
+        format: uuid
+        type: string
+      updated_at:
+        format: date-time
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Public HTTP API exposed by the Book Store API Gateway.
+  title: Book Store API
+  version: "1.0"
+paths:
+  /api/v1/admin/books:
+    post:
+      consumes:
+      - application/json
+      description: Creates a book. The bearer token must contain the admin role.
+      parameters:
+      - description: Book payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.BookRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/http.BookResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a book
+      tags:
+      - Admin Books
+  /api/v1/admin/books/{id}:
+    delete:
+      description: Deletes a book. The bearer token must contain the admin role.
+      parameters:
+      - description: Book ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a book
+      tags:
+      - Admin Books
+    put:
+      consumes:
+      - application/json
+      description: Updates a book. The bearer token must contain the admin role.
+      parameters:
+      - description: Book ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Book payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.BookRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.BookResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a book
+      tags:
+      - Admin Books
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates an account and returns a bearer access token.
+      parameters:
+      - description: Login payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Log in
+      tags:
+      - Auth
+  /api/v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates an auth account and schedules profile creation through
+        the transactional outbox.
+      parameters:
+      - description: Registration payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/http.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Register an account
+      tags:
+      - Auth
+  /api/v1/books:
+    get:
+      description: Returns a paginated list of books.
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        maximum: 100
+        minimum: 1
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.BookListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: List books
+      tags:
+      - Books
+  /api/v1/books/{id}:
+    get:
+      description: Returns one book by ID.
+      parameters:
+      - description: Book ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.BookResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Get a book
+      tags:
+      - Books
+  /api/v1/users/me:
+    get:
+      description: Returns the profile associated with the bearer token.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.UserResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current profile
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Updates the display name of the profile associated with the bearer
+        token.
+      parameters:
+      - description: Profile payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update current profile
+      tags:
+      - Users
+  /healthz:
+    get:
+      description: Returns the current health status of the HTTP gateway.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.HealthResponse'
+      summary: Check gateway health
+      tags:
+      - System
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: 'Enter the token using the format: Bearer {token}'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

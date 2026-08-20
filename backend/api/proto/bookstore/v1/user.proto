@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package bookstore.v1;
+
+option go_package = "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1;bookstorev1";
+
+service UserService {
+  rpc CreateProfile(CreateProfileRequest) returns (User);
+  rpc GetProfile(GetProfileRequest) returns (User);
+  rpc UpdateProfile(UpdateProfileRequest) returns (User);
+}
+
+message User {
+  string id = 1;
+  string email = 2;
+  string display_name = 3;
+  string created_at = 4;
+  string updated_at = 5;
+}
+
+message CreateProfileRequest {
+  string id = 1;
+  string email = 2;
+  string display_name = 3;
+}
+
+message GetProfileRequest {
+  string id = 1;
+}
+
+message UpdateProfileRequest {
+  string id = 1;
+  string display_name = 2;
+}
+

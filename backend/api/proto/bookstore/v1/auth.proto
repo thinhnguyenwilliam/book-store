@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package bookstore.v1;
+
+option go_package = "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1;bookstorev1";
+
+service AuthService {
+  rpc Register(RegisterRequest) returns (AuthResponse);
+  rpc Login(LoginRequest) returns (AuthResponse);
+  rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
+}
+
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+  string display_name = 3;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message AuthResponse {
+  string access_token = 1;
+  string user_id = 2;
+  int64 expires_in = 3;
+}
+
+message VerifyTokenRequest {
+  string access_token = 1;
+}
+
+message VerifyTokenResponse {
+  string user_id = 1;
+  string email = 2;
+  repeated string roles = 3;
+}

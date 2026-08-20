@@ -1,0 +1,156 @@
+name: bookstore
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  networks:
+    - backend
+
+x-app-defaults: &app-defaults
+  <<: *service-defaults
+  command: ["-config", "/app/config.yml"]
+  volumes:
+    - ./config/config.yml:/app/config.yml:ro
+
+services:
+  gateway:
+    <<: *app-defaults
+    build:
+      context: .
+      args:
+        SERVICE: gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      auth-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+      book-service:
+        condition: service_started
+
+  auth-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args:
+        SERVICE: auth-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  user-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args:
+        SERVICE: user-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  book-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args:
+        SERVICE: book-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args:
+        SERVICE: worker-service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+
+  postgres:
+    <<: *service-defaults
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: bookstore
+      POSTGRES_PASSWORD: bookstore
+      POSTGRES_DB: bookstore
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bookstore -d bookstore"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+
+  pgadmin:
+    <<: *service-defaults
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@bookstore.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+
+  redis:
+    <<: *service-defaults
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - redis-data:/data
+
+  rabbitmq:
+    <<: *service-defaults
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: bookstore
+      RABBITMQ_DEFAULT_PASS: bookstore
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+  redisinsight:
+    <<: *service-defaults
+    image: redis/redisinsight:latest
+    ports:
+      - "5540:5540"
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - redisinsight-data:/data
+
+networks:
+  backend:
+
+volumes:
+  postgres-data:
+  pgadmin-data:
+  redis-data:
+  redisinsight-data:
+  rabbitmq-data:
