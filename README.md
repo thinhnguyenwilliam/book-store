@@ -272,6 +272,17 @@ make down-volumes
 
 ## Lệnh dành cho phát triển
 
+Sau khi clone repository, cài Git hooks một lần:
+
+```bash
+cd backend
+make hooks-install
+```
+
+Pre-commit hook chỉ chạy khi staged changes ảnh hưởng đến Swagger. Hook tự cài đúng phiên bản `swag` vào `backend/.tools`, chạy `make -C backend swagger` và stage các file sinh ra trong `backend/docs/`. Nếu generate thất bại hoặc source API liên quan còn thay đổi chưa stage, commit sẽ bị hủy.
+
+Git hook có thể bị bỏ qua bằng `--no-verify`, vì vậy GitHub Actions cũng generate lại Swagger và yêu cầu `git diff --exit-code -- backend/docs` thành công trước khi cho merge.
+
 Chạy test, vet, build và kiểm tra Docker Compose:
 
 ```bash

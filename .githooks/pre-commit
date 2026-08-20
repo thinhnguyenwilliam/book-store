@@ -1,0 +1,32 @@
+#!/bin/sh
+
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+staged_files=$(git diff --cached --name-only --diff-filter=ACMRD)
+
+if ! printf '%s\n' "$staged_files" | grep -Eq '^backend/(cmd/gateway/.*\.go|internal/gateway/http/.*\.go|Makefile|go\.(mod|sum))$'; then
+  exit 0
+fi
+
+if ! git diff --quiet -- \
+  backend/cmd/gateway \
+  backend/internal/gateway/http \
+  backend/Makefile \
+  backend/go.mod \
+  backend/go.sum; then
+  echo "[pre-commit] Swagger-related files contain unstaged changes." >&2
+  echo "[pre-commit] Stage or stash them before committing so generated docs match the commit." >&2
+  exit 1
+fi
+
+echo "[pre-commit] Regenerating Swagger documentation..."
+if ! make -C backend swagger; then
+  echo "[pre-commit] Swagger generation failed; commit aborted." >&2
+  exit 1
+fi
+
+git add -A -- backend/docs
+echo "[pre-commit] Swagger documentation is up to date and staged."
