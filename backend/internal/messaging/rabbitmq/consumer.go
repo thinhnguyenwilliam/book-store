@@ -37,13 +37,13 @@ func (c *Consumer) Run(ctx context.Context, handler Handler) error {
 	if err != nil {
 		return fmt.Errorf("connect RabbitMQ consumer: %w", err)
 	}
-	defer connection.Close()
+	defer func() { _ = connection.Close() }()
 
 	channel, err := connection.Channel()
 	if err != nil {
 		return fmt.Errorf("open RabbitMQ consumer channel: %w", err)
 	}
-	defer channel.Close()
+	defer func() { _ = channel.Close() }()
 
 	if err := declareTopology(channel, c.config); err != nil {
 		return err
@@ -124,7 +124,7 @@ consumeLoop:
 	}
 
 	slog.Info("RabbitMQ consumer graceful shutdown started", "timeout", c.shutdownTimeout)
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), c.shutdownTimeout)
+	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), c.shutdownTimeout)
 	defer cancel()
 	if err := lifecycle.WaitGroup(shutdownCtx, &workers); err != nil {
 		return errors.Join(consumeErr, fmt.Errorf("wait for RabbitMQ workers shutdown: %w", err))

@@ -28,26 +28,30 @@ import (
 )
 
 func main() {
+	os.Exit(execute())
+}
+
+func execute() int {
 	configPath := flag.String("config", "config/config.yml", "path to YAML configuration")
 	flag.Parse()
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		slog.Error("load auth service config", "error", err)
-		os.Exit(1)
+		return 1
 	}
 	logManager, err := appLogger.New("authservice", cfg.Logging)
 	if err != nil {
 		slog.Error("initialize auth service logger", "error", err)
-		os.Exit(1)
+		return 1
 	}
 	slog.SetDefault(logManager.Logger())
 	defer func() { _ = logManager.Close() }()
 
 	if err := run(cfg); err != nil {
 		slog.Error("auth service stopped", "error", err)
-		_ = logManager.Close()
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 func run(cfg config.Config) error {
@@ -70,11 +74,17 @@ func run(cfg config.Config) error {
 
 	startupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db, err := database.Open(startupCtx, cfg.Postgres.URL)
+	db, err := database.Open(startupCtx, database.Config{
+		URL:                   cfg.Postgres.URL,
+		MaxOpenConnections:    cfg.Postgres.MaxOpenConnections,
+		MaxIdleConnections:    cfg.Postgres.MaxIdleConnections,
+		ConnectionMaxLifetime: cfg.Postgres.ConnectionMaxLifetime,
+		ConnectionMaxIdleTime: cfg.Postgres.ConnectionMaxIdleTime,
+	})
 	if err != nil {
 		return err
 	}
-	defer database.Close(db)
+	defer func() { _ = database.Close(db) }()
 
 	repository := postgres.NewRepository(db)
 	hasher := security.NewPasswordHasher()
@@ -93,7 +103,7 @@ func run(cfg config.Config) error {
 		},
 		ConsumerName: cfg.RabbitMQ.ConsumerName,
 	})
-	defer publisher.Close()
+	defer func() { _ = publisher.Close() }()
 	serverCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	dispatcherCtx, stopDispatcher := context.WithCancel(serverCtx)

@@ -65,6 +65,18 @@ gateway:
   refresh_cookie_name: "bookstore_refresh"
   refresh_cookie_secure: false # production bắt buộc true với HTTPS
   refresh_cookie_same_site: "lax"
+  request_timeout: "2s"        # deadline tổng để hủy DB/gRPC khi request bị treo
+  performance_target: "200ms"  # SLO quan sát, không phải hard timeout
+  read_header_timeout: "2s"
+  read_timeout: "5s"
+  write_timeout: "10s"
+  idle_timeout: "60s"
+
+postgres:
+  max_open_connections: 25
+  max_idle_connections: 10
+  connection_max_lifetime: "30m"
+  connection_max_idle_time: "5m"
 
 auth:
   access_token_ttl: "5m"
@@ -366,9 +378,11 @@ make generate
 make proto
 make swagger
 make fmt
+make lint
 make test
 make vet
 make build
+make perf
 make up
 make ps
 make logs
@@ -396,6 +410,28 @@ make watch-gateway
 
 `make proto` cài Buf và protobuf plugins vào `backend/.tools`, không cài `protoc` toàn hệ thống.
 `make swagger` sinh lại `docs/docs.go`, `docs/swagger.json` và `docs/swagger.yaml` từ annotations trên HTTP handler. Swagger sử dụng DTO do Gateway tự định nghĩa, không expose model generated từ protobuf.
+
+## Linter và mục tiêu API dưới 200 ms
+
+`make lint` dùng golangci-lint v2 đã pin version trong Makefile và tự cài binary vào `backend/.tools`; không phụ thuộc bản cài global. `make check` chạy lần lượt lint, unit test, `go vet`, build và kiểm tra Docker Compose.
+
+Gateway ghi `duration_ms`, `slo_target_ms` và `slo_met` cho **mọi HTTP request**. Request từ `200ms` trở lên được log ở mức `WARN`. Mục tiêu 200 ms là SLO p95; hard timeout tổng đang là 2 giây để request chậm có thời gian trả lỗi có kiểm soát và hủy tiếp các lệnh gRPC/PostgreSQL.
+
+Khi bốn service API local đang chạy, đo các read endpoint an toàn bằng 100 request, concurrency 10:
+
+```bash
+make perf
+```
+
+Đo thêm API cần đăng nhập và quyền admin:
+
+```bash
+PERF_ACCESS_TOKEN='YOUR_ACCESS_TOKEN' make perf
+```
+
+Có thể truyền thêm `PERF_BOOK_ID`, `PERF_REQUESTS`, `PERF_CONCURRENCY` và `PERF_P95_TARGET_MS`. Performance gate cố ý không gọi hàng loạt endpoint ghi/xóa để tránh làm biến đổi dữ liệu local. Kết quả trên laptop không bảo đảm production luôn dưới 200 ms; production vẫn cần theo dõi p95/p99 theo route dưới tải thật và đặt alert cho `slo_met=false`.
+
+Phần truy cập PostgreSQL bật prepared-statement cache, bỏ default transaction của GORM cho các câu lệnh đơn và cấu hình connection pool. Những workflow cần tính nguyên tử như tạo account + refresh session + outbox vẫn dùng transaction tường minh, nên không bị mất tính nhất quán.
 
 ## API hiện tại
 

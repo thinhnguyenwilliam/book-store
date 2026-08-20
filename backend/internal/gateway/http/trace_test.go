@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,7 +13,7 @@ import (
 func TestTraceIDPreservesValidIncomingID(t *testing.T) {
 	const traceID = "0123456789abcdef0123456789abcdef"
 	e := echo.New()
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	request.Header.Set(apptrace.Header, traceID)
 	recorder := httptest.NewRecorder()
 	c := e.NewContext(request, recorder)
@@ -33,7 +34,7 @@ func TestTraceIDPreservesValidIncomingID(t *testing.T) {
 
 func TestTraceIDReplacesInvalidIncomingID(t *testing.T) {
 	e := echo.New()
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	request.Header.Set(apptrace.Header, "not-valid")
 	recorder := httptest.NewRecorder()
 	c := e.NewContext(request, recorder)

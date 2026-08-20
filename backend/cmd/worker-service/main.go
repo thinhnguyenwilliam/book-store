@@ -20,26 +20,30 @@ import (
 )
 
 func main() {
+	os.Exit(execute())
+}
+
+func execute() int {
 	configPath := flag.String("config", "config/config.yml", "path to YAML configuration")
 	flag.Parse()
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		slog.Error("load worker service config", "error", err)
-		os.Exit(1)
+		return 1
 	}
 	logManager, err := appLogger.New("workerservice", cfg.Logging)
 	if err != nil {
 		slog.Error("initialize worker service logger", "error", err)
-		os.Exit(1)
+		return 1
 	}
 	slog.SetDefault(logManager.Logger())
 	defer func() { _ = logManager.Close() }()
 
 	if err := run(cfg); err != nil {
 		slog.Error("worker service stopped", "error", err)
-		_ = logManager.Close()
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 func run(cfg config.Config) error {
@@ -57,7 +61,7 @@ func run(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	defer userConnection.Close()
+	defer func() { _ = userConnection.Close() }()
 
 	consumer := rabbitmqadapter.NewConsumer(rabbitmqadapter.Config{
 		URL:      cfg.RabbitMQ.URL,

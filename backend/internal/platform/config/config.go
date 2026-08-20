@@ -27,6 +27,12 @@ type GatewayConfig struct {
 	RefreshCookieName     string   `mapstructure:"refresh_cookie_name"`
 	RefreshCookieSecure   bool     `mapstructure:"refresh_cookie_secure"`
 	RefreshCookieSameSite string   `mapstructure:"refresh_cookie_same_site"`
+	RequestTimeout        string   `mapstructure:"request_timeout"`
+	PerformanceTarget     string   `mapstructure:"performance_target"`
+	ReadHeaderTimeout     string   `mapstructure:"read_header_timeout"`
+	ReadTimeout           string   `mapstructure:"read_timeout"`
+	WriteTimeout          string   `mapstructure:"write_timeout"`
+	IdleTimeout           string   `mapstructure:"idle_timeout"`
 }
 
 type GRPCConfig struct {
@@ -39,7 +45,11 @@ type GRPCConfig struct {
 }
 
 type PostgresConfig struct {
-	URL string `mapstructure:"url"`
+	URL                   string `mapstructure:"url"`
+	MaxOpenConnections    int    `mapstructure:"max_open_connections"`
+	MaxIdleConnections    int    `mapstructure:"max_idle_connections"`
+	ConnectionMaxLifetime string `mapstructure:"connection_max_lifetime"`
+	ConnectionMaxIdleTime string `mapstructure:"connection_max_idle_time"`
 }
 
 type AuthConfig struct {
@@ -98,6 +108,12 @@ func (c Config) validate() error {
 		"gateway.http_address":                    c.Gateway.HTTPAddress,
 		"gateway.refresh_cookie_name":             c.Gateway.RefreshCookieName,
 		"gateway.refresh_cookie_same_site":        c.Gateway.RefreshCookieSameSite,
+		"gateway.request_timeout":                 c.Gateway.RequestTimeout,
+		"gateway.performance_target":              c.Gateway.PerformanceTarget,
+		"gateway.read_header_timeout":             c.Gateway.ReadHeaderTimeout,
+		"gateway.read_timeout":                    c.Gateway.ReadTimeout,
+		"gateway.write_timeout":                   c.Gateway.WriteTimeout,
+		"gateway.idle_timeout":                    c.Gateway.IdleTimeout,
 		"grpc.auth_address":                       c.GRPC.AuthAddress,
 		"grpc.user_address":                       c.GRPC.UserAddress,
 		"grpc.book_address":                       c.GRPC.BookAddress,
@@ -105,6 +121,8 @@ func (c Config) validate() error {
 		"grpc.user_listen_address":                c.GRPC.UserListenAddress,
 		"grpc.book_listen_address":                c.GRPC.BookListenAddress,
 		"postgres.url":                            c.Postgres.URL,
+		"postgres.connection_max_lifetime":        c.Postgres.ConnectionMaxLifetime,
+		"postgres.connection_max_idle_time":       c.Postgres.ConnectionMaxIdleTime,
 		"auth.jwt_secret":                         c.Auth.JWTSecret,
 		"auth.jwt_issuer":                         c.Auth.JWTIssuer,
 		"auth.access_token_ttl":                   c.Auth.AccessTokenTTL,
@@ -142,13 +160,27 @@ func (c Config) validate() error {
 		return fmt.Errorf("gateway.refresh_cookie_secure must be true when SameSite is none")
 	}
 	for key, value := range map[string]string{
-		"auth.access_token_ttl":  c.Auth.AccessTokenTTL,
-		"auth.refresh_token_ttl": c.Auth.RefreshTokenTTL,
+		"gateway.request_timeout":           c.Gateway.RequestTimeout,
+		"gateway.performance_target":        c.Gateway.PerformanceTarget,
+		"gateway.read_header_timeout":       c.Gateway.ReadHeaderTimeout,
+		"gateway.read_timeout":              c.Gateway.ReadTimeout,
+		"gateway.write_timeout":             c.Gateway.WriteTimeout,
+		"gateway.idle_timeout":              c.Gateway.IdleTimeout,
+		"postgres.connection_max_lifetime":  c.Postgres.ConnectionMaxLifetime,
+		"postgres.connection_max_idle_time": c.Postgres.ConnectionMaxIdleTime,
+		"auth.access_token_ttl":             c.Auth.AccessTokenTTL,
+		"auth.refresh_token_ttl":            c.Auth.RefreshTokenTTL,
 	} {
 		duration, err := time.ParseDuration(value)
 		if err != nil || duration <= 0 {
 			return fmt.Errorf("%s must be a positive duration", key)
 		}
+	}
+	if c.Postgres.MaxOpenConnections < 1 {
+		return fmt.Errorf("postgres.max_open_connections must be greater than zero")
+	}
+	if c.Postgres.MaxIdleConnections < 0 || c.Postgres.MaxIdleConnections > c.Postgres.MaxOpenConnections {
+		return fmt.Errorf("postgres.max_idle_connections must be between zero and max_open_connections")
 	}
 	if c.RabbitMQ.ConsumerConcurrency < 1 {
 		return fmt.Errorf("rabbitmq.consumer_concurrency must be greater than zero")

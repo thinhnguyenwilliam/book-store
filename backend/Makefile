@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help tools generate proto swagger tidy fmt test vet build check migrate \
+.PHONY: help tools generate proto swagger tidy fmt test vet lint lint-tool build check perf migrate \
 	docker-config docker-build up run up-foreground down down-volumes restart ps logs \
 	dev dev-foreground dev-build dev-logs dev-ps dev-down dev-restart \
 	air-tool infra-up infra-stop infra-ps infra-logs app-stop local-prepare \
@@ -15,6 +15,8 @@ PROTOC_GEN_GO_GRPC := $(TOOLS_DIR)/protoc-gen-go-grpc
 SWAG := $(TOOLS_DIR)/swag
 AIR := $(TOOLS_DIR)/air
 AIR_VERSION := v1.66.1
+GOLANGCI_LINT := $(TOOLS_DIR)/golangci-lint
+GOLANGCI_LINT_VERSION := v2.12.2
 DEV_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.dev.yml
 LOCAL_CONFIG := config/local.yml
 INFRA_SERVICES := postgres pgadmin redis redisinsight rabbitmq
@@ -23,7 +25,7 @@ APP_SERVICES := gateway auth-service user-service book-service worker-service
 help: ## Hiển thị các lệnh có thể sử dụng
 	@awk 'BEGIN {FS = ":.*## "; printf "Book Store Backend\n\nUsage:\n  make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-tools: $(BUF) $(PROTOC_GEN_GO) $(PROTOC_GEN_GO_GRPC) $(SWAG) ## Cài tool vào backend/.tools
+tools: $(BUF) $(PROTOC_GEN_GO) $(PROTOC_GEN_GO_GRPC) $(SWAG) $(GOLANGCI_LINT) ## Cài tool vào backend/.tools
 
 $(BUF):
 	@mkdir -p $(TOOLS_DIR) $(CACHE_DIR)/go-build
@@ -40,6 +42,12 @@ $(PROTOC_GEN_GO_GRPC):
 $(SWAG):
 	@mkdir -p $(TOOLS_DIR) $(CACHE_DIR)/go-build
 	GOBIN=$(TOOLS_DIR) GOCACHE=$(CACHE_DIR)/go-build go install github.com/swaggo/swag/cmd/swag@v1.16.6
+
+lint-tool: $(GOLANGCI_LINT) ## Cài golangci-lint bản cố định vào backend/.tools
+
+$(GOLANGCI_LINT):
+	@mkdir -p $(TOOLS_DIR) $(CACHE_DIR)/go-build
+	GOBIN=$(TOOLS_DIR) GOCACHE=$(CACHE_DIR)/go-build go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 air-tool: $(AIR) ## Cài Air vào backend/.tools để chạy hot reload local
 
@@ -67,10 +75,17 @@ test: ## Chạy unit tests
 vet: ## Chạy static analysis
 	GOCACHE=$(CACHE_DIR)/go-build go vet ./...
 
+lint: $(GOLANGCI_LINT) ## Chạy golangci-lint với cấu hình production
+	@mkdir -p $(CACHE_DIR)/golangci-lint
+	GOCACHE=$(CACHE_DIR)/go-build GOLANGCI_LINT_CACHE=$(CACHE_DIR)/golangci-lint $(GOLANGCI_LINT) run ./...
+
 build: ## Build tất cả Go services
 	GOCACHE=$(CACHE_DIR)/go-build go build -buildvcs=false ./cmd/...
 
-check: test vet build docker-config ## Chạy toàn bộ kiểm tra trước khi commit
+check: lint test vet build docker-config ## Chạy toàn bộ kiểm tra trước khi commit
+
+perf: ## Kiểm tra p95 của các read API local phải dưới 200ms
+	./scripts/perf-check.sh
 
 docker-config: ## Kiểm tra cú pháp Docker Compose
 	docker compose config --quiet

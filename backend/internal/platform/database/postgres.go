@@ -10,10 +10,29 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func Open(ctx context.Context, databaseURL string) (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{
-		TranslateError: true,
-		Logger:         logger.Default.LogMode(logger.Warn),
+type Config struct {
+	URL                   string
+	MaxOpenConnections    int
+	MaxIdleConnections    int
+	ConnectionMaxLifetime string
+	ConnectionMaxIdleTime string
+}
+
+func Open(ctx context.Context, config Config) (*gorm.DB, error) {
+	connectionMaxLifetime, err := time.ParseDuration(config.ConnectionMaxLifetime)
+	if err != nil {
+		return nil, fmt.Errorf("parse postgres connection max lifetime: %w", err)
+	}
+	connectionMaxIdleTime, err := time.ParseDuration(config.ConnectionMaxIdleTime)
+	if err != nil {
+		return nil, fmt.Errorf("parse postgres connection max idle time: %w", err)
+	}
+
+	db, err := gorm.Open(postgres.Open(config.URL), &gorm.Config{
+		TranslateError:         true,
+		PrepareStmt:            true,
+		SkipDefaultTransaction: true,
+		Logger:                 logger.Default.LogMode(logger.Warn),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("open postgres with GORM: %w", err)
@@ -23,9 +42,10 @@ func Open(ctx context.Context, databaseURL string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get postgres sql.DB: %w", err)
 	}
-	sqlDB.SetMaxOpenConns(25)
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetConnMaxLifetime(30 * time.Minute)
+	sqlDB.SetMaxOpenConns(config.MaxOpenConnections)
+	sqlDB.SetMaxIdleConns(config.MaxIdleConnections)
+	sqlDB.SetConnMaxLifetime(connectionMaxLifetime)
+	sqlDB.SetConnMaxIdleTime(connectionMaxIdleTime)
 
 	if err := sqlDB.PingContext(ctx); err != nil {
 		_ = sqlDB.Close()

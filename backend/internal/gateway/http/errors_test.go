@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,7 +13,7 @@ import (
 
 func TestContextWithTimeoutPropagatesRequestIDToGRPC(t *testing.T) {
 	e := echo.New()
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/books", nil)
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/books", nil)
 	recorder := httptest.NewRecorder()
 	c := e.NewContext(request, recorder)
 	c.Response().Header().Set(echo.HeaderXRequestID, "request-123")

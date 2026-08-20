@@ -13,7 +13,8 @@ import (
 )
 
 func Run(ctx context.Context, addr string, shutdownTimeout time.Duration, register func(*grpc.Server)) error {
-	listener, err := net.Listen("tcp", addr)
+	var listenConfig net.ListenConfig
+	listener, err := listenConfig.Listen(ctx, "tcp", addr)
 	if err != nil {
 		return err
 	}

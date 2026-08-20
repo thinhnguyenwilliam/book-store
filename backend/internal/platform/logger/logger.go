@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 	"time"
-	_ "time/tzdata"
+	_ "time/tzdata" // Include the IANA timezone database in every service binary.
 )
 
 // Config controls the structured application logger shared by every service.

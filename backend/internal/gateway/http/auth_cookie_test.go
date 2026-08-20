@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,7 +11,7 @@ import (
 
 func TestRefreshCookieUsesRestrictedSecurityAttributes(t *testing.T) {
 	e := echo.New()
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/auth/login", nil)
 	recorder := httptest.NewRecorder()
 	ctx := e.NewContext(request, recorder)
 	handler := &Handler{refreshCookie: RefreshCookieConfig{
@@ -39,19 +40,19 @@ func TestTrustedOriginAllowsConfiguredOriginAndNonBrowserClient(t *testing.T) {
 	}}
 	e := echo.New()
 
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh", nil)
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/auth/refresh", nil)
 	request.Header.Set(echo.HeaderOrigin, "http://localhost:5173")
 	if !handler.isTrustedOrigin(e.NewContext(request, httptest.NewRecorder())) {
 		t.Fatal("configured storefront origin should be trusted")
 	}
 
-	request = httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh", nil)
+	request = httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/auth/refresh", nil)
 	request.Header.Set(echo.HeaderOrigin, "https://evil.example")
 	if handler.isTrustedOrigin(e.NewContext(request, httptest.NewRecorder())) {
 		t.Fatal("unconfigured browser origin should be rejected")
 	}
 
-	request = httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh", nil)
+	request = httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/auth/refresh", nil)
 	if !handler.isTrustedOrigin(e.NewContext(request, httptest.NewRecorder())) {
 		t.Fatal("non-browser client without Origin should be allowed")
 	}

@@ -35,30 +35,58 @@ import (
 // @name Authorization
 // @description Enter the token using the format: Bearer {token}
 func main() {
+	os.Exit(execute())
+}
+
+func execute() int {
 	configPath := flag.String("config", "config/config.yml", "path to YAML configuration")
 	flag.Parse()
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		slog.Error("load gateway config", "error", err)
-		os.Exit(1)
+		return 1
 	}
 	logManager, err := appLogger.New("gateway", cfg.Logging)
 	if err != nil {
 		slog.Error("initialize gateway logger", "error", err)
-		os.Exit(1)
+		return 1
 	}
 	slog.SetDefault(logManager.Logger())
 	defer func() { _ = logManager.Close() }()
 
 	if err := run(cfg); err != nil {
 		slog.Error("gateway stopped", "error", err)
-		_ = logManager.Close()
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 func run(cfg config.Config) error {
 	shutdownTimeout, err := time.ParseDuration(cfg.Shutdown.Timeout)
+	if err != nil {
+		return err
+	}
+	requestTimeout, err := time.ParseDuration(cfg.Gateway.RequestTimeout)
+	if err != nil {
+		return err
+	}
+	performanceTarget, err := time.ParseDuration(cfg.Gateway.PerformanceTarget)
+	if err != nil {
+		return err
+	}
+	readHeaderTimeout, err := time.ParseDuration(cfg.Gateway.ReadHeaderTimeout)
+	if err != nil {
+		return err
+	}
+	readTimeout, err := time.ParseDuration(cfg.Gateway.ReadTimeout)
+	if err != nil {
+		return err
+	}
+	writeTimeout, err := time.ParseDuration(cfg.Gateway.WriteTimeout)
+	if err != nil {
+		return err
+	}
+	idleTimeout, err := time.ParseDuration(cfg.Gateway.IdleTimeout)
 	if err != nil {
 		return err
 	}
@@ -72,7 +100,7 @@ func run(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	defer authConnection.Close()
+	defer func() { _ = authConnection.Close() }()
 
 	userConnection, err := grpc.NewClient(
 		cfg.GRPC.UserAddress,
@@ -83,7 +111,7 @@ func run(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	defer userConnection.Close()
+	defer func() { _ = userConnection.Close() }()
 
 	bookConnection, err := grpc.NewClient(
 		cfg.GRPC.BookAddress,
@@ -94,7 +122,7 @@ func run(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	defer bookConnection.Close()
+	defer func() { _ = bookConnection.Close() }()
 
 	handler := gatewayhttp.NewHandler(
 		bookstorev1.NewAuthServiceClient(authConnection),
@@ -110,8 +138,13 @@ func run(cfg config.Config) error {
 
 	e := echo.New()
 	e.HideBanner = true
+	e.Server.ReadHeaderTimeout = readHeaderTimeout
+	e.Server.ReadTimeout = readTimeout
+	e.Server.WriteTimeout = writeTimeout
+	e.Server.IdleTimeout = idleTimeout
 	e.Use(middleware.RequestID())
 	e.Use(gatewayhttp.TraceID)
+	e.Use(gatewayhttp.RequestDeadline(requestTimeout))
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogRequestID:    true,
@@ -123,6 +156,7 @@ func run(cfg config.Config) error {
 		LogResponseSize: true,
 		LogError:        true,
 		LogValuesFunc: func(c echo.Context, values middleware.RequestLoggerValues) error {
+			sloMet := values.Latency < performanceTarget
 			attributes := []any{
 				"request_id", values.RequestID,
 				"remote_ip", values.RemoteIP,
@@ -131,13 +165,15 @@ func run(cfg config.Config) error {
 				"status", values.Status,
 				"duration_ms", float64(values.Latency.Microseconds()) / 1000,
 				"response_bytes", values.ResponseSize,
+				"slo_target_ms", float64(performanceTarget.Microseconds()) / 1000,
+				"slo_met", sloMet,
 			}
-			if values.Error != nil {
+			if values.Error != nil || !sloMet {
 				attributes = append(attributes, "error", values.Error)
 				slog.WarnContext(c.Request().Context(), "HTTP request completed", attributes...)
-				return nil
+			} else {
+				slog.InfoContext(c.Request().Context(), "HTTP request completed", attributes...)
 			}
-			slog.InfoContext(c.Request().Context(), "HTTP request completed", attributes...)
 			return nil
 		},
 	}))
@@ -167,7 +203,7 @@ func run(cfg config.Config) error {
 	select {
 	case err := <-errCh:
 		if errors.Is(err, http.ErrServerClosed) {
-			return nil
+			return nil //nolint:nilerr // Echo returns this sentinel after a normal shutdown.
 		}
 		return err
 	case <-ctx.Done():

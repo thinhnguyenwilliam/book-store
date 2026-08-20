@@ -7,6 +7,12 @@ gateway:
   refresh_cookie_name: "bookstore_refresh"
   refresh_cookie_secure: false
   refresh_cookie_same_site: "lax"
+  request_timeout: "2s"
+  performance_target: "200ms"
+  read_header_timeout: "2s"
+  read_timeout: "5s"
+  write_timeout: "10s"
+  idle_timeout: "60s"
 
 grpc:
   auth_address: "auth-service:50051"
@@ -18,6 +24,10 @@ grpc:
 
 postgres:
   url: "postgres://bookstore:bookstore@postgres:5432/bookstore?sslmode=disable"
+  max_open_connections: 25
+  max_idle_connections: 10
+  connection_max_lifetime: "30m"
+  connection_max_idle_time: "5m"
 
 auth:
   jwt_secret: "local-development-secret-change-me-32"
