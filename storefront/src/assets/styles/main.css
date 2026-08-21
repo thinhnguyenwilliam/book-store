@@ -175,6 +175,43 @@ svg {
   color: var(--color-brand);
   font-weight: 800;
 }
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0 16px;
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+.auth-divider::before,
+.auth-divider::after {
+  height: 1px;
+  flex: 1;
+  background: var(--color-line);
+  content: '';
+}
+.google-auth {
+  display: grid;
+  min-height: 44px;
+  place-items: center;
+}
+.google-auth__button {
+  width: 100%;
+  min-height: 44px;
+  transition: opacity 160ms ease;
+}
+.google-auth__button--disabled {
+  pointer-events: none;
+  opacity: 0.55;
+}
+.google-auth__unavailable {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  text-align: center;
+}
 .form-error,
 .inline-error {
   padding: 12px 14px;

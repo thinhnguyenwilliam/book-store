@@ -3,6 +3,7 @@
 @password = password123
 @bookPageLimit = 2
 @registerTraceId = 11111111111111111111111111111111
+@googleCredential = paste-google-id-token-from-browser-callback-here
 
 ### 1. Gateway health check
 GET {{baseUrl}}/healthz
@@ -39,6 +40,18 @@ Accept: application/json
 # @name refresh
 POST {{baseUrl}}/api/v1/auth/refresh
 Accept: application/json
+
+### 3.1a. Login with Google Identity Services
+# credential la Google ID token JWT tra ve trong callback cua GIS, khong phai access token.
+# Storefront dung create_account=true; admin portal dung false.
+POST {{baseUrl}}/api/v1/auth/google
+Content-Type: application/json
+Accept: application/json
+
+{
+  "credential": "{{googleCredential}}",
+  "create_account": true
+}
 
 ### 3.2. Logout and revoke current refresh session
 # Chay request nay sau cung vi no xoa cookie refresh.

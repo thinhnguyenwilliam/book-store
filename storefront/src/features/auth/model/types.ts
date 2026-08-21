@@ -14,6 +14,11 @@ export interface RegisterPayload extends LoginPayload {
   display_name: string
 }
 
+export interface GoogleLoginPayload {
+  credential: string
+  create_account: boolean
+}
+
 export interface UserProfile {
   id: string
   email: string

@@ -25,6 +25,7 @@ type Service struct {
 	hasher        PasswordHasher
 	accessTokens  TokenManager
 	refreshTokens RefreshTokenManager
+	identities    IdentityVerifier
 	refreshTTL    time.Duration
 	now           func() time.Time
 }
@@ -34,6 +35,7 @@ func NewService(
 	hasher PasswordHasher,
 	accessTokens TokenManager,
 	refreshTokens RefreshTokenManager,
+	identities IdentityVerifier,
 	refreshTTL time.Duration,
 ) *Service {
 	return &Service{
@@ -41,6 +43,7 @@ func NewService(
 		hasher:        hasher,
 		accessTokens:  accessTokens,
 		refreshTokens: refreshTokens,
+		identities:    identities,
 		refreshTTL:    refreshTTL,
 		now:           time.Now,
 	}
@@ -71,7 +74,95 @@ func (s *Service) Register(ctx context.Context, email, password, displayName str
 	if err != nil {
 		return AuthResult{}, err
 	}
-	if err := s.repository.Create(ctx, account, ProfileRegistration{DisplayName: displayName}, session); err != nil {
+	if err := s.repository.Create(ctx, account, ProfileRegistration{DisplayName: displayName}, session, nil); err != nil {
+		return AuthResult{}, err
+	}
+	return result, nil
+}
+
+func (s *Service) LoginWithGoogle(ctx context.Context, credential string, createAccount bool) (AuthResult, error) {
+	if s.identities == nil {
+		return AuthResult{}, domain.ErrIdentityUnavailable
+	}
+	verified, err := s.identities.Verify(ctx, strings.TrimSpace(credential))
+	if err != nil {
+		if errors.Is(err, domain.ErrIdentityUnavailable) {
+			return AuthResult{}, err
+		}
+		return AuthResult{}, domain.ErrInvalidIdentity
+	}
+	verified.Email = domain.NormalizeEmail(verified.Email)
+	verified.DisplayName = strings.TrimSpace(verified.DisplayName)
+	if verified.Provider != domain.IdentityProviderGoogle ||
+		strings.TrimSpace(verified.Subject) == "" ||
+		!verified.EmailVerified ||
+		!validEmail(verified.Email) {
+		return AuthResult{}, domain.ErrInvalidIdentity
+	}
+
+	account, err := s.repository.FindByIdentity(ctx, verified.Provider, verified.Subject)
+	if err == nil {
+		return s.createSession(ctx, account)
+	}
+	if !errors.Is(err, domain.ErrNotFound) {
+		return AuthResult{}, err
+	}
+
+	account, err = s.repository.FindByEmail(ctx, verified.Email)
+	if err == nil {
+		if !verified.EmailAuthoritative {
+			return AuthResult{}, domain.ErrIdentityConflict
+		}
+		now := s.now().UTC()
+		result, session, issueErr := s.issueSession(account, now)
+		if issueErr != nil {
+			return AuthResult{}, issueErr
+		}
+		identity := &domain.Identity{
+			Provider:  verified.Provider,
+			Subject:   verified.Subject,
+			AccountID: account.ID,
+			Email:     verified.Email,
+			CreatedAt: now,
+		}
+		if err := s.repository.LinkIdentity(ctx, identity, session); err != nil {
+			return AuthResult{}, err
+		}
+		return result, nil
+	}
+	if !errors.Is(err, domain.ErrInvalidCredentials) && !errors.Is(err, domain.ErrNotFound) {
+		return AuthResult{}, err
+	}
+	if !createAccount {
+		return AuthResult{}, domain.ErrInvalidCredentials
+	}
+
+	now := s.now().UTC()
+	account = &domain.Account{
+		ID:        uuid.NewString(),
+		Email:     verified.Email,
+		Roles:     []string{"customer"},
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	result, session, err := s.issueSession(account, now)
+	if err != nil {
+		return AuthResult{}, err
+	}
+	identity := &domain.Identity{
+		Provider:  verified.Provider,
+		Subject:   verified.Subject,
+		AccountID: account.ID,
+		Email:     verified.Email,
+		CreatedAt: now,
+	}
+	if err := s.repository.Create(
+		ctx,
+		account,
+		ProfileRegistration{DisplayName: googleDisplayName(verified.DisplayName, verified.Email)},
+		session,
+		identity,
+	); err != nil {
 		return AuthResult{}, err
 	}
 	return result, nil
@@ -90,6 +181,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (AuthResult
 		return AuthResult{}, domain.ErrInvalidCredentials
 	}
 
+	return s.createSession(ctx, account)
+}
+
+func (s *Service) createSession(ctx context.Context, account *domain.Account) (AuthResult, error) {
 	now := s.now().UTC()
 	result, session, err := s.issueSession(account, now)
 	if err != nil {
@@ -226,4 +321,20 @@ func secondsUntil(now, expiresAt time.Time) int64 {
 func validEmail(email string) bool {
 	address, err := mail.ParseAddress(email)
 	return err == nil && address.Address == email
+}
+
+func googleDisplayName(displayName, email string) string {
+	displayName = strings.TrimSpace(displayName)
+	runes := []rune(displayName)
+	if len(runes) > 100 {
+		displayName = string(runes[:100])
+	}
+	if displayName != "" {
+		return displayName
+	}
+	localPart, _, ok := strings.Cut(email, "@")
+	if ok && localPart != "" {
+		return localPart
+	}
+	return "Google user"
 }

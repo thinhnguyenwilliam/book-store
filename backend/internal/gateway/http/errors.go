@@ -51,6 +51,8 @@ func errorResponse(c echo.Context, err error) error {
 			statusCode = http.StatusNotFound
 		case codes.AlreadyExists:
 			statusCode = http.StatusConflict
+		case codes.FailedPrecondition:
+			statusCode = http.StatusPreconditionFailed
 		case codes.DeadlineExceeded:
 			statusCode = http.StatusGatewayTimeout
 		case codes.Unavailable:

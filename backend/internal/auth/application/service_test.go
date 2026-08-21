@@ -10,11 +10,13 @@ import (
 )
 
 type accountRepositoryStub struct {
-	created        *domain.Account
-	createdSession *domain.RefreshSession
-	account        *domain.Account
-	revokedHash    string
-	deletedID      string
+	created         *domain.Account
+	createdSession  *domain.RefreshSession
+	createdIdentity *domain.Identity
+	account         *domain.Account
+	identityAccount *domain.Account
+	revokedHash     string
+	deletedID       string
 }
 
 func (r *accountRepositoryStub) Create(
@@ -22,8 +24,27 @@ func (r *accountRepositoryStub) Create(
 	account *domain.Account,
 	_ ProfileRegistration,
 	session *domain.RefreshSession,
+	identity *domain.Identity,
 ) error {
 	r.created = account
+	r.createdSession = session
+	r.createdIdentity = identity
+	return nil
+}
+
+func (r *accountRepositoryStub) FindByIdentity(_ context.Context, _, _ string) (*domain.Account, error) {
+	if r.identityAccount != nil {
+		return r.identityAccount, nil
+	}
+	return nil, domain.ErrNotFound
+}
+
+func (r *accountRepositoryStub) LinkIdentity(
+	_ context.Context,
+	identity *domain.Identity,
+	session *domain.RefreshSession,
+) error {
+	r.createdIdentity = identity
 	r.createdSession = session
 	return nil
 }
@@ -95,12 +116,33 @@ func (refreshTokenManagerStub) Generate() (string, string, error) {
 
 func (refreshTokenManagerStub) Hash(rawToken string) string { return "hash:" + rawToken }
 
+type identityVerifierStub struct {
+	identity VerifiedIdentity
+	err      error
+}
+
+func (v identityVerifierStub) Verify(context.Context, string) (VerifiedIdentity, error) {
+	return v.identity, v.err
+}
+
 func newTestService(repository AccountRepository) *Service {
 	return NewService(
 		repository,
 		passwordHasherStub{},
 		tokenManagerStub{},
 		refreshTokenManagerStub{},
+		identityVerifierStub{},
+		7*24*time.Hour,
+	)
+}
+
+func newGoogleTestService(repository AccountRepository, identity VerifiedIdentity) *Service {
+	return NewService(
+		repository,
+		passwordHasherStub{},
+		tokenManagerStub{},
+		refreshTokenManagerStub{},
+		identityVerifierStub{identity: identity},
 		7*24*time.Hour,
 	)
 }
@@ -150,6 +192,76 @@ func TestRegisterRejectsDisplayNameOverLimit(t *testing.T) {
 	)
 	if !errors.Is(err, domain.ErrInvalidInput) {
 		t.Fatalf("Register() error = %v, want %v", err, domain.ErrInvalidInput)
+	}
+}
+
+func TestGoogleLoginUsesExistingIdentity(t *testing.T) {
+	account := &domain.Account{ID: "user-id", Email: "reader@gmail.com", Roles: []string{"customer"}}
+	repository := &accountRepositoryStub{identityAccount: account}
+	service := newGoogleTestService(repository, VerifiedIdentity{
+		Provider: domain.IdentityProviderGoogle, Subject: "google-sub", Email: account.Email, EmailVerified: true,
+	})
+
+	result, err := service.LoginWithGoogle(context.Background(), "google-credential", false)
+	if err != nil {
+		t.Fatalf("LoginWithGoogle() error = %v", err)
+	}
+	if result.UserID != account.ID || repository.createdSession == nil {
+		t.Fatalf("existing Google identity did not create a session: %+v", result)
+	}
+}
+
+func TestGoogleLoginCreatesCustomerWithIdentity(t *testing.T) {
+	repository := &accountRepositoryStub{}
+	service := newGoogleTestService(repository, VerifiedIdentity{
+		Provider:           domain.IdentityProviderGoogle,
+		Subject:            "google-sub",
+		Email:              "reader@gmail.com",
+		DisplayName:        "Reader",
+		EmailVerified:      true,
+		EmailAuthoritative: true,
+	})
+
+	result, err := service.LoginWithGoogle(context.Background(), "google-credential", true)
+	if err != nil {
+		t.Fatalf("LoginWithGoogle() error = %v", err)
+	}
+	if repository.created == nil || repository.created.PasswordHash != "" {
+		t.Fatalf("Google account was not created without a password: %+v", repository.created)
+	}
+	if repository.createdIdentity == nil || repository.createdIdentity.Subject != "google-sub" {
+		t.Fatalf("Google identity was not stored: %+v", repository.createdIdentity)
+	}
+	if result.UserID != repository.created.ID {
+		t.Fatalf("result user ID = %q, want %q", result.UserID, repository.created.ID)
+	}
+}
+
+func TestGoogleLoginDoesNotCreateAccountForAdminFlow(t *testing.T) {
+	repository := &accountRepositoryStub{}
+	service := newGoogleTestService(repository, VerifiedIdentity{
+		Provider: domain.IdentityProviderGoogle, Subject: "google-sub", Email: "reader@gmail.com", EmailVerified: true,
+	})
+
+	_, err := service.LoginWithGoogle(context.Background(), "google-credential", false)
+	if !errors.Is(err, domain.ErrInvalidCredentials) {
+		t.Fatalf("LoginWithGoogle() error = %v, want %v", err, domain.ErrInvalidCredentials)
+	}
+	if repository.created != nil {
+		t.Fatal("admin Google login must not create a customer account")
+	}
+}
+
+func TestGoogleLoginRejectsUnsafeEmailLink(t *testing.T) {
+	account := &domain.Account{ID: "user-id", Email: "reader@example.com", Roles: []string{"customer"}}
+	repository := &accountRepositoryStub{account: account}
+	service := newGoogleTestService(repository, VerifiedIdentity{
+		Provider: domain.IdentityProviderGoogle, Subject: "google-sub", Email: account.Email, EmailVerified: true,
+	})
+
+	_, err := service.LoginWithGoogle(context.Background(), "google-credential", true)
+	if !errors.Is(err, domain.ErrIdentityConflict) {
+		t.Fatalf("LoginWithGoogle() error = %v, want %v", err, domain.ErrIdentityConflict)
 	}
 }
 

@@ -57,6 +57,7 @@ type AuthConfig struct {
 	JWTIssuer       string `mapstructure:"jwt_issuer"`
 	AccessTokenTTL  string `mapstructure:"access_token_ttl"`
 	RefreshTokenTTL string `mapstructure:"refresh_token_ttl"`
+	GoogleClientID  string `mapstructure:"google_client_id"`
 }
 
 type RedisConfig struct {

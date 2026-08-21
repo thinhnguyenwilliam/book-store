@@ -30,6 +30,14 @@ type accountModel struct {
 	UpdatedAt    time.Time      `gorm:"not null"`
 }
 
+type identityModel struct {
+	Provider  string    `gorm:"primaryKey;type:varchar(32)"`
+	Subject   string    `gorm:"primaryKey;type:varchar(255)"`
+	AccountID string    `gorm:"type:uuid;not null;index"`
+	Email     string    `gorm:"not null"`
+	CreatedAt time.Time `gorm:"not null"`
+}
+
 type outboxModel struct {
 	ID           string    `gorm:"type:uuid;primaryKey"`
 	AggregateID  string    `gorm:"type:uuid;not null"`
@@ -65,6 +73,7 @@ func (r *Repository) Create(
 	account *domain.Account,
 	profile application.ProfileRegistration,
 	session *domain.RefreshSession,
+	identity *domain.Identity,
 ) error {
 	payload, err := json.Marshal(messaging.AccountRegisteredPayload{
 		UserID:      account.ID,
@@ -86,6 +95,11 @@ func (r *Repository) Create(
 		}
 		if err := tx.Table("auth.accounts").Create(&record).Error; err != nil {
 			return err
+		}
+		if identity != nil {
+			if err := tx.Table("auth.account_identities").Create(identityRecord(identity)).Error; err != nil {
+				return err
+			}
 		}
 
 		traceID := apptrace.IDFromContext(ctx)
@@ -115,6 +129,43 @@ func (r *Repository) Create(
 	}
 	if err != nil {
 		return fmt.Errorf("create account with outbox event: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) FindByIdentity(ctx context.Context, provider, subject string) (*domain.Account, error) {
+	var record accountModel
+	err := r.db.WithContext(ctx).
+		Table("auth.accounts AS accounts").
+		Select("accounts.*").
+		Joins("JOIN auth.account_identities AS identities ON identities.account_id = accounts.id").
+		Where("identities.provider = ? AND identities.subject = ?", provider, subject).
+		First(&record).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find account by external identity: %w", err)
+	}
+	return accountFromRecord(record), nil
+}
+
+func (r *Repository) LinkIdentity(
+	ctx context.Context,
+	identity *domain.Identity,
+	session *domain.RefreshSession,
+) error {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Table("auth.account_identities").Create(identityRecord(identity)).Error; err != nil {
+			return err
+		}
+		return tx.Table("auth.refresh_sessions").Create(refreshSessionRecord(session)).Error
+	})
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return domain.ErrIdentityConflict
+	}
+	if err != nil {
+		return fmt.Errorf("link external identity: %w", err)
 	}
 	return nil
 }
@@ -313,5 +364,15 @@ func refreshSessionRecord(session *domain.RefreshSession) refreshSessionModel {
 		ReplacedByID: session.ReplacedByID,
 		LastUsedAt:   session.LastUsedAt,
 		CreatedAt:    session.CreatedAt,
+	}
+}
+
+func identityRecord(identity *domain.Identity) identityModel {
+	return identityModel{
+		Provider:  identity.Provider,
+		Subject:   identity.Subject,
+		AccountID: identity.AccountID,
+		Email:     identity.Email,
+		CreatedAt: identity.CreatedAt,
 	}
 }
