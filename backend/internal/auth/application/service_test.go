@@ -131,7 +131,7 @@ func newTestService(repository AccountRepository) *Service {
 		passwordHasherStub{},
 		tokenManagerStub{},
 		refreshTokenManagerStub{},
-		identityVerifierStub{},
+		map[string]IdentityVerifier{},
 		7*24*time.Hour,
 	)
 }
@@ -142,7 +142,22 @@ func newGoogleTestService(repository AccountRepository, identity VerifiedIdentit
 		passwordHasherStub{},
 		tokenManagerStub{},
 		refreshTokenManagerStub{},
-		identityVerifierStub{identity: identity},
+		map[string]IdentityVerifier{
+			domain.IdentityProviderGoogle: identityVerifierStub{identity: identity},
+		},
+		7*24*time.Hour,
+	)
+}
+
+func newFacebookTestService(repository AccountRepository, identity VerifiedIdentity) *Service {
+	return NewService(
+		repository,
+		passwordHasherStub{},
+		tokenManagerStub{},
+		refreshTokenManagerStub{},
+		map[string]IdentityVerifier{
+			domain.IdentityProviderFacebook: identityVerifierStub{identity: identity},
+		},
 		7*24*time.Hour,
 	)
 }
@@ -262,6 +277,52 @@ func TestGoogleLoginRejectsUnsafeEmailLink(t *testing.T) {
 	_, err := service.LoginWithGoogle(context.Background(), "google-credential", true)
 	if !errors.Is(err, domain.ErrIdentityConflict) {
 		t.Fatalf("LoginWithGoogle() error = %v, want %v", err, domain.ErrIdentityConflict)
+	}
+}
+
+func TestFacebookLoginCreatesCustomerWithIdentity(t *testing.T) {
+	repository := &accountRepositoryStub{}
+	service := newFacebookTestService(repository, VerifiedIdentity{
+		Provider:           domain.IdentityProviderFacebook,
+		Subject:            "facebook-user-id",
+		Email:              "reader@example.com",
+		DisplayName:        "Reader Nguyen",
+		EmailVerified:      true,
+		EmailAuthoritative: true,
+	})
+
+	result, err := service.LoginWithFacebook(context.Background(), "facebook-user-token", true)
+	if err != nil {
+		t.Fatalf("LoginWithFacebook() error = %v", err)
+	}
+	if repository.created == nil || repository.created.PasswordHash != "" {
+		t.Fatalf("Facebook account was not created without a password: %+v", repository.created)
+	}
+	if repository.createdIdentity == nil || repository.createdIdentity.Provider != domain.IdentityProviderFacebook {
+		t.Fatalf("Facebook identity was not stored: %+v", repository.createdIdentity)
+	}
+	if result.UserID != repository.created.ID {
+		t.Fatalf("result user ID = %q, want %q", result.UserID, repository.created.ID)
+	}
+}
+
+func TestFacebookLoginLinksAuthoritativeEmail(t *testing.T) {
+	account := &domain.Account{ID: "user-id", Email: "reader@example.com", Roles: []string{"admin"}}
+	repository := &accountRepositoryStub{account: account}
+	service := newFacebookTestService(repository, VerifiedIdentity{
+		Provider:           domain.IdentityProviderFacebook,
+		Subject:            "facebook-user-id",
+		Email:              account.Email,
+		EmailVerified:      true,
+		EmailAuthoritative: true,
+	})
+
+	result, err := service.LoginWithFacebook(context.Background(), "facebook-user-token", false)
+	if err != nil {
+		t.Fatalf("LoginWithFacebook() error = %v", err)
+	}
+	if result.UserID != account.ID || repository.createdIdentity == nil {
+		t.Fatalf("Facebook identity was not linked: result=%+v identity=%+v", result, repository.createdIdentity)
 	}
 }
 

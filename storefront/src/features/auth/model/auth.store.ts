@@ -100,6 +100,20 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function signInWithFacebook(accessToken: string): Promise<void> {
+    loading.value = true
+    try {
+      const response = await authApi.loginWithFacebook({
+        access_token: accessToken,
+        create_account: true,
+      })
+      applyAccessToken(response.access_token)
+      await fetchProfileWithRetry()
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function fetchProfileWithRetry(): Promise<void> {
     // New profiles are created asynchronously through the outbox and RabbitMQ worker.
     for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -142,6 +156,7 @@ export const useAuthStore = defineStore('auth', () => {
     signIn,
     signUp,
     signInWithGoogle,
+    signInWithFacebook,
     saveDisplayName,
     signOut,
   }

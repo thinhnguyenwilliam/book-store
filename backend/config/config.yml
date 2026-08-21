@@ -35,6 +35,9 @@ auth:
   access_token_ttl: "5m"
   refresh_token_ttl: "168h"
   google_client_id: ""
+  facebook_app_id: ""
+  facebook_app_secret: ""
+  facebook_graph_version: "v25.0"
 
 redis:
   address: "redis:6379"

@@ -42,6 +42,18 @@ Project dùng Google Identity Services ở frontend và xác minh Google ID toke
 
 Storefront gửi `create_account: true`, nên lần đăng nhập Google đầu tiên có thể tạo account customer và profile qua outbox. Admin portal gửi `create_account: false`; chỉ account đã tồn tại và có role `admin` mới đăng nhập được. Backend lưu Google `sub` trong `auth.account_identities`, không dùng email làm khóa identity.
 
+## Cấu hình đăng nhập Facebook
+
+Project dùng Facebook JavaScript SDK ở frontend. Auth Service kiểm tra user access token qua Graph API `v25.0/debug_token`, đối chiếu `app_id`, hạn token và Facebook user ID trước khi gọi `/me?fields=id,name,email`.
+
+1. Tạo app trong Meta for Developers và thêm use case Facebook Login cho Web.
+2. Cấu hình website URL/origin local `http://localhost:5173` và `http://localhost:5174`; khi đưa app sang Live cần khai báo domain HTTPS, Privacy Policy URL và Data Deletion URL theo yêu cầu của Meta.
+3. Copy `backend/config/local.yml.example` thành `backend/config/local.yml` rồi điền `facebook_app_id` và `facebook_app_secret`. File `local.yml` đã được Git bỏ qua.
+4. Điền `VITE_FACEBOOK_APP_ID` trong `.env` của hai frontend. App ID là public; tuyệt đối không đưa App Secret xuống frontend.
+5. Chạy `make local-auth` hoặc `make watch-auth` để Auth Service đọc `config/local.yml`.
+
+Storefront có thể tạo customer mới qua Facebook. Admin portal chỉ đăng nhập account đã tồn tại và vẫn bắt buộc role `admin`. Nếu Facebook không trả email vì người dùng không cấp permission `email` hoặc tài khoản không có email hợp lệ, backend từ chối đăng nhập thay vì tạo dữ liệu thiếu.
+
 ## Yêu cầu
 
 Để chạy toàn bộ hệ thống, máy cần có:

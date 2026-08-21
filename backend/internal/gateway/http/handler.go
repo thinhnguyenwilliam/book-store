@@ -52,6 +52,7 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 	api.POST("/auth/register", h.register)
 	api.POST("/auth/login", h.login)
 	api.POST("/auth/google", h.googleLogin)
+	api.POST("/auth/facebook", h.facebookLogin)
 	api.POST("/auth/refresh", h.refresh)
 	api.POST("/auth/logout", h.logout)
 	api.GET("/books", h.listBooks)
@@ -182,6 +183,44 @@ func (h *Handler) googleLogin(c echo.Context) error {
 	defer cancel()
 	response, err := h.auth.LoginWithGoogle(ctx, &bookstorev1.GoogleLoginRequest{
 		Credential:    request.Credential,
+		CreateAccount: request.CreateAccount,
+	})
+	if err != nil {
+		return errorResponse(c, err)
+	}
+	h.setRefreshCookie(c, response.GetRefreshToken(), response.GetRefreshExpiresIn())
+	c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
+	return c.JSON(http.StatusOK, authJSON(response))
+}
+
+// facebookLogin godoc
+// @Summary Sign in with Facebook
+// @Description Validates a Facebook user access token against the configured Meta app. Storefront clients may request account creation; admin clients should only sign in existing accounts.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body FacebookLoginRequest true "Facebook user access token"
+// @Success 200 {object} AuthResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 412 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Failure 503 {object} ErrorResponse
+// @Router /api/v1/auth/facebook [post]
+func (h *Handler) facebookLogin(c echo.Context) error {
+	if !h.isTrustedOrigin(c) {
+		return c.JSON(http.StatusForbidden, errorBody("untrusted request origin"))
+	}
+	request := FacebookLoginRequest{}
+	if err := c.Bind(&request); err != nil {
+		return errorResponse(c, err)
+	}
+
+	ctx, cancel := contextWithTimeout(c)
+	defer cancel()
+	response, err := h.auth.LoginWithFacebook(ctx, &bookstorev1.FacebookLoginRequest{
+		AccessToken:   request.AccessToken,
 		CreateAccount: request.CreateAccount,
 	})
 	if err != nil {

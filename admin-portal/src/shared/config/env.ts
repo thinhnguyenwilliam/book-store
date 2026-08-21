@@ -14,4 +14,6 @@ export const env = Object.freeze({
   apiTimeoutMs: positiveNumber(import.meta.env.VITE_API_TIMEOUT_MS, 10_000),
   storefrontUrl: required('VITE_STOREFRONT_URL').replace(/\/$/, ''),
   googleClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || '',
+  facebookAppId: import.meta.env.VITE_FACEBOOK_APP_ID?.trim() || '',
+  facebookGraphVersion: import.meta.env.VITE_FACEBOOK_GRAPH_VERSION?.trim() || 'v25.0',
 })

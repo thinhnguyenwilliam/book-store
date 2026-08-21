@@ -39,10 +39,12 @@ File `.env` local:
 VITE_API_BASE_URL=http://localhost:8080
 VITE_API_TIMEOUT_MS=10000
 VITE_GOOGLE_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
+VITE_FACEBOOK_APP_ID=your-meta-app-id
+VITE_FACEBOOK_GRAPH_VERSION=v25.0
 VITE_STOREFRONT_URL=http://localhost:5173
 ```
 
-`.env` không được commit; `.env.example` được dùng làm mẫu. Admin portal không tạo account khi đăng nhập Google và vẫn kiểm tra role `admin` từ access token trước khi mở back-office.
+`.env` không được commit; `.env.example` được dùng làm mẫu. Admin portal không tạo account khi đăng nhập Google/Facebook và vẫn kiểm tra role `admin` từ access token trước khi mở back-office. Facebook App Secret chỉ cấu hình ở Auth Service, không đặt trong file này.
 
 ## Cấp quyền admin local
 

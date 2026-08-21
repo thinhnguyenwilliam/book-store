@@ -8,6 +8,7 @@ service AuthService {
   rpc Register(RegisterRequest) returns (AuthResponse);
   rpc Login(LoginRequest) returns (AuthResponse);
   rpc LoginWithGoogle(GoogleLoginRequest) returns (AuthResponse);
+  rpc LoginWithFacebook(FacebookLoginRequest) returns (AuthResponse);
   rpc Refresh(RefreshRequest) returns (AuthResponse);
   rpc Logout(LogoutRequest) returns (LogoutResponse);
   rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
@@ -27,6 +28,11 @@ message LoginRequest {
 
 message GoogleLoginRequest {
   string credential = 1;
+  bool create_account = 2;
+}
+
+message FacebookLoginRequest {
+  string access_token = 1;
   bool create_account = 2;
 }
 

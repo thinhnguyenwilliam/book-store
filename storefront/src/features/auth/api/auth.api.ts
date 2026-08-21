@@ -2,6 +2,7 @@ import { apiRequest, refreshApiSession } from '@/shared/api/http-client'
 
 import type {
   AuthResponse,
+  FacebookLoginPayload,
   GoogleLoginPayload,
   LoginPayload,
   RegisterPayload,
@@ -18,6 +19,10 @@ export function register(payload: RegisterPayload) {
 
 export function loginWithGoogle(payload: GoogleLoginPayload) {
   return apiRequest<AuthResponse>('/api/v1/auth/google', { method: 'POST', data: payload })
+}
+
+export function loginWithFacebook(payload: FacebookLoginPayload) {
+  return apiRequest<AuthResponse>('/api/v1/auth/facebook', { method: 'POST', data: payload })
 }
 
 export function refreshSession() {

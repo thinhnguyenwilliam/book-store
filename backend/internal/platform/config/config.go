@@ -53,11 +53,14 @@ type PostgresConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret       string `mapstructure:"jwt_secret"`
-	JWTIssuer       string `mapstructure:"jwt_issuer"`
-	AccessTokenTTL  string `mapstructure:"access_token_ttl"`
-	RefreshTokenTTL string `mapstructure:"refresh_token_ttl"`
-	GoogleClientID  string `mapstructure:"google_client_id"`
+	JWTSecret            string `mapstructure:"jwt_secret"`
+	JWTIssuer            string `mapstructure:"jwt_issuer"`
+	AccessTokenTTL       string `mapstructure:"access_token_ttl"`
+	RefreshTokenTTL      string `mapstructure:"refresh_token_ttl"`
+	GoogleClientID       string `mapstructure:"google_client_id"`
+	FacebookAppID        string `mapstructure:"facebook_app_id"`
+	FacebookAppSecret    string `mapstructure:"facebook_app_secret"`
+	FacebookGraphVersion string `mapstructure:"facebook_graph_version"`
 }
 
 type RedisConfig struct {
@@ -86,12 +89,23 @@ type ShutdownConfig struct {
 }
 
 func Load(path string) (Config, error) {
+	return LoadWithOverride(path, "")
+}
+
+// LoadWithOverride reads a complete base YAML file and optionally merges a partial secret YAML file.
+func LoadWithOverride(path, overridePath string) (Config, error) {
 	v := viper.New()
 	v.SetConfigFile(path)
 	v.SetConfigType("yaml")
 
 	if err := v.ReadInConfig(); err != nil {
 		return Config{}, fmt.Errorf("read config %q: %w", path, err)
+	}
+	if strings.TrimSpace(overridePath) != "" {
+		v.SetConfigFile(overridePath)
+		if err := v.MergeInConfig(); err != nil {
+			return Config{}, fmt.Errorf("merge config override %q: %w", overridePath, err)
+		}
 	}
 
 	var cfg Config
@@ -149,6 +163,14 @@ func (c Config) validate() error {
 	}
 	if len(c.Auth.JWTSecret) < 32 {
 		return fmt.Errorf("auth.jwt_secret must contain at least 32 characters")
+	}
+	facebookAppConfigured := strings.TrimSpace(c.Auth.FacebookAppID) != ""
+	facebookSecretConfigured := strings.TrimSpace(c.Auth.FacebookAppSecret) != ""
+	if facebookAppConfigured != facebookSecretConfigured {
+		return fmt.Errorf("auth.facebook_app_id and auth.facebook_app_secret must be configured together")
+	}
+	if facebookAppConfigured && strings.TrimSpace(c.Auth.FacebookGraphVersion) == "" {
+		return fmt.Errorf("auth.facebook_graph_version is required when Facebook Login is configured")
 	}
 	if len(c.Gateway.AllowedOrigins) == 0 {
 		return fmt.Errorf("gateway.allowed_origins must contain at least one trusted origin")

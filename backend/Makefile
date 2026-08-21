@@ -19,6 +19,8 @@ GOLANGCI_LINT := $(TOOLS_DIR)/golangci-lint
 GOLANGCI_LINT_VERSION := v2.12.2
 DEV_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.dev.yml
 LOCAL_CONFIG := config/local.yml
+LOCAL_SECRET_CONFIG ?= config/local.secret.yml
+LOCAL_SECRET_ARG = $(if $(wildcard $(LOCAL_SECRET_CONFIG)),-secrets $(LOCAL_SECRET_CONFIG),)
 INFRA_SERVICES := postgres pgadmin redis redisinsight rabbitmq
 APP_SERVICES := gateway auth-service user-service book-service worker-service
 REPO_ROOT := $(abspath $(CURDIR)/..)
@@ -169,7 +171,7 @@ local-gateway: ## Chạy gateway trực tiếp trên máy, không hot reload
 	go run ./cmd/gateway -config $(LOCAL_CONFIG)
 
 local-auth: ## Chạy auth service trực tiếp trên máy, không hot reload
-	go run ./cmd/auth-service -config $(LOCAL_CONFIG)
+	go run ./cmd/auth-service -config $(LOCAL_CONFIG) $(LOCAL_SECRET_ARG)
 
 local-user: ## Chạy user service trực tiếp trên máy, không hot reload
 	go run ./cmd/user-service -config $(LOCAL_CONFIG)
@@ -185,14 +187,14 @@ define watch_service
 		--build.cmd "go build -buildvcs=false -o ./.air-local/$(1) ./cmd/$(1)" \
 		--build.entrypoint "./.air-local/$(1)" \
 		--build.log "$(1)-build-errors.log" \
-		-- -config $(LOCAL_CONFIG)
+		-- -config $(LOCAL_CONFIG) $(2)
 endef
 
 watch-gateway: $(AIR) ## Chạy gateway local với Air hot reload
 	$(call watch_service,gateway)
 
 watch-auth: $(AIR) ## Chạy auth service local với Air hot reload
-	$(call watch_service,auth-service)
+	$(call watch_service,auth-service,$(LOCAL_SECRET_ARG))
 
 watch-user: $(AIR) ## Chạy user service local với Air hot reload
 	$(call watch_service,user-service)

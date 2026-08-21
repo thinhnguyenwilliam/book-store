@@ -15,6 +15,11 @@ export interface GoogleLoginPayload {
   create_account: boolean
 }
 
+export interface FacebookLoginPayload {
+  access_token: string
+  create_account: boolean
+}
+
 export interface UserProfile {
   id: string
   email: string

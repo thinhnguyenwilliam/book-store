@@ -17,9 +17,11 @@ var (
 	ErrInvalidIdentity     = errors.New("invalid external identity credential")
 	ErrIdentityConflict    = errors.New("external identity conflicts with an existing account")
 	ErrIdentityUnavailable = errors.New("external identity provider is not configured")
+	ErrIdentityProvider    = errors.New("external identity provider is unavailable")
 )
 
 const IdentityProviderGoogle = "google"
+const IdentityProviderFacebook = "facebook"
 
 type Account struct {
 	ID           string

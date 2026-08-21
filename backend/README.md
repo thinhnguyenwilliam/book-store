@@ -82,9 +82,14 @@ auth:
   access_token_ttl: "5m"
   refresh_token_ttl: "168h"
   google_client_id: "your-web-client-id.apps.googleusercontent.com"
+  facebook_app_id: "your-meta-app-id"
+  facebook_app_secret: "server-only-meta-app-secret"
+  facebook_graph_version: "v25.0"
 ```
 
 `google_client_id` là OAuth Web Client ID công khai, không phải client secret. Endpoint `POST /api/v1/auth/google` nhận Google ID token trong trường `credential`; Auth Service kiểm tra chữ ký, audience, issuer, expiration, `email_verified` và lưu Google `sub` làm identity ổn định. Migration `007_account_identities.sql` tạo bảng liên kết identity với account hiện có.
+
+Endpoint `POST /api/v1/auth/facebook` nhận Facebook user access token. Auth Service dùng App ID + App Secret gọi `debug_token`, sau đó lấy `id,name,email` bằng Graph API và gửi `appsecret_proof`. Facebook App Secret chỉ được đặt trong backend. Khi chạy local, copy `config/local.yml.example` thành `config/local.yml`; file thật đã được `.gitignore` bỏ qua và không còn được Git theo dõi.
 
 Compose mount file này read-only vào container và truyền đường dẫn bằng CLI flag:
 

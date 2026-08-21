@@ -83,6 +83,19 @@ export const useAuthStore = defineStore('admin-auth', () => {
     }
   }
 
+  async function signInWithFacebook(accessToken: string): Promise<void> {
+    loading.value = true
+    try {
+      const response = await authApi.loginWithFacebook({
+        access_token: accessToken,
+        create_account: false,
+      })
+      await establishAdminSession(response.access_token)
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function signOut(): Promise<void> {
     try {
       await authApi.logout()
@@ -104,6 +117,7 @@ export const useAuthStore = defineStore('admin-auth', () => {
     initialize,
     signIn,
     signInWithGoogle,
+    signInWithFacebook,
     signOut,
   }
 })

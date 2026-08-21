@@ -13,12 +13,14 @@ import (
 	"time"
 
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/facebookidentity"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/googleidentity"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/outbox"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/postgres"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/security"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/application"
 	authgrpc "github.com/thinhnguyenwilliam/book-store/backend/internal/auth/delivery/grpc"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/domain"
 	rabbitmqadapter "github.com/thinhnguyenwilliam/book-store/backend/internal/messaging/rabbitmq"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/config"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/database"
@@ -34,8 +36,9 @@ func main() {
 
 func execute() int {
 	configPath := flag.String("config", "config/config.yml", "path to YAML configuration")
+	secretsPath := flag.String("secrets", "", "optional path to a YAML secrets override")
 	flag.Parse()
-	cfg, err := config.Load(*configPath)
+	cfg, err := config.LoadWithOverride(*configPath, *secretsPath)
 	if err != nil {
 		slog.Error("load auth service config", "error", err)
 		return 1
@@ -91,8 +94,15 @@ func run(cfg config.Config) error {
 	hasher := security.NewPasswordHasher()
 	accessTokens := security.NewTokenManager(cfg.Auth.JWTSecret, cfg.Auth.JWTIssuer, ttl)
 	refreshTokens := security.NewRefreshTokenManager()
-	identityVerifier := googleidentity.NewVerifier(cfg.Auth.GoogleClientID)
-	service := application.NewService(repository, hasher, accessTokens, refreshTokens, identityVerifier, refreshTTL)
+	identityVerifiers := map[string]application.IdentityVerifier{
+		domain.IdentityProviderGoogle: googleidentity.NewVerifier(cfg.Auth.GoogleClientID),
+		domain.IdentityProviderFacebook: facebookidentity.NewVerifier(
+			cfg.Auth.FacebookAppID,
+			cfg.Auth.FacebookAppSecret,
+			cfg.Auth.FacebookGraphVersion,
+		),
+	}
+	service := application.NewService(repository, hasher, accessTokens, refreshTokens, identityVerifiers, refreshTTL)
 	handler := authgrpc.NewHandler(service)
 
 	publisher := rabbitmqadapter.NewPublisher(rabbitmqadapter.Config{

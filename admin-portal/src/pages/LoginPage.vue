@@ -3,6 +3,7 @@ import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/features/auth/model/auth.store'
+import FacebookSignInButton from '@/features/auth/ui/FacebookSignInButton.vue'
 import GoogleSignInButton from '@/features/auth/ui/GoogleSignInButton.vue'
 import { ApiError } from '@/shared/api/http-client'
 import { env } from '@/shared/config/env'
@@ -35,6 +36,17 @@ async function signInWithGoogle(credential: string): Promise<void> {
     errorMessage.value = error instanceof ApiError ? error.message : 'Không thể đăng nhập Google.'
   }
 }
+
+async function signInWithFacebook(accessToken: string): Promise<void> {
+  errorMessage.value = ''
+  try {
+    await auth.signInWithFacebook(accessToken)
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    await router.replace(redirect)
+  } catch (error) {
+    errorMessage.value = error instanceof ApiError ? error.message : 'Không thể đăng nhập Facebook.'
+  }
+}
 </script>
 
 <template>
@@ -62,11 +74,18 @@ async function signInWithGoogle(credential: string): Promise<void> {
           <p>Chỉ tài khoản có role <code>admin</code> mới được truy cập.</p>
         </header>
 
-        <div class="login-google">
+        <div class="login-social-buttons">
           <GoogleSignInButton
             :client-id="env.googleClientId"
             :disabled="auth.loading"
             @credential="signInWithGoogle"
+            @error="errorMessage = $event"
+          />
+          <FacebookSignInButton
+            :app-id="env.facebookAppId"
+            :graph-version="env.facebookGraphVersion"
+            :disabled="auth.loading"
+            @access-token="signInWithFacebook"
             @error="errorMessage = $event"
           />
         </div>

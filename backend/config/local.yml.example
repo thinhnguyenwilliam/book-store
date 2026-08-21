@@ -30,11 +30,14 @@ postgres:
   connection_max_idle_time: "5m"
 
 auth:
-  jwt_secret: "local-development-secret-change-me-32"
+  jwt_secret: "replace-with-at-least-32-random-characters"
   jwt_issuer: "book-store-auth"
   access_token_ttl: "5m"
   refresh_token_ttl: "168h"
   google_client_id: ""
+  facebook_app_id: ""
+  facebook_app_secret: ""
+  facebook_graph_version: "v25.0"
 
 redis:
   address: "localhost:6379"

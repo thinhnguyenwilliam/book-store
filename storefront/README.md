@@ -21,9 +21,11 @@ Mở <http://localhost:5173>. Vite tự hot reload khi thay đổi source.
 VITE_API_BASE_URL=http://localhost:8080
 VITE_API_TIMEOUT_MS=10000
 VITE_GOOGLE_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
+VITE_FACEBOOK_APP_ID=your-meta-app-id
+VITE_FACEBOOK_GRAPH_VERSION=v25.0
 ```
 
-`.env` dùng cho máy local và đã được Git bỏ qua. Chỉ commit `.env.example`; mọi biến bắt đầu bằng `VITE_` đều được đưa vào bundle phía trình duyệt nên không đặt password, JWT secret hay khóa riêng trong đó. Google Web Client ID là public identifier nên có thể dùng ở đây; Google client secret tuyệt đối không được đưa vào frontend.
+`.env` dùng cho máy local và đã được Git bỏ qua. Chỉ commit `.env.example`; mọi biến bắt đầu bằng `VITE_` đều được đưa vào bundle phía trình duyệt nên không đặt password, JWT secret hay khóa riêng trong đó. Google Web Client ID và Facebook App ID là public identifier; Google/Facebook App Secret tuyệt đối không được đưa vào frontend.
 
 ## Kiểm tra và build
 

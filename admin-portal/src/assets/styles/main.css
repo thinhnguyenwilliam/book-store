@@ -480,7 +480,9 @@ svg {
   background: var(--color-brand-soft);
   font-size: 0.75rem;
 }
-.login-google {
+.login-social-buttons {
+  display: grid;
+  gap: 12px;
   margin-top: 28px;
 }
 .login-divider {
@@ -519,6 +521,51 @@ svg {
   font-size: 0.75rem;
   line-height: 1.5;
   text-align: center;
+}
+
+.facebook-auth-button {
+  display: flex;
+  width: min(100%, 400px);
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0 auto;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #1877f2;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    opacity 150ms ease;
+}
+
+.facebook-auth-button:hover:not(:disabled) {
+  background: #1468d7;
+}
+
+.facebook-auth-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.facebook-auth-button__icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: end center;
+  border-radius: 50%;
+  color: #1877f2;
+  background: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1;
 }
 .login-form {
   display: grid;
