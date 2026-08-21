@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/features/auth/model/auth.store'
 import AuthPanel from '@/features/auth/ui/AuthPanel.vue'
+import FacebookSignInButton from '@/features/auth/ui/FacebookSignInButton.vue'
 import GoogleSignInButton from '@/features/auth/ui/GoogleSignInButton.vue'
 import { ApiError } from '@/shared/api/http-client'
 import { env } from '@/shared/config/env'
@@ -33,6 +34,17 @@ async function signUpWithGoogle(credential: string): Promise<void> {
   } catch (requestError) {
     error.value =
       requestError instanceof ApiError ? requestError.message : 'Đăng ký Google không thành công.'
+  }
+}
+
+async function signUpWithFacebook(accessToken: string): Promise<void> {
+  error.value = ''
+  try {
+    await auth.signInWithFacebook(accessToken)
+    await router.push('/tai-khoan')
+  } catch (requestError) {
+    error.value =
+      requestError instanceof ApiError ? requestError.message : 'Đăng ký Facebook không thành công.'
   }
 }
 </script>
@@ -86,12 +98,21 @@ async function signUpWithGoogle(credential: string): Promise<void> {
       <p class="auth-switch">Đã có tài khoản? <RouterLink to="/dang-nhap">Đăng nhập</RouterLink></p>
     </form>
     <div class="auth-divider"><span>hoặc</span></div>
-    <GoogleSignInButton
-      :client-id="env.googleClientId"
-      :disabled="auth.loading"
-      text="signup_with"
-      @credential="signUpWithGoogle"
-      @error="error = $event"
-    />
+    <div class="auth-social-buttons">
+      <GoogleSignInButton
+        :client-id="env.googleClientId"
+        :disabled="auth.loading"
+        text="signup_with"
+        @credential="signUpWithGoogle"
+        @error="error = $event"
+      />
+      <FacebookSignInButton
+        :app-id="env.facebookAppId"
+        :graph-version="env.facebookGraphVersion"
+        :disabled="auth.loading"
+        @access-token="signUpWithFacebook"
+        @error="error = $event"
+      />
+    </div>
   </AuthPanel>
 </template>

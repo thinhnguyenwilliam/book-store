@@ -25,7 +25,7 @@ type Service struct {
 	hasher        PasswordHasher
 	accessTokens  TokenManager
 	refreshTokens RefreshTokenManager
-	identities    IdentityVerifier
+	identities    map[string]IdentityVerifier
 	refreshTTL    time.Duration
 	now           func() time.Time
 }
@@ -35,7 +35,7 @@ func NewService(
 	hasher PasswordHasher,
 	accessTokens TokenManager,
 	refreshTokens RefreshTokenManager,
-	identities IdentityVerifier,
+	identities map[string]IdentityVerifier,
 	refreshTTL time.Duration,
 ) *Service {
 	return &Service{
@@ -81,19 +81,33 @@ func (s *Service) Register(ctx context.Context, email, password, displayName str
 }
 
 func (s *Service) LoginWithGoogle(ctx context.Context, credential string, createAccount bool) (AuthResult, error) {
-	if s.identities == nil {
+	return s.loginWithIdentity(ctx, domain.IdentityProviderGoogle, credential, createAccount)
+}
+
+func (s *Service) LoginWithFacebook(ctx context.Context, accessToken string, createAccount bool) (AuthResult, error) {
+	return s.loginWithIdentity(ctx, domain.IdentityProviderFacebook, accessToken, createAccount)
+}
+
+func (s *Service) loginWithIdentity(
+	ctx context.Context,
+	provider string,
+	credential string,
+	createAccount bool,
+) (AuthResult, error) {
+	verifier := s.identities[provider]
+	if verifier == nil {
 		return AuthResult{}, domain.ErrIdentityUnavailable
 	}
-	verified, err := s.identities.Verify(ctx, strings.TrimSpace(credential))
+	verified, err := verifier.Verify(ctx, strings.TrimSpace(credential))
 	if err != nil {
-		if errors.Is(err, domain.ErrIdentityUnavailable) {
+		if errors.Is(err, domain.ErrIdentityUnavailable) || errors.Is(err, domain.ErrIdentityProvider) {
 			return AuthResult{}, err
 		}
 		return AuthResult{}, domain.ErrInvalidIdentity
 	}
 	verified.Email = domain.NormalizeEmail(verified.Email)
 	verified.DisplayName = strings.TrimSpace(verified.DisplayName)
-	if verified.Provider != domain.IdentityProviderGoogle ||
+	if verified.Provider != provider ||
 		strings.TrimSpace(verified.Subject) == "" ||
 		!verified.EmailVerified ||
 		!validEmail(verified.Email) {
@@ -159,7 +173,7 @@ func (s *Service) LoginWithGoogle(ctx context.Context, credential string, create
 	if err := s.repository.Create(
 		ctx,
 		account,
-		ProfileRegistration{DisplayName: googleDisplayName(verified.DisplayName, verified.Email)},
+		ProfileRegistration{DisplayName: identityDisplayName(verified.DisplayName, verified.Email)},
 		session,
 		identity,
 	); err != nil {
@@ -323,7 +337,7 @@ func validEmail(email string) bool {
 	return err == nil && address.Address == email
 }
 
-func googleDisplayName(displayName, email string) string {
+func identityDisplayName(displayName, email string) string {
 	displayName = strings.TrimSpace(displayName)
 	runes := []rune(displayName)
 	if len(runes) > 100 {
@@ -336,5 +350,5 @@ func googleDisplayName(displayName, email string) string {
 	if ok && localPart != "" {
 		return localPart
 	}
-	return "Google user"
+	return "Social user"
 }

@@ -143,6 +143,7 @@ function isAuthSessionEndpoint(url?: string): boolean {
       '/api/v1/auth/login',
       '/api/v1/auth/register',
       '/api/v1/auth/google',
+      '/api/v1/auth/facebook',
       '/api/v1/auth/refresh',
     ].some((path) => url.endsWith(path)),
   )

@@ -19,13 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_Register_FullMethodName        = "/bookstore.v1.AuthService/Register"
-	AuthService_Login_FullMethodName           = "/bookstore.v1.AuthService/Login"
-	AuthService_LoginWithGoogle_FullMethodName = "/bookstore.v1.AuthService/LoginWithGoogle"
-	AuthService_Refresh_FullMethodName         = "/bookstore.v1.AuthService/Refresh"
-	AuthService_Logout_FullMethodName          = "/bookstore.v1.AuthService/Logout"
-	AuthService_DeleteAccount_FullMethodName   = "/bookstore.v1.AuthService/DeleteAccount"
-	AuthService_VerifyToken_FullMethodName     = "/bookstore.v1.AuthService/VerifyToken"
+	AuthService_Register_FullMethodName          = "/bookstore.v1.AuthService/Register"
+	AuthService_Login_FullMethodName             = "/bookstore.v1.AuthService/Login"
+	AuthService_LoginWithGoogle_FullMethodName   = "/bookstore.v1.AuthService/LoginWithGoogle"
+	AuthService_LoginWithFacebook_FullMethodName = "/bookstore.v1.AuthService/LoginWithFacebook"
+	AuthService_Refresh_FullMethodName           = "/bookstore.v1.AuthService/Refresh"
+	AuthService_Logout_FullMethodName            = "/bookstore.v1.AuthService/Logout"
+	AuthService_DeleteAccount_FullMethodName     = "/bookstore.v1.AuthService/DeleteAccount"
+	AuthService_VerifyToken_FullMethodName       = "/bookstore.v1.AuthService/VerifyToken"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -35,6 +36,7 @@ type AuthServiceClient interface {
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*AuthResponse, error)
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*AuthResponse, error)
 	LoginWithGoogle(ctx context.Context, in *GoogleLoginRequest, opts ...grpc.CallOption) (*AuthResponse, error)
+	LoginWithFacebook(ctx context.Context, in *FacebookLoginRequest, opts ...grpc.CallOption) (*AuthResponse, error)
 	Refresh(ctx context.Context, in *RefreshRequest, opts ...grpc.CallOption) (*AuthResponse, error)
 	Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*LogoutResponse, error)
 	DeleteAccount(ctx context.Context, in *DeleteAccountRequest, opts ...grpc.CallOption) (*DeleteAccountResponse, error)
@@ -73,6 +75,16 @@ func (c *authServiceClient) LoginWithGoogle(ctx context.Context, in *GoogleLogin
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AuthResponse)
 	err := c.cc.Invoke(ctx, AuthService_LoginWithGoogle_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) LoginWithFacebook(ctx context.Context, in *FacebookLoginRequest, opts ...grpc.CallOption) (*AuthResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AuthResponse)
+	err := c.cc.Invoke(ctx, AuthService_LoginWithFacebook_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -126,6 +138,7 @@ type AuthServiceServer interface {
 	Register(context.Context, *RegisterRequest) (*AuthResponse, error)
 	Login(context.Context, *LoginRequest) (*AuthResponse, error)
 	LoginWithGoogle(context.Context, *GoogleLoginRequest) (*AuthResponse, error)
+	LoginWithFacebook(context.Context, *FacebookLoginRequest) (*AuthResponse, error)
 	Refresh(context.Context, *RefreshRequest) (*AuthResponse, error)
 	Logout(context.Context, *LogoutRequest) (*LogoutResponse, error)
 	DeleteAccount(context.Context, *DeleteAccountRequest) (*DeleteAccountResponse, error)
@@ -148,6 +161,9 @@ func (UnimplementedAuthServiceServer) Login(context.Context, *LoginRequest) (*Au
 }
 func (UnimplementedAuthServiceServer) LoginWithGoogle(context.Context, *GoogleLoginRequest) (*AuthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LoginWithGoogle not implemented")
+}
+func (UnimplementedAuthServiceServer) LoginWithFacebook(context.Context, *FacebookLoginRequest) (*AuthResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LoginWithFacebook not implemented")
 }
 func (UnimplementedAuthServiceServer) Refresh(context.Context, *RefreshRequest) (*AuthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Refresh not implemented")
@@ -232,6 +248,24 @@ func _AuthService_LoginWithGoogle_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).LoginWithGoogle(ctx, req.(*GoogleLoginRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_LoginWithFacebook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FacebookLoginRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).LoginWithFacebook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_LoginWithFacebook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).LoginWithFacebook(ctx, req.(*FacebookLoginRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -326,6 +360,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LoginWithGoogle",
 			Handler:    _AuthService_LoginWithGoogle_Handler,
+		},
+		{
+			MethodName: "LoginWithFacebook",
+			Handler:    _AuthService_LoginWithFacebook_Handler,
 		},
 		{
 			MethodName: "Refresh",

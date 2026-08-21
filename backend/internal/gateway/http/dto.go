@@ -24,6 +24,12 @@ type GoogleLoginRequest struct {
 	CreateAccount bool   `json:"create_account"`
 }
 
+// FacebookLoginRequest contains the Facebook Login user access token.
+type FacebookLoginRequest struct {
+	AccessToken   string `json:"access_token"`
+	CreateAccount bool   `json:"create_account"`
+}
+
 // UpdateProfileRequest is the public HTTP payload for updating a profile.
 type UpdateProfileRequest struct {
 	DisplayName string `json:"display_name" example:"Reader Nguyen"`

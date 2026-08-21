@@ -4,6 +4,7 @@
 @bookPageLimit = 2
 @registerTraceId = 11111111111111111111111111111111
 @googleCredential = paste-google-id-token-from-browser-callback-here
+@facebookAccessToken = paste-facebook-user-access-token-from-sdk-here
 
 ### 1. Gateway health check
 GET {{baseUrl}}/healthz
@@ -50,6 +51,18 @@ Accept: application/json
 
 {
   "credential": "{{googleCredential}}",
+  "create_account": true
+}
+
+### 3.1b. Login with Facebook JavaScript SDK
+# access_token la user access token tra ve trong response.authResponse.accessToken.
+# Storefront dung create_account=true; admin portal dung false.
+POST {{baseUrl}}/api/v1/auth/facebook
+Content-Type: application/json
+Accept: application/json
+
+{
+  "access_token": "{{facebookAccessToken}}",
   "create_account": true
 }
 

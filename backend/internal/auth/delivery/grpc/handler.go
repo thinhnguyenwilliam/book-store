@@ -47,6 +47,17 @@ func (h *Handler) LoginWithGoogle(
 	return authResponse(result), nil
 }
 
+func (h *Handler) LoginWithFacebook(
+	ctx context.Context,
+	request *bookstorev1.FacebookLoginRequest,
+) (*bookstorev1.AuthResponse, error) {
+	result, err := h.service.LoginWithFacebook(ctx, request.GetAccessToken(), request.GetCreateAccount())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return authResponse(result), nil
+}
+
 func (h *Handler) Refresh(ctx context.Context, request *bookstorev1.RefreshRequest) (*bookstorev1.AuthResponse, error) {
 	result, err := h.service.Refresh(ctx, request.GetRefreshToken())
 	if err != nil {
@@ -101,6 +112,8 @@ func mapError(err error) error {
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, domain.ErrIdentityUnavailable):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, domain.ErrIdentityProvider):
+		return status.Error(codes.Unavailable, err.Error())
 	case errors.Is(err, domain.ErrNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, domain.ErrInvalidCredentials),

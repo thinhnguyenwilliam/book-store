@@ -81,3 +81,31 @@ logging:
 		t.Fatalf("Shutdown.Timeout = %q, want %q", cfg.Shutdown.Timeout, "12s")
 	}
 }
+
+func TestLoadWithSecretOverride(t *testing.T) {
+	basePath := filepath.Join(t.TempDir(), "config.yml")
+	overridePath := filepath.Join(t.TempDir(), "local.secret.yml")
+	base, err := os.ReadFile(filepath.Join("..", "..", "..", "config", "local.yml.example"))
+	if err != nil {
+		t.Fatalf("read base config: %v", err)
+	}
+	if err := os.WriteFile(basePath, base, 0o600); err != nil {
+		t.Fatalf("write base config: %v", err)
+	}
+	if err := os.WriteFile(overridePath, []byte(`
+auth:
+  facebook_app_id: "facebook-app"
+  facebook_app_secret: "facebook-secret"
+  facebook_graph_version: "v25.0"
+`), 0o600); err != nil {
+		t.Fatalf("write secret override: %v", err)
+	}
+
+	cfg, err := LoadWithOverride(basePath, overridePath)
+	if err != nil {
+		t.Fatalf("LoadWithOverride() error = %v", err)
+	}
+	if cfg.Auth.FacebookAppID != "facebook-app" || cfg.Auth.FacebookAppSecret != "facebook-secret" {
+		t.Fatalf("Facebook credentials were not merged: %+v", cfg.Auth)
+	}
+}
