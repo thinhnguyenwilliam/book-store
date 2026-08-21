@@ -13,4 +13,5 @@ export const env = Object.freeze({
   apiBaseUrl: required('VITE_API_BASE_URL').replace(/\/$/, ''),
   apiTimeoutMs: positiveNumber(import.meta.env.VITE_API_TIMEOUT_MS, 10_000),
   storefrontUrl: required('VITE_STOREFRONT_URL').replace(/\/$/, ''),
+  googleClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || '',
 })

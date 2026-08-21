@@ -8,9 +8,17 @@ import (
 )
 
 type AccountRepository interface {
-	Create(ctx context.Context, account *domain.Account, profile ProfileRegistration, session *domain.RefreshSession) error
+	Create(
+		ctx context.Context,
+		account *domain.Account,
+		profile ProfileRegistration,
+		session *domain.RefreshSession,
+		identity *domain.Identity,
+	) error
 	FindByID(ctx context.Context, id string) (*domain.Account, error)
 	FindByEmail(ctx context.Context, email string) (*domain.Account, error)
+	FindByIdentity(ctx context.Context, provider, subject string) (*domain.Account, error)
+	LinkIdentity(ctx context.Context, identity *domain.Identity, session *domain.RefreshSession) error
 	Delete(ctx context.Context, id string, deletedAt time.Time) error
 	CreateRefreshSession(ctx context.Context, session *domain.RefreshSession) error
 	RotateRefreshSession(ctx context.Context, tokenHash string, replacement *domain.RefreshSession, now time.Time) (*domain.Account, error)
@@ -19,6 +27,19 @@ type AccountRepository interface {
 
 type ProfileRegistration struct {
 	DisplayName string
+}
+
+type VerifiedIdentity struct {
+	Provider           string
+	Subject            string
+	Email              string
+	DisplayName        string
+	EmailVerified      bool
+	EmailAuthoritative bool
+}
+
+type IdentityVerifier interface {
+	Verify(ctx context.Context, credential string) (VerifiedIdentity, error)
 }
 
 type PasswordHasher interface {

@@ -81,7 +81,10 @@ postgres:
 auth:
   access_token_ttl: "5m"
   refresh_token_ttl: "168h"
+  google_client_id: "your-web-client-id.apps.googleusercontent.com"
 ```
+
+`google_client_id` là OAuth Web Client ID công khai, không phải client secret. Endpoint `POST /api/v1/auth/google` nhận Google ID token trong trường `credential`; Auth Service kiểm tra chữ ký, audience, issuer, expiration, `email_verified` và lưu Google `sub` làm identity ổn định. Migration `007_account_identities.sql` tạo bảng liên kết identity với account hiện có.
 
 Compose mount file này read-only vào container và truyền đường dẫn bằng CLI flag:
 

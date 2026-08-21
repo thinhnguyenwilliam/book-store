@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { ApiError, onSessionExpired, setApiAccessToken } from '@/shared/api/http-client'
+import { disableGoogleAutoSelect } from '@/shared/lib/google-identity'
 import * as authApi from '../api/auth.api'
 import { tokenHasRole } from './token'
 import type { LoginPayload, UserProfile } from './types'
@@ -72,11 +73,22 @@ export const useAuthStore = defineStore('admin-auth', () => {
     }
   }
 
+  async function signInWithGoogle(credential: string): Promise<void> {
+    loading.value = true
+    try {
+      const response = await authApi.loginWithGoogle({ credential, create_account: false })
+      await establishAdminSession(response.access_token)
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function signOut(): Promise<void> {
     try {
       await authApi.logout()
     } finally {
       accessDenied.value = false
+      disableGoogleAutoSelect()
       clearSession()
     }
   }
@@ -91,6 +103,7 @@ export const useAuthStore = defineStore('admin-auth', () => {
     displayName,
     initialize,
     signIn,
+    signInWithGoogle,
     signOut,
   }
 })

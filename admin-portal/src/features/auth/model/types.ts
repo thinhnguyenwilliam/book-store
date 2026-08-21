@@ -10,6 +10,11 @@ export interface LoginPayload {
   password: string
 }
 
+export interface GoogleLoginPayload {
+  credential: string
+  create_account: boolean
+}
+
 export interface UserProfile {
   id: string
   email: string

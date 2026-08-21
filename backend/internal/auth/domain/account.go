@@ -14,7 +14,12 @@ var (
 	ErrInvalidRefreshToken = errors.New("invalid refresh token")
 	ErrRefreshTokenReused  = errors.New("refresh token reuse detected")
 	ErrNotFound            = errors.New("account not found")
+	ErrInvalidIdentity     = errors.New("invalid external identity credential")
+	ErrIdentityConflict    = errors.New("external identity conflicts with an existing account")
+	ErrIdentityUnavailable = errors.New("external identity provider is not configured")
 )
+
+const IdentityProviderGoogle = "google"
 
 type Account struct {
 	ID           string
@@ -35,6 +40,14 @@ type RefreshSession struct {
 	ReplacedByID *string
 	LastUsedAt   *time.Time
 	CreatedAt    time.Time
+}
+
+type Identity struct {
+	Provider  string
+	Subject   string
+	AccountID string
+	Email     string
+	CreatedAt time.Time
 }
 
 func NormalizeEmail(email string) string {

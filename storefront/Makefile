@@ -1,5 +1,7 @@
 .PHONY: help install dev build preview check test lint type-check clean docker-build docker-run
 
+GOOGLE_CLIENT_ID ?=
+
 help:
 	@echo "install       Cài dependency bằng pnpm"
 	@echo "dev           Chạy Vite hot reload tại :5173"
@@ -35,7 +37,10 @@ clean:
 	rm -rf dist
 
 docker-build:
-	docker build --build-arg VITE_API_BASE_URL=http://localhost:8080 -t bookstore-storefront .
+	docker build \
+		--build-arg VITE_API_BASE_URL=http://localhost:8080 \
+		--build-arg VITE_GOOGLE_CLIENT_ID=$(GOOGLE_CLIENT_ID) \
+		-t bookstore-storefront .
 
 docker-run:
 	docker run --rm -p 4173:80 bookstore-storefront

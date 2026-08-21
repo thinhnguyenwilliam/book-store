@@ -3,6 +3,7 @@ import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/features/auth/model/auth.store'
+import GoogleSignInButton from '@/features/auth/ui/GoogleSignInButton.vue'
 import { ApiError } from '@/shared/api/http-client'
 import { env } from '@/shared/config/env'
 import AppIcon from '@/shared/ui/AppIcon.vue'
@@ -21,6 +22,17 @@ async function submit(): Promise<void> {
     await router.replace(redirect)
   } catch (error) {
     errorMessage.value = error instanceof ApiError ? error.message : 'Không thể đăng nhập.'
+  }
+}
+
+async function signInWithGoogle(credential: string): Promise<void> {
+  errorMessage.value = ''
+  try {
+    await auth.signInWithGoogle(credential)
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    await router.replace(redirect)
+  } catch (error) {
+    errorMessage.value = error instanceof ApiError ? error.message : 'Không thể đăng nhập Google.'
   }
 }
 </script>
@@ -49,6 +61,16 @@ async function submit(): Promise<void> {
           <h2>Đăng nhập quản trị</h2>
           <p>Chỉ tài khoản có role <code>admin</code> mới được truy cập.</p>
         </header>
+
+        <div class="login-google">
+          <GoogleSignInButton
+            :client-id="env.googleClientId"
+            :disabled="auth.loading"
+            @credential="signInWithGoogle"
+            @error="errorMessage = $event"
+          />
+        </div>
+        <div class="login-divider"><span>hoặc đăng nhập bằng mật khẩu</span></div>
 
         <form class="login-form" @submit.prevent="submit">
           <label

@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { ApiError, onSessionExpired, setApiAccessToken } from '@/shared/api/http-client'
+import { disableGoogleAutoSelect } from '@/shared/lib/google-identity'
 import * as authApi from '../api/auth.api'
 import type { LoginPayload, RegisterPayload, UserProfile } from './types'
 
@@ -82,22 +83,37 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await authApi.register(payload)
       applyAccessToken(response.access_token)
 
-      // Profile creation is asynchronous through the outbox and RabbitMQ worker.
-      for (let attempt = 0; attempt < 5; attempt += 1) {
-        try {
-          await fetchProfile()
-          return
-        } catch (error) {
-          if (!(error instanceof ApiError) || error.status !== 404) {
-            throw error
-          }
-          if (attempt < 4) {
-            await sleep(400 * (attempt + 1))
-          }
-        }
-      }
+      await fetchProfileWithRetry()
     } finally {
       loading.value = false
+    }
+  }
+
+  async function signInWithGoogle(credential: string): Promise<void> {
+    loading.value = true
+    try {
+      const response = await authApi.loginWithGoogle({ credential, create_account: true })
+      applyAccessToken(response.access_token)
+      await fetchProfileWithRetry()
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchProfileWithRetry(): Promise<void> {
+    // New profiles are created asynchronously through the outbox and RabbitMQ worker.
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        await fetchProfile()
+        return
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.status !== 404) {
+          throw error
+        }
+        if (attempt < 4) {
+          await sleep(400 * (attempt + 1))
+        }
+      }
     }
   }
 
@@ -109,6 +125,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await authApi.logout()
     } finally {
+      disableGoogleAutoSelect()
       clearSession()
     }
   }
@@ -124,6 +141,7 @@ export const useAuthStore = defineStore('auth', () => {
     fetchProfile,
     signIn,
     signUp,
+    signInWithGoogle,
     saveDisplayName,
     signOut,
   }

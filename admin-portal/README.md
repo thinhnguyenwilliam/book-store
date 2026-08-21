@@ -38,10 +38,11 @@ File `.env` local:
 ```env
 VITE_API_BASE_URL=http://localhost:8080
 VITE_API_TIMEOUT_MS=10000
+VITE_GOOGLE_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
 VITE_STOREFRONT_URL=http://localhost:5173
 ```
 
-`.env` không được commit; `.env.example` được dùng làm mẫu.
+`.env` không được commit; `.env.example` được dùng làm mẫu. Admin portal không tạo account khi đăng nhập Google và vẫn kiểm tra role `admin` từ access token trước khi mở back-office.
 
 ## Cấp quyền admin local
 

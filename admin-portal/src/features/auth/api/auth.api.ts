@@ -1,9 +1,13 @@
 import { apiRequest, refreshApiSession } from '@/shared/api/http-client'
 
-import type { AuthResponse, LoginPayload, UserProfile } from '../model/types'
+import type { AuthResponse, GoogleLoginPayload, LoginPayload, UserProfile } from '../model/types'
 
 export function login(payload: LoginPayload) {
   return apiRequest<AuthResponse>('/api/v1/auth/login', { method: 'POST', data: payload })
+}
+
+export function loginWithGoogle(payload: GoogleLoginPayload) {
+  return apiRequest<AuthResponse>('/api/v1/auth/google', { method: 'POST', data: payload })
 }
 
 export function refreshSession() {

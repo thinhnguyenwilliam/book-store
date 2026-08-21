@@ -36,6 +36,17 @@ func (h *Handler) Login(ctx context.Context, request *bookstorev1.LoginRequest) 
 	return authResponse(result), nil
 }
 
+func (h *Handler) LoginWithGoogle(
+	ctx context.Context,
+	request *bookstorev1.GoogleLoginRequest,
+) (*bookstorev1.AuthResponse, error) {
+	result, err := h.service.LoginWithGoogle(ctx, request.GetCredential(), request.GetCreateAccount())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return authResponse(result), nil
+}
+
 func (h *Handler) Refresh(ctx context.Context, request *bookstorev1.RefreshRequest) (*bookstorev1.AuthResponse, error) {
 	result, err := h.service.Refresh(ctx, request.GetRefreshToken())
 	if err != nil {
@@ -86,9 +97,14 @@ func mapError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrEmailAlreadyExists):
 		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, domain.ErrIdentityConflict):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, domain.ErrIdentityUnavailable):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, domain.ErrInvalidCredentials),
+		errors.Is(err, domain.ErrInvalidIdentity),
 		errors.Is(err, domain.ErrInvalidToken),
 		errors.Is(err, domain.ErrInvalidRefreshToken),
 		errors.Is(err, domain.ErrRefreshTokenReused):

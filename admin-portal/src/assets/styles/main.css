@@ -480,10 +480,50 @@ svg {
   background: var(--color-brand-soft);
   font-size: 0.75rem;
 }
+.login-google {
+  margin-top: 28px;
+}
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0 0;
+  color: var(--color-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+.login-divider::before,
+.login-divider::after {
+  height: 1px;
+  flex: 1;
+  background: var(--color-line);
+  content: '';
+}
+.google-auth {
+  display: grid;
+  min-height: 44px;
+  place-items: center;
+}
+.google-auth__button {
+  width: 100%;
+  min-height: 44px;
+  transition: opacity 150ms ease;
+}
+.google-auth__button--disabled {
+  pointer-events: none;
+  opacity: 0.58;
+}
+.google-auth__unavailable {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  text-align: center;
+}
 .login-form {
   display: grid;
   gap: 18px;
-  margin-top: 30px;
+  margin-top: 22px;
 }
 .login-form label {
   display: grid;

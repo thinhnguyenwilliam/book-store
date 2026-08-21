@@ -4,7 +4,9 @@ import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/features/auth/model/auth.store'
 import AuthPanel from '@/features/auth/ui/AuthPanel.vue'
+import GoogleSignInButton from '@/features/auth/ui/GoogleSignInButton.vue'
 import { ApiError } from '@/shared/api/http-client'
+import { env } from '@/shared/config/env'
 import AppIcon from '@/shared/ui/AppIcon.vue'
 
 const auth = useAuthStore()
@@ -20,6 +22,17 @@ async function submit(): Promise<void> {
   } catch (requestError) {
     error.value =
       requestError instanceof ApiError ? requestError.message : 'Đăng ký không thành công.'
+  }
+}
+
+async function signUpWithGoogle(credential: string): Promise<void> {
+  error.value = ''
+  try {
+    await auth.signInWithGoogle(credential)
+    await router.push('/tai-khoan')
+  } catch (requestError) {
+    error.value =
+      requestError instanceof ApiError ? requestError.message : 'Đăng ký Google không thành công.'
   }
 }
 </script>
@@ -72,5 +85,13 @@ async function submit(): Promise<void> {
       </button>
       <p class="auth-switch">Đã có tài khoản? <RouterLink to="/dang-nhap">Đăng nhập</RouterLink></p>
     </form>
+    <div class="auth-divider"><span>hoặc</span></div>
+    <GoogleSignInButton
+      :client-id="env.googleClientId"
+      :disabled="auth.loading"
+      text="signup_with"
+      @credential="signUpWithGoogle"
+      @error="error = $event"
+    />
   </AuthPanel>
 </template>

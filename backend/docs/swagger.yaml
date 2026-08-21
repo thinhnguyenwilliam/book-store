@@ -102,6 +102,13 @@ definitions:
       error:
         $ref: '#/definitions/http.ErrorDetail'
     type: object
+  http.GoogleLoginRequest:
+    properties:
+      create_account:
+        type: boolean
+      credential:
+        type: string
+    type: object
   http.HealthResponse:
     properties:
       status:
@@ -470,6 +477,49 @@ paths:
       summary: Update a customer
       tags:
       - Admin Customers
+  /api/v1/auth/google:
+    post:
+      consumes:
+      - application/json
+      description: Verifies a Google Identity Services ID token. Storefront clients
+        may request account creation; admin clients should only sign in existing accounts.
+      parameters:
+      - description: Google credential
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.GoogleLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "412":
+          description: Precondition Failed
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Sign in with Google
+      tags:
+      - Auth
   /api/v1/auth/login:
     post:
       consumes:
@@ -563,10 +613,6 @@ paths:
       produces:
       - application/json
       responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/http.AuthResponse'
         "400":
           description: Bad Request
           schema:

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/googleidentity"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/outbox"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/postgres"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/security"
@@ -90,7 +91,8 @@ func run(cfg config.Config) error {
 	hasher := security.NewPasswordHasher()
 	accessTokens := security.NewTokenManager(cfg.Auth.JWTSecret, cfg.Auth.JWTIssuer, ttl)
 	refreshTokens := security.NewRefreshTokenManager()
-	service := application.NewService(repository, hasher, accessTokens, refreshTokens, refreshTTL)
+	identityVerifier := googleidentity.NewVerifier(cfg.Auth.GoogleClientID)
+	service := application.NewService(repository, hasher, accessTokens, refreshTokens, identityVerifier, refreshTTL)
 	handler := authgrpc.NewHandler(service)
 
 	publisher := rabbitmqadapter.NewPublisher(rabbitmqadapter.Config{

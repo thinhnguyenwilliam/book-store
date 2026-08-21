@@ -487,6 +487,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/auth/google": {
+            "post": {
+                "description": "Verifies a Google Identity Services ID token. Storefront clients may request account creation; admin clients should only sign in existing accounts.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Sign in with Google",
+                "parameters": [
+                    {
+                        "description": "Google credential",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/http.GoogleLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.AuthResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "412": {
+                        "description": "Precondition Failed",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/login": {
             "post": {
                 "description": "Authenticates an account and returns a bearer access token.",
@@ -628,12 +692,6 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/http.AuthResponse"
-                        }
-                    },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
@@ -1017,6 +1075,17 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/http.ErrorDetail"
+                }
+            }
+        },
+        "http.GoogleLoginRequest": {
+            "type": "object",
+            "properties": {
+                "create_account": {
+                    "type": "boolean"
+                },
+                "credential": {
+                    "type": "string"
                 }
             }
         },

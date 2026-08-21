@@ -30,6 +30,18 @@ Redis được giữ riêng cho cache/rate-limit. RabbitMQ chịu trách nhiệm
 
 Auth dùng access token JWT ngắn hạn `5m` và refresh token opaque `168h`. Storefront chỉ giữ access token trong memory; refresh token được Gateway đặt trong cookie `HttpOnly` và rotate qua PostgreSQL mỗi lần làm mới phiên.
 
+## Cấu hình đăng nhập Google
+
+Project dùng Google Identity Services ở frontend và xác minh Google ID token tại Auth Service. Không sử dụng Google client secret trong browser.
+
+1. Mở Google Cloud Console, cấu hình OAuth consent screen và tạo OAuth client loại **Web application**.
+2. Thêm JavaScript origins local: `http://localhost:5173` và `http://localhost:5174`; thêm domain HTTPS thật khi deploy production. Luồng popup callback không cần redirect URI.
+3. Điền cùng một Web Client ID vào `auth.google_client_id` trong `backend/config/local.yml` hoặc file config production.
+4. Copy `.env.example` thành `.env` trong `storefront` và `admin-portal`, sau đó điền `VITE_GOOGLE_CLIENT_ID` bằng Client ID đó.
+5. Restart Auth Service và hai frontend.
+
+Storefront gửi `create_account: true`, nên lần đăng nhập Google đầu tiên có thể tạo account customer và profile qua outbox. Admin portal gửi `create_account: false`; chỉ account đã tồn tại và có role `admin` mới đăng nhập được. Backend lưu Google `sub` trong `auth.account_identities`, không dùng email làm khóa identity.
+
 ## Yêu cầu
 
 Để chạy toàn bộ hệ thống, máy cần có:
