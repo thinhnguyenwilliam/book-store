@@ -59,7 +59,7 @@ func TestVerifyValidFacebookUserToken(t *testing.T) {
 	verifier.client = client
 	verifier.now = func() time.Time { return now }
 
-	identity, err := verifier.Verify(context.Background(), "user-token")
+	identity, err := verifier.Verify(context.Background(), "user-token", "")
 	if err != nil {
 		t.Fatalf("Verify() error = %v", err)
 	}
@@ -78,7 +78,7 @@ func TestVerifyRejectsTokenForAnotherApp(t *testing.T) {
 		return jsonResponse(http.StatusOK, `{"data":{"app_id":"another-app","type":"USER","is_valid":true,"user_id":"facebook-user"}}`), nil
 	})}
 
-	_, err := verifier.Verify(context.Background(), "user-token")
+	_, err := verifier.Verify(context.Background(), "user-token", "")
 	if !errors.Is(err, domain.ErrInvalidIdentity) {
 		t.Fatalf("Verify() error = %v, want %v", err, domain.ErrInvalidIdentity)
 	}
@@ -91,7 +91,7 @@ func TestVerifyReportsGraphAPIFailure(t *testing.T) {
 		return jsonResponse(http.StatusServiceUnavailable, `{}`), nil
 	})}
 
-	_, err := verifier.Verify(context.Background(), "user-token")
+	_, err := verifier.Verify(context.Background(), "user-token", "")
 	if !errors.Is(err, domain.ErrIdentityProvider) {
 		t.Fatalf("Verify() error = %v, want %v", err, domain.ErrIdentityProvider)
 	}
@@ -100,7 +100,7 @@ func TestVerifyReportsGraphAPIFailure(t *testing.T) {
 func TestVerifyRequiresServerCredentials(t *testing.T) {
 	verifier := NewVerifier("app-id", "", "v25.0")
 
-	_, err := verifier.Verify(context.Background(), "user-token")
+	_, err := verifier.Verify(context.Background(), "user-token", "")
 	if !errors.Is(err, domain.ErrIdentityUnavailable) {
 		t.Fatalf("Verify() error = %v, want %v", err, domain.ErrIdentityUnavailable)
 	}

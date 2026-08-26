@@ -6,6 +6,7 @@ import (
 	"time"
 
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
+	grpcerror "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcerror"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/user/application"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/user/domain"
 	"google.golang.org/grpc/codes"
@@ -81,6 +82,9 @@ func toProto(user *domain.User) *bookstorev1.User {
 }
 
 func mapError(err error) error {
+	if mapped := grpcerror.FromContext(err); mapped != nil {
+		return mapped
+	}
 	switch {
 	case errors.Is(err, domain.ErrInvalidInput):
 		return status.Error(codes.InvalidArgument, err.Error())

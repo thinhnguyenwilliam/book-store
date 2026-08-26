@@ -10,6 +10,9 @@ service BookService {
   rpc ListBooks(ListBooksRequest) returns (ListBooksResponse);
   rpc UpdateBook(UpdateBookRequest) returns (Book);
   rpc DeleteBook(DeleteBookRequest) returns (DeleteBookResponse);
+  rpc ReserveStock(ReserveStockRequest) returns (StockReservation);
+  rpc CommitStock(CommitStockRequest) returns (StockReservation);
+  rpc ReleaseStock(ReleaseStockRequest) returns (StockReservation);
 }
 
 message Book {
@@ -21,6 +24,7 @@ message Book {
   int32 stock = 6;
   string created_at = 7;
   string updated_at = 8;
+  string seller_id = 9;
 }
 
 message CreateBookRequest {
@@ -29,6 +33,7 @@ message CreateBookRequest {
   string isbn = 3;
   int64 price_cents = 4;
   int32 stock = 5;
+  string seller_id = 6;
 }
 
 message GetBookRequest {
@@ -57,6 +62,7 @@ message UpdateBookRequest {
   string isbn = 4;
   int64 price_cents = 5;
   int32 stock = 6;
+  string seller_id = 7;
 }
 
 message DeleteBookRequest {
@@ -64,3 +70,29 @@ message DeleteBookRequest {
 }
 
 message DeleteBookResponse {}
+
+message StockReservation {
+  string id = 1;
+  string order_id = 2;
+  string book_id = 3;
+  int32 quantity = 4;
+  string status = 5;
+  string expires_at = 6;
+}
+
+message ReserveStockRequest {
+  string order_id = 1;
+  string book_id = 2;
+  int32 quantity = 3;
+  string idempotency_key = 4;
+}
+
+message CommitStockRequest {
+  string order_id = 1;
+  string book_id = 2;
+}
+
+message ReleaseStockRequest {
+  string order_id = 1;
+  string book_id = 2;
+}

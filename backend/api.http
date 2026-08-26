@@ -5,6 +5,10 @@
 @registerTraceId = 11111111111111111111111111111111
 @googleCredential = paste-google-id-token-from-browser-callback-here
 @facebookAccessToken = paste-facebook-user-access-token-from-sdk-here
+@sellerId = 22222222-2222-4222-8222-222222222222
+@fundingKey = fund-reader-http-001
+@orderKey = order-reader-http-001
+@paymentKey = payment-reader-http-001
 
 ### 1. Gateway health check
 GET {{baseUrl}}/healthz
@@ -45,24 +49,49 @@ Accept: application/json
 ### 3.1a. Login with Google Identity Services
 # credential la Google ID token JWT tra ve trong callback cua GIS, khong phai access token.
 # Storefront dung create_account=true; admin portal dung false.
+# @name googleProviderState
+POST {{baseUrl}}/api/v1/auth/provider-state
+Content-Type: application/json
+Accept: application/json
+
+{
+  "provider": "google",
+  "create_account": true
+}
+
+### 3.1a.1. Complete Google login
+# Google button phai duoc initialize voi nonce va state bang gia tri vua nhan.
 POST {{baseUrl}}/api/v1/auth/google
 Content-Type: application/json
 Accept: application/json
 
 {
   "credential": "{{googleCredential}}",
+  "state": "{{googleProviderState.response.body.$.state}}",
   "create_account": true
 }
 
 ### 3.1b. Login with Facebook JavaScript SDK
 # access_token la user access token tra ve trong response.authResponse.accessToken.
 # Storefront dung create_account=true; admin portal dung false.
+# @name facebookProviderState
+POST {{baseUrl}}/api/v1/auth/provider-state
+Content-Type: application/json
+Accept: application/json
+
+{
+  "provider": "facebook",
+  "create_account": true
+}
+
+### 3.1b.1. Complete Facebook login
 POST {{baseUrl}}/api/v1/auth/facebook
 Content-Type: application/json
 Accept: application/json
 
 {
   "access_token": "{{facebookAccessToken}}",
+  "state": "{{facebookProviderState.response.body.$.state}}",
   "create_account": true
 }
 
@@ -120,7 +149,8 @@ Authorization: Bearer {{login.response.body.$.access_token}}
   "author": "Robert C. Martin3",
   "isbn": "97801344941613",
   "price_cents": 3993,
-  "stock": 13
+  "stock": 13,
+  "seller_id": "{{sellerId}}"
 }
 
 ### 8. Get the created book - public API
@@ -138,10 +168,111 @@ Authorization: Bearer {{login.response.body.$.access_token}}
   "author": "Robert C. Martin",
   "isbn": "9780134494166",
   "price_cents": 4299,
-  "stock": 20
+  "stock": 20,
+  "seller_id": "{{sellerId}}"
 }
 
-### 10. Delete the created book - admin only
+### 9.1. Create current-user wallet
+POST {{baseUrl}}/api/v1/wallets/me
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 9.2. Fund current-user wallet - admin only
+# UpdateBalance tao double-entry ledger, khong overwrite balance truc tiep.
+PUT {{baseUrl}}/api/v1/admin/wallets/{{login.response.body.$.user_id}}/balance
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+Idempotency-Key: {{fundingKey}}
+
+{
+  "delta_cents": 1000000,
+  "reason": "local HTTP checkout test"
+}
+
+### 9.3. Add book to cart
+# @name addCartItem
+POST {{baseUrl}}/api/v1/cart/items
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "bookId": "{{createBook.response.body.$.id}}",
+  "quantity": 2
+}
+
+### 9.4. List cart
+GET {{baseUrl}}/api/v1/cart/items
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 9.5. Update cart quantity
+PUT {{baseUrl}}/api/v1/cart/items/{{addCartItem.response.body.$.id}}
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "quantity": 3
+}
+
+### 9.6. Create order and reserve stock
+# @name createOrder
+POST {{baseUrl}}/api/v1/orders
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+Idempotency-Key: {{orderKey}}
+
+### 9.7. Pay order
+# @name createPayment
+POST {{baseUrl}}/api/v1/payments
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+Idempotency-Key: {{paymentKey}}
+
+{
+  "orderId": "{{createOrder.response.body.$.id}}"
+}
+
+### 9.7.1. Pay another reserved order through VNPAY
+# Set vnpayOrderId to a newly created stock-reserved order. Requires
+# payment.vnpay.enabled=true and sandbox credentials in config/local.yml.
+@vnpayOrderId = 00000000-0000-0000-0000-000000000000
+POST {{baseUrl}}/api/v1/payments
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+Idempotency-Key: vnpay-payment-{{$uuid}}
+
+{
+  "orderId": "{{vnpayOrderId}}",
+  "provider": "vnpay",
+  "locale": "vn"
+}
+
+### 9.8. Get order
+GET {{baseUrl}}/api/v1/orders/{{createOrder.response.body.$.id}}
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 9.9. List orders
+GET {{baseUrl}}/api/v1/orders?limit=20
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 9.10. Get payment by ID
+GET {{baseUrl}}/api/v1/payments/{{createPayment.response.body.$.id}}
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 9.11. Get payment by order ID
+GET {{baseUrl}}/api/v1/payments/order/{{createOrder.response.body.$.id}}
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 10. Delete the created book - admin only (run after checkout tests)
 DELETE {{baseUrl}}/api/v1/admin/books/{{createBook.response.body.$.id}}
 Accept: application/json
 Authorization: Bearer {{login.response.body.$.access_token}}

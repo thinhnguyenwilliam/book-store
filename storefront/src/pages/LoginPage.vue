@@ -6,8 +6,9 @@ import { useAuthStore } from '@/features/auth/model/auth.store'
 import AuthPanel from '@/features/auth/ui/AuthPanel.vue'
 import FacebookSignInButton from '@/features/auth/ui/FacebookSignInButton.vue'
 import GoogleSignInButton from '@/features/auth/ui/GoogleSignInButton.vue'
-import { ApiError } from '@/shared/api/http-client'
+import { ApiError, providerLoginErrorMessage } from '@/shared/api/http-client'
 import { env } from '@/shared/config/env'
+import { safeRedirectPath } from '@/shared/lib/safe-redirect'
 import AppIcon from '@/shared/ui/AppIcon.vue'
 
 const auth = useAuthStore()
@@ -20,7 +21,7 @@ async function submit(): Promise<void> {
   error.value = ''
   try {
     await auth.signIn(form)
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/tai-khoan'
+    const redirect = safeRedirectPath(route.query.redirect, '/tai-khoan')
     await router.push(redirect)
   } catch (requestError) {
     error.value =
@@ -28,29 +29,25 @@ async function submit(): Promise<void> {
   }
 }
 
-async function signInWithGoogle(credential: string): Promise<void> {
+async function signInWithGoogle(credential: string, state: string): Promise<void> {
   error.value = ''
   try {
-    await auth.signInWithGoogle(credential)
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/tai-khoan'
+    await auth.signInWithGoogle(credential, state)
+    const redirect = safeRedirectPath(route.query.redirect, '/tai-khoan')
     await router.push(redirect)
   } catch (requestError) {
-    error.value =
-      requestError instanceof ApiError ? requestError.message : 'Đăng nhập Google không thành công.'
+    error.value = providerLoginErrorMessage(requestError, 'Google')
   }
 }
 
-async function signInWithFacebook(accessToken: string): Promise<void> {
+async function signInWithFacebook(accessToken: string, state: string): Promise<void> {
   error.value = ''
   try {
-    await auth.signInWithFacebook(accessToken)
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/tai-khoan'
+    await auth.signInWithFacebook(accessToken, state)
+    const redirect = safeRedirectPath(route.query.redirect, '/tai-khoan')
     await router.push(redirect)
   } catch (requestError) {
-    error.value =
-      requestError instanceof ApiError
-        ? requestError.message
-        : 'Đăng nhập Facebook không thành công.'
+    error.value = providerLoginErrorMessage(requestError, 'Facebook')
   }
 }
 </script>
@@ -98,6 +95,7 @@ async function signInWithFacebook(accessToken: string): Promise<void> {
     <div class="auth-social-buttons">
       <GoogleSignInButton
         :client-id="env.googleClientId"
+        :create-account="true"
         :disabled="auth.loading"
         @credential="signInWithGoogle"
         @error="error = $event"
@@ -105,6 +103,7 @@ async function signInWithFacebook(accessToken: string): Promise<void> {
       <FacebookSignInButton
         :app-id="env.facebookAppId"
         :graph-version="env.facebookGraphVersion"
+        :create-account="true"
         :disabled="auth.loading"
         @access-token="signInWithFacebook"
         @error="error = $event"

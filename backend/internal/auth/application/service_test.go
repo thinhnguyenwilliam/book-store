@@ -121,7 +121,7 @@ type identityVerifierStub struct {
 	err      error
 }
 
-func (v identityVerifierStub) Verify(context.Context, string) (VerifiedIdentity, error) {
+func (v identityVerifierStub) Verify(context.Context, string, string) (VerifiedIdentity, error) {
 	return v.identity, v.err
 }
 
@@ -217,7 +217,7 @@ func TestGoogleLoginUsesExistingIdentity(t *testing.T) {
 		Provider: domain.IdentityProviderGoogle, Subject: "google-sub", Email: account.Email, EmailVerified: true,
 	})
 
-	result, err := service.LoginWithGoogle(context.Background(), "google-credential", false)
+	result, err := service.LoginWithGoogle(context.Background(), "google-credential", "state", false)
 	if err != nil {
 		t.Fatalf("LoginWithGoogle() error = %v", err)
 	}
@@ -237,7 +237,7 @@ func TestGoogleLoginCreatesCustomerWithIdentity(t *testing.T) {
 		EmailAuthoritative: true,
 	})
 
-	result, err := service.LoginWithGoogle(context.Background(), "google-credential", true)
+	result, err := service.LoginWithGoogle(context.Background(), "google-credential", "state", true)
 	if err != nil {
 		t.Fatalf("LoginWithGoogle() error = %v", err)
 	}
@@ -258,7 +258,7 @@ func TestGoogleLoginDoesNotCreateAccountForAdminFlow(t *testing.T) {
 		Provider: domain.IdentityProviderGoogle, Subject: "google-sub", Email: "reader@gmail.com", EmailVerified: true,
 	})
 
-	_, err := service.LoginWithGoogle(context.Background(), "google-credential", false)
+	_, err := service.LoginWithGoogle(context.Background(), "google-credential", "state", false)
 	if !errors.Is(err, domain.ErrInvalidCredentials) {
 		t.Fatalf("LoginWithGoogle() error = %v, want %v", err, domain.ErrInvalidCredentials)
 	}
@@ -274,7 +274,7 @@ func TestGoogleLoginRejectsUnsafeEmailLink(t *testing.T) {
 		Provider: domain.IdentityProviderGoogle, Subject: "google-sub", Email: account.Email, EmailVerified: true,
 	})
 
-	_, err := service.LoginWithGoogle(context.Background(), "google-credential", true)
+	_, err := service.LoginWithGoogle(context.Background(), "google-credential", "state", true)
 	if !errors.Is(err, domain.ErrIdentityConflict) {
 		t.Fatalf("LoginWithGoogle() error = %v, want %v", err, domain.ErrIdentityConflict)
 	}

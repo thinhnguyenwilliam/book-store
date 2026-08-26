@@ -27,6 +27,10 @@ VITE_FACEBOOK_GRAPH_VERSION=v25.0
 
 `.env` dùng cho máy local và đã được Git bỏ qua. Chỉ commit `.env.example`; mọi biến bắt đầu bằng `VITE_` đều được đưa vào bundle phía trình duyệt nên không đặt password, JWT secret hay khóa riêng trong đó. Google Web Client ID và Facebook App ID là public identifier; Google/Facebook App Secret tuyệt đối không được đưa vào frontend.
 
+Google/Facebook dùng popup SDK, không dùng redirect callback do frontend tự tạo. Trước mỗi external login, frontend lấy state từ `/api/v1/auth/provider-state`; Google gửi state quay lại callback và nhúng cùng giá trị vào ID-token nonce, còn backend đối chiếu với cookie HttpOnly. Query `redirect` sau đăng nhập chỉ chấp nhận đường dẫn nội bộ bắt đầu bằng một dấu `/`, nên không thể điều hướng sang domain bên ngoài.
+
+Provider token chỉ phục vụ lần xác minh ban đầu và không được lưu/refresh. Sau khi đăng nhập, ứng dụng tiếp tục dùng access token Book Store trong memory và refresh token Book Store trong cookie HttpOnly như luồng mật khẩu.
+
 ## Kiểm tra và build
 
 ```bash

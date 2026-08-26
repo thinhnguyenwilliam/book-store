@@ -80,25 +80,26 @@ func (s *Service) Register(ctx context.Context, email, password, displayName str
 	return result, nil
 }
 
-func (s *Service) LoginWithGoogle(ctx context.Context, credential string, createAccount bool) (AuthResult, error) {
-	return s.loginWithIdentity(ctx, domain.IdentityProviderGoogle, credential, createAccount)
+func (s *Service) LoginWithGoogle(ctx context.Context, credential, nonce string, createAccount bool) (AuthResult, error) {
+	return s.loginWithIdentity(ctx, domain.IdentityProviderGoogle, credential, nonce, createAccount)
 }
 
 func (s *Service) LoginWithFacebook(ctx context.Context, accessToken string, createAccount bool) (AuthResult, error) {
-	return s.loginWithIdentity(ctx, domain.IdentityProviderFacebook, accessToken, createAccount)
+	return s.loginWithIdentity(ctx, domain.IdentityProviderFacebook, accessToken, "", createAccount)
 }
 
 func (s *Service) loginWithIdentity(
 	ctx context.Context,
 	provider string,
 	credential string,
+	expectedNonce string,
 	createAccount bool,
 ) (AuthResult, error) {
 	verifier := s.identities[provider]
 	if verifier == nil {
 		return AuthResult{}, domain.ErrIdentityUnavailable
 	}
-	verified, err := verifier.Verify(ctx, strings.TrimSpace(credential))
+	verified, err := verifier.Verify(ctx, strings.TrimSpace(credential), strings.TrimSpace(expectedNonce))
 	if err != nil {
 		if errors.Is(err, domain.ErrIdentityUnavailable) || errors.Is(err, domain.ErrIdentityProvider) {
 			return AuthResult{}, err

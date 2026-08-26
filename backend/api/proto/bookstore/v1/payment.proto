@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+package bookstore.v1;
+
+option go_package = "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1;bookstorev1";
+
+service PaymentService {
+  rpc CreateWallet(CreateWalletRequest) returns (Wallet);
+  rpc GetBalance(GetBalanceRequest) returns (Wallet);
+  rpc UpdateBalance(UpdateBalanceRequest) returns (Wallet);
+  rpc CreatePayment(CreatePaymentRequest) returns (Payment);
+  rpc GetPayment(GetPaymentRequest) returns (Payment);
+  rpc GetPaymentByOrder(GetPaymentByOrderRequest) returns (Payment);
+  rpc RefundPayment(RefundPaymentRequest) returns (Payment);
+  rpc ProcessWebhook(ProcessPaymentWebhookRequest) returns (ProcessPaymentWebhookResponse);
+  rpc ReconcilePendingPayments(ReconcilePendingPaymentsRequest) returns (ReconcilePendingPaymentsResponse);
+}
+
+message Wallet {
+  string id = 1;
+  string owner_id = 2;
+  int64 balance_cents = 3;
+  string currency = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+message CreateWalletRequest {
+  string owner_id = 1;
+}
+
+message GetBalanceRequest {
+  string owner_id = 1;
+}
+
+message UpdateBalanceRequest {
+  string owner_id = 1;
+  int64 delta_cents = 2;
+  string idempotency_key = 3;
+  string reason = 4;
+}
+
+message PaymentAllocation {
+  string seller_id = 1;
+  int64 amount_cents = 2;
+}
+
+message CreatePaymentRequest {
+  string order_id = 1;
+  string buyer_id = 2;
+  int64 total_cents = 3;
+  repeated PaymentAllocation allocations = 4;
+  string idempotency_key = 5;
+  string provider = 6;
+  string client_ip = 7;
+  string locale = 8;
+  string bank_code = 9;
+}
+
+message Payment {
+  string id = 1;
+  string order_id = 2;
+  string buyer_id = 3;
+  string status = 4;
+  int64 amount_cents = 5;
+  int64 platform_fee_cents = 6;
+  string currency = 7;
+  string failure_reason = 8;
+  string created_at = 9;
+  string updated_at = 10;
+  string provider = 11;
+  string provider_transaction_id = 12;
+  string checkout_url = 13;
+  string expires_at = 14;
+  string paid_at = 15;
+}
+
+message GetPaymentRequest {
+  string id = 1;
+  string buyer_id = 2;
+}
+
+message GetPaymentByOrderRequest {
+  string order_id = 1;
+  string buyer_id = 2;
+}
+
+message RefundPaymentRequest {
+  string payment_id = 1;
+  string idempotency_key = 2;
+  string reason = 3;
+}
+
+message ProcessPaymentWebhookRequest {
+  string provider = 1;
+  map<string, string> parameters = 2;
+}
+
+message ProcessPaymentWebhookResponse {
+  string response_code = 1;
+  string message = 2;
+  Payment payment = 3;
+}
+
+message ReconcilePendingPaymentsRequest {
+  int32 limit = 1;
+}
+
+message ReconcilePendingPaymentsResponse {
+  int32 checked = 1;
+  int32 updated = 2;
+  int32 mismatched = 3;
+}

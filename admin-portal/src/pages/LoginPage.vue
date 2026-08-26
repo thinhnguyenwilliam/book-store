@@ -5,8 +5,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/model/auth.store'
 import FacebookSignInButton from '@/features/auth/ui/FacebookSignInButton.vue'
 import GoogleSignInButton from '@/features/auth/ui/GoogleSignInButton.vue'
-import { ApiError } from '@/shared/api/http-client'
+import { ApiError, providerLoginErrorMessage } from '@/shared/api/http-client'
 import { env } from '@/shared/config/env'
+import { safeRedirectPath } from '@/shared/lib/safe-redirect'
 import AppIcon from '@/shared/ui/AppIcon.vue'
 
 const auth = useAuthStore()
@@ -19,32 +20,32 @@ async function submit(): Promise<void> {
   errorMessage.value = ''
   try {
     await auth.signIn(form)
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    const redirect = safeRedirectPath(route.query.redirect, '/')
     await router.replace(redirect)
   } catch (error) {
     errorMessage.value = error instanceof ApiError ? error.message : 'Không thể đăng nhập.'
   }
 }
 
-async function signInWithGoogle(credential: string): Promise<void> {
+async function signInWithGoogle(credential: string, state: string): Promise<void> {
   errorMessage.value = ''
   try {
-    await auth.signInWithGoogle(credential)
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    await auth.signInWithGoogle(credential, state)
+    const redirect = safeRedirectPath(route.query.redirect, '/')
     await router.replace(redirect)
   } catch (error) {
-    errorMessage.value = error instanceof ApiError ? error.message : 'Không thể đăng nhập Google.'
+    errorMessage.value = providerLoginErrorMessage(error, 'Google')
   }
 }
 
-async function signInWithFacebook(accessToken: string): Promise<void> {
+async function signInWithFacebook(accessToken: string, state: string): Promise<void> {
   errorMessage.value = ''
   try {
-    await auth.signInWithFacebook(accessToken)
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    await auth.signInWithFacebook(accessToken, state)
+    const redirect = safeRedirectPath(route.query.redirect, '/')
     await router.replace(redirect)
   } catch (error) {
-    errorMessage.value = error instanceof ApiError ? error.message : 'Không thể đăng nhập Facebook.'
+    errorMessage.value = providerLoginErrorMessage(error, 'Facebook')
   }
 }
 </script>
@@ -77,6 +78,7 @@ async function signInWithFacebook(accessToken: string): Promise<void> {
         <div class="login-social-buttons">
           <GoogleSignInButton
             :client-id="env.googleClientId"
+            :create-account="false"
             :disabled="auth.loading"
             @credential="signInWithGoogle"
             @error="errorMessage = $event"
@@ -84,6 +86,7 @@ async function signInWithFacebook(accessToken: string): Promise<void> {
           <FacebookSignInButton
             :app-id="env.facebookAppId"
             :graph-version="env.facebookGraphVersion"
+            :create-account="false"
             :disabled="auth.loading"
             @access-token="signInWithFacebook"
             @error="errorMessage = $event"

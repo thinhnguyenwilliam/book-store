@@ -31,6 +31,7 @@ type Book struct {
 	Stock         int32                  `protobuf:"varint,6,opt,name=stock,proto3" json:"stock,omitempty"`
 	CreatedAt     string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     string                 `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	SellerId      string                 `protobuf:"bytes,9,opt,name=seller_id,json=sellerId,proto3" json:"seller_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -121,6 +122,13 @@ func (x *Book) GetUpdatedAt() string {
 	return ""
 }
 
+func (x *Book) GetSellerId() string {
+	if x != nil {
+		return x.SellerId
+	}
+	return ""
+}
+
 type CreateBookRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Title         string                 `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
@@ -128,6 +136,7 @@ type CreateBookRequest struct {
 	Isbn          string                 `protobuf:"bytes,3,opt,name=isbn,proto3" json:"isbn,omitempty"`
 	PriceCents    int64                  `protobuf:"varint,4,opt,name=price_cents,json=priceCents,proto3" json:"price_cents,omitempty"`
 	Stock         int32                  `protobuf:"varint,5,opt,name=stock,proto3" json:"stock,omitempty"`
+	SellerId      string                 `protobuf:"bytes,6,opt,name=seller_id,json=sellerId,proto3" json:"seller_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -195,6 +204,13 @@ func (x *CreateBookRequest) GetStock() int32 {
 		return x.Stock
 	}
 	return 0
+}
+
+func (x *CreateBookRequest) GetSellerId() string {
+	if x != nil {
+		return x.SellerId
+	}
+	return ""
 }
 
 type GetBookRequest struct {
@@ -361,6 +377,7 @@ type UpdateBookRequest struct {
 	Isbn          string                 `protobuf:"bytes,4,opt,name=isbn,proto3" json:"isbn,omitempty"`
 	PriceCents    int64                  `protobuf:"varint,5,opt,name=price_cents,json=priceCents,proto3" json:"price_cents,omitempty"`
 	Stock         int32                  `protobuf:"varint,6,opt,name=stock,proto3" json:"stock,omitempty"`
+	SellerId      string                 `protobuf:"bytes,7,opt,name=seller_id,json=sellerId,proto3" json:"seller_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -435,6 +452,13 @@ func (x *UpdateBookRequest) GetStock() int32 {
 		return x.Stock
 	}
 	return 0
+}
+
+func (x *UpdateBookRequest) GetSellerId() string {
+	if x != nil {
+		return x.SellerId
+	}
+	return ""
 }
 
 type DeleteBookRequest struct {
@@ -517,11 +541,267 @@ func (*DeleteBookResponse) Descriptor() ([]byte, []int) {
 	return file_bookstore_v1_book_proto_rawDescGZIP(), []int{7}
 }
 
+type StockReservation struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	OrderId       string                 `protobuf:"bytes,2,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
+	BookId        string                 `protobuf:"bytes,3,opt,name=book_id,json=bookId,proto3" json:"book_id,omitempty"`
+	Quantity      int32                  `protobuf:"varint,4,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	Status        string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	ExpiresAt     string                 `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StockReservation) Reset() {
+	*x = StockReservation{}
+	mi := &file_bookstore_v1_book_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StockReservation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StockReservation) ProtoMessage() {}
+
+func (x *StockReservation) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_book_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StockReservation.ProtoReflect.Descriptor instead.
+func (*StockReservation) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_book_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *StockReservation) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *StockReservation) GetOrderId() string {
+	if x != nil {
+		return x.OrderId
+	}
+	return ""
+}
+
+func (x *StockReservation) GetBookId() string {
+	if x != nil {
+		return x.BookId
+	}
+	return ""
+}
+
+func (x *StockReservation) GetQuantity() int32 {
+	if x != nil {
+		return x.Quantity
+	}
+	return 0
+}
+
+func (x *StockReservation) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *StockReservation) GetExpiresAt() string {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return ""
+}
+
+type ReserveStockRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	OrderId        string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
+	BookId         string                 `protobuf:"bytes,2,opt,name=book_id,json=bookId,proto3" json:"book_id,omitempty"`
+	Quantity       int32                  `protobuf:"varint,3,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	IdempotencyKey string                 `protobuf:"bytes,4,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ReserveStockRequest) Reset() {
+	*x = ReserveStockRequest{}
+	mi := &file_bookstore_v1_book_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReserveStockRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReserveStockRequest) ProtoMessage() {}
+
+func (x *ReserveStockRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_book_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReserveStockRequest.ProtoReflect.Descriptor instead.
+func (*ReserveStockRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_book_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ReserveStockRequest) GetOrderId() string {
+	if x != nil {
+		return x.OrderId
+	}
+	return ""
+}
+
+func (x *ReserveStockRequest) GetBookId() string {
+	if x != nil {
+		return x.BookId
+	}
+	return ""
+}
+
+func (x *ReserveStockRequest) GetQuantity() int32 {
+	if x != nil {
+		return x.Quantity
+	}
+	return 0
+}
+
+func (x *ReserveStockRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+type CommitStockRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OrderId       string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
+	BookId        string                 `protobuf:"bytes,2,opt,name=book_id,json=bookId,proto3" json:"book_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CommitStockRequest) Reset() {
+	*x = CommitStockRequest{}
+	mi := &file_bookstore_v1_book_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CommitStockRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CommitStockRequest) ProtoMessage() {}
+
+func (x *CommitStockRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_book_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CommitStockRequest.ProtoReflect.Descriptor instead.
+func (*CommitStockRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_book_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *CommitStockRequest) GetOrderId() string {
+	if x != nil {
+		return x.OrderId
+	}
+	return ""
+}
+
+func (x *CommitStockRequest) GetBookId() string {
+	if x != nil {
+		return x.BookId
+	}
+	return ""
+}
+
+type ReleaseStockRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OrderId       string                 `protobuf:"bytes,1,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
+	BookId        string                 `protobuf:"bytes,2,opt,name=book_id,json=bookId,proto3" json:"book_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReleaseStockRequest) Reset() {
+	*x = ReleaseStockRequest{}
+	mi := &file_bookstore_v1_book_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReleaseStockRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReleaseStockRequest) ProtoMessage() {}
+
+func (x *ReleaseStockRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_book_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReleaseStockRequest.ProtoReflect.Descriptor instead.
+func (*ReleaseStockRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_book_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ReleaseStockRequest) GetOrderId() string {
+	if x != nil {
+		return x.OrderId
+	}
+	return ""
+}
+
+func (x *ReleaseStockRequest) GetBookId() string {
+	if x != nil {
+		return x.BookId
+	}
+	return ""
+}
+
 var File_bookstore_v1_book_proto protoreflect.FileDescriptor
 
 const file_bookstore_v1_book_proto_rawDesc = "" +
 	"\n" +
-	"\x17bookstore/v1/book.proto\x12\fbookstore.v1\"\xcd\x01\n" +
+	"\x17bookstore/v1/book.proto\x12\fbookstore.v1\"\xea\x01\n" +
 	"\x04Book\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x16\n" +
@@ -533,14 +813,16 @@ const file_bookstore_v1_book_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\a \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\b \x01(\tR\tupdatedAt\"\x8c\x01\n" +
+	"updated_at\x18\b \x01(\tR\tupdatedAt\x12\x1b\n" +
+	"\tseller_id\x18\t \x01(\tR\bsellerId\"\xa9\x01\n" +
 	"\x11CreateBookRequest\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12\x16\n" +
 	"\x06author\x18\x02 \x01(\tR\x06author\x12\x12\n" +
 	"\x04isbn\x18\x03 \x01(\tR\x04isbn\x12\x1f\n" +
 	"\vprice_cents\x18\x04 \x01(\x03R\n" +
 	"priceCents\x12\x14\n" +
-	"\x05stock\x18\x05 \x01(\x05R\x05stock\" \n" +
+	"\x05stock\x18\x05 \x01(\x05R\x05stock\x12\x1b\n" +
+	"\tseller_id\x18\x06 \x01(\tR\bsellerId\" \n" +
 	"\x0eGetBookRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"]\n" +
 	"\x10ListBooksRequest\x12\x14\n" +
@@ -550,7 +832,7 @@ const file_bookstore_v1_book_proto_rawDesc = "" +
 	"\x05books\x18\x01 \x03(\v2\x12.bookstore.v1.BookR\x05books\x12\x1f\n" +
 	"\vnext_cursor\x18\x03 \x01(\tR\n" +
 	"nextCursor\x12\x19\n" +
-	"\bhas_more\x18\x04 \x01(\bR\ahasMoreJ\x04\b\x02\x10\x03R\x05total\"\x9c\x01\n" +
+	"\bhas_more\x18\x04 \x01(\bR\ahasMoreJ\x04\b\x02\x10\x03R\x05total\"\xb9\x01\n" +
 	"\x11UpdateBookRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x16\n" +
@@ -558,10 +840,30 @@ const file_bookstore_v1_book_proto_rawDesc = "" +
 	"\x04isbn\x18\x04 \x01(\tR\x04isbn\x12\x1f\n" +
 	"\vprice_cents\x18\x05 \x01(\x03R\n" +
 	"priceCents\x12\x14\n" +
-	"\x05stock\x18\x06 \x01(\x05R\x05stock\"#\n" +
+	"\x05stock\x18\x06 \x01(\x05R\x05stock\x12\x1b\n" +
+	"\tseller_id\x18\a \x01(\tR\bsellerId\"#\n" +
 	"\x11DeleteBookRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x14\n" +
-	"\x12DeleteBookResponse2\xef\x02\n" +
+	"\x12DeleteBookResponse\"\xa9\x01\n" +
+	"\x10StockReservation\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
+	"\border_id\x18\x02 \x01(\tR\aorderId\x12\x17\n" +
+	"\abook_id\x18\x03 \x01(\tR\x06bookId\x12\x1a\n" +
+	"\bquantity\x18\x04 \x01(\x05R\bquantity\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\x06 \x01(\tR\texpiresAt\"\x8e\x01\n" +
+	"\x13ReserveStockRequest\x12\x19\n" +
+	"\border_id\x18\x01 \x01(\tR\aorderId\x12\x17\n" +
+	"\abook_id\x18\x02 \x01(\tR\x06bookId\x12\x1a\n" +
+	"\bquantity\x18\x03 \x01(\x05R\bquantity\x12'\n" +
+	"\x0fidempotency_key\x18\x04 \x01(\tR\x0eidempotencyKey\"H\n" +
+	"\x12CommitStockRequest\x12\x19\n" +
+	"\border_id\x18\x01 \x01(\tR\aorderId\x12\x17\n" +
+	"\abook_id\x18\x02 \x01(\tR\x06bookId\"I\n" +
+	"\x13ReleaseStockRequest\x12\x19\n" +
+	"\border_id\x18\x01 \x01(\tR\aorderId\x12\x17\n" +
+	"\abook_id\x18\x02 \x01(\tR\x06bookId2\xe6\x04\n" +
 	"\vBookService\x12A\n" +
 	"\n" +
 	"CreateBook\x12\x1f.bookstore.v1.CreateBookRequest\x1a\x12.bookstore.v1.Book\x12;\n" +
@@ -570,7 +872,10 @@ const file_bookstore_v1_book_proto_rawDesc = "" +
 	"\n" +
 	"UpdateBook\x12\x1f.bookstore.v1.UpdateBookRequest\x1a\x12.bookstore.v1.Book\x12O\n" +
 	"\n" +
-	"DeleteBook\x12\x1f.bookstore.v1.DeleteBookRequest\x1a .bookstore.v1.DeleteBookResponseBOZMgithub.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1;bookstorev1b\x06proto3"
+	"DeleteBook\x12\x1f.bookstore.v1.DeleteBookRequest\x1a .bookstore.v1.DeleteBookResponse\x12Q\n" +
+	"\fReserveStock\x12!.bookstore.v1.ReserveStockRequest\x1a\x1e.bookstore.v1.StockReservation\x12O\n" +
+	"\vCommitStock\x12 .bookstore.v1.CommitStockRequest\x1a\x1e.bookstore.v1.StockReservation\x12Q\n" +
+	"\fReleaseStock\x12!.bookstore.v1.ReleaseStockRequest\x1a\x1e.bookstore.v1.StockReservationBOZMgithub.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1;bookstorev1b\x06proto3"
 
 var (
 	file_bookstore_v1_book_proto_rawDescOnce sync.Once
@@ -584,34 +889,44 @@ func file_bookstore_v1_book_proto_rawDescGZIP() []byte {
 	return file_bookstore_v1_book_proto_rawDescData
 }
 
-var file_bookstore_v1_book_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_bookstore_v1_book_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_bookstore_v1_book_proto_goTypes = []any{
-	(*Book)(nil),               // 0: bookstore.v1.Book
-	(*CreateBookRequest)(nil),  // 1: bookstore.v1.CreateBookRequest
-	(*GetBookRequest)(nil),     // 2: bookstore.v1.GetBookRequest
-	(*ListBooksRequest)(nil),   // 3: bookstore.v1.ListBooksRequest
-	(*ListBooksResponse)(nil),  // 4: bookstore.v1.ListBooksResponse
-	(*UpdateBookRequest)(nil),  // 5: bookstore.v1.UpdateBookRequest
-	(*DeleteBookRequest)(nil),  // 6: bookstore.v1.DeleteBookRequest
-	(*DeleteBookResponse)(nil), // 7: bookstore.v1.DeleteBookResponse
+	(*Book)(nil),                // 0: bookstore.v1.Book
+	(*CreateBookRequest)(nil),   // 1: bookstore.v1.CreateBookRequest
+	(*GetBookRequest)(nil),      // 2: bookstore.v1.GetBookRequest
+	(*ListBooksRequest)(nil),    // 3: bookstore.v1.ListBooksRequest
+	(*ListBooksResponse)(nil),   // 4: bookstore.v1.ListBooksResponse
+	(*UpdateBookRequest)(nil),   // 5: bookstore.v1.UpdateBookRequest
+	(*DeleteBookRequest)(nil),   // 6: bookstore.v1.DeleteBookRequest
+	(*DeleteBookResponse)(nil),  // 7: bookstore.v1.DeleteBookResponse
+	(*StockReservation)(nil),    // 8: bookstore.v1.StockReservation
+	(*ReserveStockRequest)(nil), // 9: bookstore.v1.ReserveStockRequest
+	(*CommitStockRequest)(nil),  // 10: bookstore.v1.CommitStockRequest
+	(*ReleaseStockRequest)(nil), // 11: bookstore.v1.ReleaseStockRequest
 }
 var file_bookstore_v1_book_proto_depIdxs = []int32{
-	0, // 0: bookstore.v1.ListBooksResponse.books:type_name -> bookstore.v1.Book
-	1, // 1: bookstore.v1.BookService.CreateBook:input_type -> bookstore.v1.CreateBookRequest
-	2, // 2: bookstore.v1.BookService.GetBook:input_type -> bookstore.v1.GetBookRequest
-	3, // 3: bookstore.v1.BookService.ListBooks:input_type -> bookstore.v1.ListBooksRequest
-	5, // 4: bookstore.v1.BookService.UpdateBook:input_type -> bookstore.v1.UpdateBookRequest
-	6, // 5: bookstore.v1.BookService.DeleteBook:input_type -> bookstore.v1.DeleteBookRequest
-	0, // 6: bookstore.v1.BookService.CreateBook:output_type -> bookstore.v1.Book
-	0, // 7: bookstore.v1.BookService.GetBook:output_type -> bookstore.v1.Book
-	4, // 8: bookstore.v1.BookService.ListBooks:output_type -> bookstore.v1.ListBooksResponse
-	0, // 9: bookstore.v1.BookService.UpdateBook:output_type -> bookstore.v1.Book
-	7, // 10: bookstore.v1.BookService.DeleteBook:output_type -> bookstore.v1.DeleteBookResponse
-	6, // [6:11] is the sub-list for method output_type
-	1, // [1:6] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	0,  // 0: bookstore.v1.ListBooksResponse.books:type_name -> bookstore.v1.Book
+	1,  // 1: bookstore.v1.BookService.CreateBook:input_type -> bookstore.v1.CreateBookRequest
+	2,  // 2: bookstore.v1.BookService.GetBook:input_type -> bookstore.v1.GetBookRequest
+	3,  // 3: bookstore.v1.BookService.ListBooks:input_type -> bookstore.v1.ListBooksRequest
+	5,  // 4: bookstore.v1.BookService.UpdateBook:input_type -> bookstore.v1.UpdateBookRequest
+	6,  // 5: bookstore.v1.BookService.DeleteBook:input_type -> bookstore.v1.DeleteBookRequest
+	9,  // 6: bookstore.v1.BookService.ReserveStock:input_type -> bookstore.v1.ReserveStockRequest
+	10, // 7: bookstore.v1.BookService.CommitStock:input_type -> bookstore.v1.CommitStockRequest
+	11, // 8: bookstore.v1.BookService.ReleaseStock:input_type -> bookstore.v1.ReleaseStockRequest
+	0,  // 9: bookstore.v1.BookService.CreateBook:output_type -> bookstore.v1.Book
+	0,  // 10: bookstore.v1.BookService.GetBook:output_type -> bookstore.v1.Book
+	4,  // 11: bookstore.v1.BookService.ListBooks:output_type -> bookstore.v1.ListBooksResponse
+	0,  // 12: bookstore.v1.BookService.UpdateBook:output_type -> bookstore.v1.Book
+	7,  // 13: bookstore.v1.BookService.DeleteBook:output_type -> bookstore.v1.DeleteBookResponse
+	8,  // 14: bookstore.v1.BookService.ReserveStock:output_type -> bookstore.v1.StockReservation
+	8,  // 15: bookstore.v1.BookService.CommitStock:output_type -> bookstore.v1.StockReservation
+	8,  // 16: bookstore.v1.BookService.ReleaseStock:output_type -> bookstore.v1.StockReservation
+	9,  // [9:17] is the sub-list for method output_type
+	1,  // [1:9] is the sub-list for method input_type
+	1,  // [1:1] is the sub-list for extension type_name
+	1,  // [1:1] is the sub-list for extension extendee
+	0,  // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_bookstore_v1_book_proto_init() }
@@ -625,7 +940,7 @@ func file_bookstore_v1_book_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_bookstore_v1_book_proto_rawDesc), len(file_bookstore_v1_book_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

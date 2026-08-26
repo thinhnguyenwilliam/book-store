@@ -8,6 +8,7 @@ import (
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/book/application"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/book/domain"
+	grpcerror "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcerror"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -28,6 +29,7 @@ func (h *Handler) CreateBook(ctx context.Context, request *bookstorev1.CreateBoo
 		ISBN:       request.GetIsbn(),
 		PriceCents: request.GetPriceCents(),
 		Stock:      request.GetStock(),
+		SellerID:   request.GetSellerId(),
 	})
 	if err != nil {
 		return nil, mapError(err)
@@ -68,11 +70,51 @@ func (h *Handler) UpdateBook(ctx context.Context, request *bookstorev1.UpdateBoo
 		ISBN:       request.GetIsbn(),
 		PriceCents: request.GetPriceCents(),
 		Stock:      request.GetStock(),
+		SellerID:   request.GetSellerId(),
 	})
 	if err != nil {
 		return nil, mapError(err)
 	}
 	return toProto(book), nil
+}
+
+func (h *Handler) ReserveStock(
+	ctx context.Context,
+	request *bookstorev1.ReserveStockRequest,
+) (*bookstorev1.StockReservation, error) {
+	reservation, err := h.service.ReserveStock(
+		ctx,
+		request.GetOrderId(),
+		request.GetBookId(),
+		request.GetQuantity(),
+		request.GetIdempotencyKey(),
+	)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return reservationProto(reservation), nil
+}
+
+func (h *Handler) CommitStock(
+	ctx context.Context,
+	request *bookstorev1.CommitStockRequest,
+) (*bookstorev1.StockReservation, error) {
+	reservation, err := h.service.CommitStock(ctx, request.GetOrderId(), request.GetBookId())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return reservationProto(reservation), nil
+}
+
+func (h *Handler) ReleaseStock(
+	ctx context.Context,
+	request *bookstorev1.ReleaseStockRequest,
+) (*bookstorev1.StockReservation, error) {
+	reservation, err := h.service.ReleaseStock(ctx, request.GetOrderId(), request.GetBookId())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return reservationProto(reservation), nil
 }
 
 func (h *Handler) DeleteBook(ctx context.Context, request *bookstorev1.DeleteBookRequest) (*bookstorev1.DeleteBookResponse, error) {
@@ -90,12 +132,27 @@ func toProto(book *domain.Book) *bookstorev1.Book {
 		Isbn:       book.ISBN,
 		PriceCents: book.PriceCents,
 		Stock:      book.Stock,
+		SellerId:   book.SellerID,
 		CreatedAt:  book.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:  book.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
+func reservationProto(reservation *domain.StockReservation) *bookstorev1.StockReservation {
+	return &bookstorev1.StockReservation{
+		Id:        reservation.ID,
+		OrderId:   reservation.OrderID,
+		BookId:    reservation.BookID,
+		Quantity:  reservation.Quantity,
+		Status:    reservation.Status,
+		ExpiresAt: reservation.ExpiresAt.Format(time.RFC3339),
+	}
+}
+
 func mapError(err error) error {
+	if mapped := grpcerror.FromContext(err); mapped != nil {
+		return mapped
+	}
 	switch {
 	case errors.Is(err, domain.ErrInvalidInput):
 		return status.Error(codes.InvalidArgument, err.Error())
@@ -103,6 +160,12 @@ func mapError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, domain.ErrISBNExists):
 		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, domain.ErrInsufficientStock):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, domain.ErrReservationMissing):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, domain.ErrReservationState):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal server error")
 	}

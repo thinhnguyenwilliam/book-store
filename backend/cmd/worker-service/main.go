@@ -51,11 +51,18 @@ func run(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
+	grpcCallTimeout, err := time.ParseDuration(cfg.GRPC.CallTimeout)
+	if err != nil {
+		return err
+	}
 
 	userConnection, err := grpc.NewClient(
 		cfg.GRPC.UserAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(grpcclient.UnaryLoggingInterceptor),
+		grpc.WithChainUnaryInterceptor(
+			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout),
+			grpcclient.UnaryLoggingInterceptor,
+		),
 		grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor),
 	)
 	if err != nil {

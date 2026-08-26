@@ -14,6 +14,8 @@ type Config struct {
 	GRPC     GRPCConfig     `mapstructure:"grpc"`
 	Postgres PostgresConfig `mapstructure:"postgres"`
 	Auth     AuthConfig     `mapstructure:"auth"`
+	Payment  PaymentConfig  `mapstructure:"payment"`
+	Commerce CommerceConfig `mapstructure:"commerce"`
 	Redis    RedisConfig    `mapstructure:"redis"`
 	RabbitMQ RabbitMQConfig `mapstructure:"rabbitmq"`
 	Outbox   OutboxConfig   `mapstructure:"outbox"`
@@ -36,12 +38,50 @@ type GatewayConfig struct {
 }
 
 type GRPCConfig struct {
-	AuthAddress       string `mapstructure:"auth_address"`
-	UserAddress       string `mapstructure:"user_address"`
-	BookAddress       string `mapstructure:"book_address"`
-	AuthListenAddress string `mapstructure:"auth_listen_address"`
-	UserListenAddress string `mapstructure:"user_listen_address"`
-	BookListenAddress string `mapstructure:"book_listen_address"`
+	AuthAddress          string `mapstructure:"auth_address"`
+	UserAddress          string `mapstructure:"user_address"`
+	BookAddress          string `mapstructure:"book_address"`
+	OrderAddress         string `mapstructure:"order_address"`
+	PaymentAddress       string `mapstructure:"payment_address"`
+	AuthListenAddress    string `mapstructure:"auth_listen_address"`
+	UserListenAddress    string `mapstructure:"user_listen_address"`
+	BookListenAddress    string `mapstructure:"book_listen_address"`
+	OrderListenAddress   string `mapstructure:"order_listen_address"`
+	PaymentListenAddress string `mapstructure:"payment_listen_address"`
+	CallTimeout          string `mapstructure:"call_timeout"`
+}
+
+type PaymentConfig struct {
+	Currency           string      `mapstructure:"currency"`
+	PlatformOwnerID    string      `mapstructure:"platform_owner_id"`
+	FundingOwnerID     string      `mapstructure:"funding_owner_id"`
+	ClearingOwnerID    string      `mapstructure:"clearing_owner_id"`
+	DefaultProvider    string      `mapstructure:"default_provider"`
+	PlatformFeeBPS     int32       `mapstructure:"platform_fee_bps"`
+	ReconcileInterval  string      `mapstructure:"reconcile_interval"`
+	ReconcileGrace     string      `mapstructure:"reconcile_grace"`
+	ReconcileBatchSize int         `mapstructure:"reconcile_batch_size"`
+	VNPay              VNPayConfig `mapstructure:"vnpay"`
+}
+
+type VNPayConfig struct {
+	Enabled     bool   `mapstructure:"enabled"`
+	PayURL      string `mapstructure:"pay_url"`
+	APIURL      string `mapstructure:"api_url"`
+	TMNCode     string `mapstructure:"tmn_code"`
+	HashSecret  string `mapstructure:"hash_secret"`
+	ReturnURL   string `mapstructure:"return_url"`
+	ServerIP    string `mapstructure:"server_ip"`
+	TimeZone    string `mapstructure:"timezone"`
+	ExpireAfter string `mapstructure:"expire_after"`
+	HTTPTimeout string `mapstructure:"http_timeout"`
+}
+
+type CommerceConfig struct {
+	StockReservationTTL   string `mapstructure:"stock_reservation_ttl"`
+	ReconcileInterval     string `mapstructure:"reconcile_interval"`
+	ReconcileBatchSize    int    `mapstructure:"reconcile_batch_size"`
+	PaymentReconcileGrace string `mapstructure:"payment_reconcile_grace"`
 }
 
 type PostgresConfig struct {
@@ -64,9 +104,18 @@ type AuthConfig struct {
 }
 
 type RedisConfig struct {
-	Address  string `mapstructure:"address"`
-	Password string `mapstructure:"password"`
-	Database int    `mapstructure:"database"`
+	Enabled      bool   `mapstructure:"enabled"`
+	Address      string `mapstructure:"address"`
+	Password     string `mapstructure:"password"`
+	Database     int    `mapstructure:"database"`
+	Namespace    string `mapstructure:"namespace"`
+	DialTimeout  string `mapstructure:"dial_timeout"`
+	ReadTimeout  string `mapstructure:"read_timeout"`
+	WriteTimeout string `mapstructure:"write_timeout"`
+	PoolSize     int    `mapstructure:"pool_size"`
+	BookTTL      string `mapstructure:"book_ttl"`
+	CartTTL      string `mapstructure:"cart_ttl"`
+	LockTTL      string `mapstructure:"lock_ttl"`
 }
 
 type RabbitMQConfig struct {
@@ -75,6 +124,11 @@ type RabbitMQConfig struct {
 	UserProfileQueue            string `mapstructure:"user_profile_queue"`
 	AccountRegisteredRoutingKey string `mapstructure:"account_registered_routing_key"`
 	AccountDeletedRoutingKey    string `mapstructure:"account_deleted_routing_key"`
+	PaymentEventsQueue          string `mapstructure:"payment_events_queue"`
+	PaymentSucceededRoutingKey  string `mapstructure:"payment_succeeded_routing_key"`
+	PaymentFailedRoutingKey     string `mapstructure:"payment_failed_routing_key"`
+	PaymentRefundedRoutingKey   string `mapstructure:"payment_refunded_routing_key"`
+	PaymentConsumerName         string `mapstructure:"payment_consumer_name"`
 	ConsumerName                string `mapstructure:"consumer_name"`
 	ConsumerConcurrency         int    `mapstructure:"consumer_concurrency"`
 	Prefetch                    int    `mapstructure:"prefetch"`
@@ -132,9 +186,14 @@ func (c Config) validate() error {
 		"grpc.auth_address":                       c.GRPC.AuthAddress,
 		"grpc.user_address":                       c.GRPC.UserAddress,
 		"grpc.book_address":                       c.GRPC.BookAddress,
+		"grpc.order_address":                      c.GRPC.OrderAddress,
+		"grpc.payment_address":                    c.GRPC.PaymentAddress,
 		"grpc.auth_listen_address":                c.GRPC.AuthListenAddress,
 		"grpc.user_listen_address":                c.GRPC.UserListenAddress,
 		"grpc.book_listen_address":                c.GRPC.BookListenAddress,
+		"grpc.order_listen_address":               c.GRPC.OrderListenAddress,
+		"grpc.payment_listen_address":             c.GRPC.PaymentListenAddress,
+		"grpc.call_timeout":                       c.GRPC.CallTimeout,
 		"postgres.url":                            c.Postgres.URL,
 		"postgres.connection_max_lifetime":        c.Postgres.ConnectionMaxLifetime,
 		"postgres.connection_max_idle_time":       c.Postgres.ConnectionMaxIdleTime,
@@ -142,12 +201,34 @@ func (c Config) validate() error {
 		"auth.jwt_issuer":                         c.Auth.JWTIssuer,
 		"auth.access_token_ttl":                   c.Auth.AccessTokenTTL,
 		"auth.refresh_token_ttl":                  c.Auth.RefreshTokenTTL,
+		"payment.currency":                        c.Payment.Currency,
+		"payment.platform_owner_id":               c.Payment.PlatformOwnerID,
+		"payment.funding_owner_id":                c.Payment.FundingOwnerID,
+		"payment.clearing_owner_id":               c.Payment.ClearingOwnerID,
+		"payment.default_provider":                c.Payment.DefaultProvider,
+		"payment.reconcile_interval":              c.Payment.ReconcileInterval,
+		"payment.reconcile_grace":                 c.Payment.ReconcileGrace,
+		"commerce.stock_reservation_ttl":          c.Commerce.StockReservationTTL,
+		"commerce.reconcile_interval":             c.Commerce.ReconcileInterval,
+		"commerce.payment_reconcile_grace":        c.Commerce.PaymentReconcileGrace,
 		"redis.address":                           c.Redis.Address,
+		"redis.namespace":                         c.Redis.Namespace,
+		"redis.dial_timeout":                      c.Redis.DialTimeout,
+		"redis.read_timeout":                      c.Redis.ReadTimeout,
+		"redis.write_timeout":                     c.Redis.WriteTimeout,
+		"redis.book_ttl":                          c.Redis.BookTTL,
+		"redis.cart_ttl":                          c.Redis.CartTTL,
+		"redis.lock_ttl":                          c.Redis.LockTTL,
 		"rabbitmq.url":                            c.RabbitMQ.URL,
 		"rabbitmq.exchange":                       c.RabbitMQ.Exchange,
 		"rabbitmq.user_profile_queue":             c.RabbitMQ.UserProfileQueue,
 		"rabbitmq.account_registered_routing_key": c.RabbitMQ.AccountRegisteredRoutingKey,
 		"rabbitmq.account_deleted_routing_key":    c.RabbitMQ.AccountDeletedRoutingKey,
+		"rabbitmq.payment_events_queue":           c.RabbitMQ.PaymentEventsQueue,
+		"rabbitmq.payment_succeeded_routing_key":  c.RabbitMQ.PaymentSucceededRoutingKey,
+		"rabbitmq.payment_failed_routing_key":     c.RabbitMQ.PaymentFailedRoutingKey,
+		"rabbitmq.payment_refunded_routing_key":   c.RabbitMQ.PaymentRefundedRoutingKey,
+		"rabbitmq.payment_consumer_name":          c.RabbitMQ.PaymentConsumerName,
 		"rabbitmq.consumer_name":                  c.RabbitMQ.ConsumerName,
 		"outbox.outbox_poll_interval":             c.Outbox.PollInterval,
 		"shutdown.timeout":                        c.Shutdown.Timeout,
@@ -193,6 +274,18 @@ func (c Config) validate() error {
 		"postgres.connection_max_idle_time": c.Postgres.ConnectionMaxIdleTime,
 		"auth.access_token_ttl":             c.Auth.AccessTokenTTL,
 		"auth.refresh_token_ttl":            c.Auth.RefreshTokenTTL,
+		"grpc.call_timeout":                 c.GRPC.CallTimeout,
+		"commerce.stock_reservation_ttl":    c.Commerce.StockReservationTTL,
+		"commerce.reconcile_interval":       c.Commerce.ReconcileInterval,
+		"commerce.payment_reconcile_grace":  c.Commerce.PaymentReconcileGrace,
+		"redis.dial_timeout":                c.Redis.DialTimeout,
+		"redis.read_timeout":                c.Redis.ReadTimeout,
+		"redis.write_timeout":               c.Redis.WriteTimeout,
+		"redis.book_ttl":                    c.Redis.BookTTL,
+		"redis.cart_ttl":                    c.Redis.CartTTL,
+		"redis.lock_ttl":                    c.Redis.LockTTL,
+		"payment.reconcile_interval":        c.Payment.ReconcileInterval,
+		"payment.reconcile_grace":           c.Payment.ReconcileGrace,
 	} {
 		duration, err := time.ParseDuration(value)
 		if err != nil || duration <= 0 {
@@ -202,8 +295,61 @@ func (c Config) validate() error {
 	if c.Postgres.MaxOpenConnections < 1 {
 		return fmt.Errorf("postgres.max_open_connections must be greater than zero")
 	}
+	if len(strings.TrimSpace(c.Payment.Currency)) != 3 {
+		return fmt.Errorf("payment.currency must be a three-letter currency code")
+	}
+	if c.Payment.PlatformFeeBPS < 0 || c.Payment.PlatformFeeBPS > 10000 {
+		return fmt.Errorf("payment.platform_fee_bps must be between 0 and 10000")
+	}
+	if c.Payment.ReconcileBatchSize < 1 || c.Payment.ReconcileBatchSize > 1000 {
+		return fmt.Errorf("payment.reconcile_batch_size must be between 1 and 1000")
+	}
+	provider := strings.ToLower(strings.TrimSpace(c.Payment.DefaultProvider))
+	if provider != "wallet" && provider != "vnpay" {
+		return fmt.Errorf("payment.default_provider must be wallet or vnpay")
+	}
+	if provider == "vnpay" && !c.Payment.VNPay.Enabled {
+		return fmt.Errorf("payment.vnpay must be enabled when it is the default provider")
+	}
+	if c.Payment.VNPay.Enabled {
+		for key, value := range map[string]string{
+			"payment.vnpay.pay_url":      c.Payment.VNPay.PayURL,
+			"payment.vnpay.api_url":      c.Payment.VNPay.APIURL,
+			"payment.vnpay.tmn_code":     c.Payment.VNPay.TMNCode,
+			"payment.vnpay.hash_secret":  c.Payment.VNPay.HashSecret,
+			"payment.vnpay.return_url":   c.Payment.VNPay.ReturnURL,
+			"payment.vnpay.server_ip":    c.Payment.VNPay.ServerIP,
+			"payment.vnpay.timezone":     c.Payment.VNPay.TimeZone,
+			"payment.vnpay.expire_after": c.Payment.VNPay.ExpireAfter,
+			"payment.vnpay.http_timeout": c.Payment.VNPay.HTTPTimeout,
+		} {
+			if strings.TrimSpace(value) == "" {
+				return fmt.Errorf("%s is required when VNPAY is enabled", key)
+			}
+		}
+		for key, value := range map[string]string{
+			"payment.vnpay.expire_after": c.Payment.VNPay.ExpireAfter,
+			"payment.vnpay.http_timeout": c.Payment.VNPay.HTTPTimeout,
+		} {
+			if duration, err := time.ParseDuration(value); err != nil || duration <= 0 {
+				return fmt.Errorf("%s must be a positive duration", key)
+			}
+		}
+		if _, err := time.LoadLocation(c.Payment.VNPay.TimeZone); err != nil {
+			return fmt.Errorf("payment.vnpay.timezone is invalid: %w", err)
+		}
+	}
+	if c.Commerce.ReconcileBatchSize < 1 || c.Commerce.ReconcileBatchSize > 1000 {
+		return fmt.Errorf("commerce.reconcile_batch_size must be between 1 and 1000")
+	}
 	if c.Postgres.MaxIdleConnections < 0 || c.Postgres.MaxIdleConnections > c.Postgres.MaxOpenConnections {
 		return fmt.Errorf("postgres.max_idle_connections must be between zero and max_open_connections")
+	}
+	if c.Redis.Database < 0 {
+		return fmt.Errorf("redis.database must not be negative")
+	}
+	if c.Redis.PoolSize < 1 {
+		return fmt.Errorf("redis.pool_size must be greater than zero")
 	}
 	if c.RabbitMQ.ConsumerConcurrency < 1 {
 		return fmt.Errorf("rabbitmq.consumer_concurrency must be greater than zero")

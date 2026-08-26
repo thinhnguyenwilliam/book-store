@@ -39,7 +39,7 @@ type VerifiedIdentity struct {
 }
 
 type IdentityVerifier interface {
-	Verify(ctx context.Context, credential string) (VerifiedIdentity, error)
+	Verify(ctx context.Context, credential, expectedNonce string) (VerifiedIdentity, error)
 }
 
 type PasswordHasher interface {

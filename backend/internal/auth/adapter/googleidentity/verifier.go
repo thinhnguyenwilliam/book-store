@@ -22,11 +22,12 @@ func NewVerifier(clientID string) *Verifier {
 	return &Verifier{clientID: strings.TrimSpace(clientID)}
 }
 
-func (v *Verifier) Verify(ctx context.Context, credential string) (application.VerifiedIdentity, error) {
+func (v *Verifier) Verify(ctx context.Context, credential, expectedNonce string) (application.VerifiedIdentity, error) {
 	if v.clientID == "" {
 		return application.VerifiedIdentity{}, domain.ErrIdentityUnavailable
 	}
-	if strings.TrimSpace(credential) == "" {
+	expectedNonce = strings.TrimSpace(expectedNonce)
+	if strings.TrimSpace(credential) == "" || expectedNonce == "" {
 		return application.VerifiedIdentity{}, domain.ErrInvalidIdentity
 	}
 
@@ -42,7 +43,7 @@ func (v *Verifier) Verify(ctx context.Context, credential string) (application.V
 	displayName, _ := stringClaim(payload.Claims, "name")
 	hostedDomain, _ := stringClaim(payload.Claims, "hd")
 	emailVerified, verifiedOK := boolClaim(payload.Claims, "email_verified")
-	if payload.Subject == "" || !emailOK || !verifiedOK || !emailVerified {
+	if payload.Subject == "" || !emailOK || !verifiedOK || !emailVerified || !nonceMatches(payload.Claims, expectedNonce) {
 		return application.VerifiedIdentity{}, domain.ErrInvalidIdentity
 	}
 
@@ -55,6 +56,11 @@ func (v *Verifier) Verify(ctx context.Context, credential string) (application.V
 		EmailVerified:      true,
 		EmailAuthoritative: strings.HasSuffix(normalizedEmail, "@gmail.com") || hostedDomain != "",
 	}, nil
+}
+
+func nonceMatches(claims map[string]any, expected string) bool {
+	nonce, ok := stringClaim(claims, "nonce")
+	return ok && expected != "" && nonce == expected
 }
 
 func stringClaim(claims map[string]any, name string) (string, bool) {

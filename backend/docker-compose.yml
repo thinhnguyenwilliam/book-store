@@ -29,6 +29,10 @@ services:
         condition: service_started
       book-service:
         condition: service_started
+      order-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
 
   auth-service:
     <<: *app-defaults
@@ -59,6 +63,38 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  payment-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args:
+        SERVICE: payment-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  order-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args:
+        SERVICE: order-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      book-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
 
   worker-service:
     <<: *app-defaults

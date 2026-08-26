@@ -70,6 +70,10 @@ func run(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
+	grpcCallTimeout, err := time.ParseDuration(cfg.GRPC.CallTimeout)
+	if err != nil {
+		return err
+	}
 	performanceTarget, err := time.ParseDuration(cfg.Gateway.PerformanceTarget)
 	if err != nil {
 		return err
@@ -94,7 +98,10 @@ func run(cfg config.Config) error {
 	authConnection, err := grpc.NewClient(
 		cfg.GRPC.AuthAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(grpcclient.UnaryLoggingInterceptor),
+		grpc.WithChainUnaryInterceptor(
+			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout),
+			grpcclient.UnaryLoggingInterceptor,
+		),
 		grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor),
 	)
 	if err != nil {
@@ -105,7 +112,10 @@ func run(cfg config.Config) error {
 	userConnection, err := grpc.NewClient(
 		cfg.GRPC.UserAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(grpcclient.UnaryLoggingInterceptor),
+		grpc.WithChainUnaryInterceptor(
+			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout),
+			grpcclient.UnaryLoggingInterceptor,
+		),
 		grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor),
 	)
 	if err != nil {
@@ -116,7 +126,10 @@ func run(cfg config.Config) error {
 	bookConnection, err := grpc.NewClient(
 		cfg.GRPC.BookAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(grpcclient.UnaryLoggingInterceptor),
+		grpc.WithChainUnaryInterceptor(
+			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout),
+			grpcclient.UnaryLoggingInterceptor,
+		),
 		grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor),
 	)
 	if err != nil {
@@ -124,10 +137,40 @@ func run(cfg config.Config) error {
 	}
 	defer func() { _ = bookConnection.Close() }()
 
+	orderConnection, err := grpc.NewClient(
+		cfg.GRPC.OrderAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(
+			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout),
+			grpcclient.UnaryLoggingInterceptor,
+		),
+		grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor),
+	)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = orderConnection.Close() }()
+
+	paymentConnection, err := grpc.NewClient(
+		cfg.GRPC.PaymentAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(
+			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout),
+			grpcclient.UnaryLoggingInterceptor,
+		),
+		grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor),
+	)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = paymentConnection.Close() }()
+
 	handler := gatewayhttp.NewHandler(
 		bookstorev1.NewAuthServiceClient(authConnection),
 		bookstorev1.NewUserServiceClient(userConnection),
 		bookstorev1.NewBookServiceClient(bookConnection),
+		bookstorev1.NewOrderServiceClient(orderConnection),
+		bookstorev1.NewPaymentServiceClient(paymentConnection),
 		gatewayhttp.RefreshCookieConfig{
 			Name:     cfg.Gateway.RefreshCookieName,
 			Secure:   cfg.Gateway.RefreshCookieSecure,
@@ -179,7 +222,7 @@ func run(cfg config.Config) error {
 	}))
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     cfg.Gateway.AllowedOrigins,
-		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-Trace-ID"},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-Trace-ID", "Idempotency-Key"},
 		ExposeHeaders:    []string{echo.HeaderXRequestID, "X-Trace-ID"},
 		AllowCredentials: true,
 		MaxAge:           600,

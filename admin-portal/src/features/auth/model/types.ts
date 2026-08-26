@@ -10,13 +10,27 @@ export interface LoginPayload {
   password: string
 }
 
+export type IdentityProvider = 'google' | 'facebook'
+
+export interface ProviderStatePayload {
+  provider: IdentityProvider
+  create_account: boolean
+}
+
+export interface ProviderStateResponse {
+  state: string
+  expires_in: number
+}
+
 export interface GoogleLoginPayload {
   credential: string
+  state: string
   create_account: boolean
 }
 
 export interface FacebookLoginPayload {
   access_token: string
+  state: string
   create_account: boolean
 }
 

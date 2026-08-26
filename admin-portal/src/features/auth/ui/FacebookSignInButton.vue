@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 
+import * as authApi from '@/features/auth/api/auth.api'
 import { initializeFacebook, requestFacebookLogin } from '@/shared/lib/facebook-identity'
 
 const props = defineProps<{
   appId: string
   graphVersion: string
+  createAccount: boolean
   disabled?: boolean
 }>()
 
 const emit = defineEmits<{
-  accessToken: [accessToken: string]
+  accessToken: [accessToken: string, state: string]
   error: [message: string]
 }>()
 
@@ -30,7 +32,11 @@ onMounted(async () => {
 async function signIn(): Promise<void> {
   if (effectiveDisabled.value) return
   try {
-    emit('accessToken', await requestFacebookLogin())
+    const transaction = await authApi.createProviderState({
+      provider: 'facebook',
+      create_account: props.createAccount,
+    })
+    emit('accessToken', await requestFacebookLogin(), transaction.state)
   } catch {
     emit('error', 'Bạn đã hủy hoặc chưa cấp quyền đăng nhập Facebook.')
   }
