@@ -73,21 +73,22 @@ export const useAuthStore = defineStore('admin-auth', () => {
     }
   }
 
-  async function signInWithGoogle(credential: string): Promise<void> {
+  async function signInWithGoogle(credential: string, state: string): Promise<void> {
     loading.value = true
     try {
-      const response = await authApi.loginWithGoogle({ credential, create_account: false })
+      const response = await authApi.loginWithGoogle({ credential, state, create_account: false })
       await establishAdminSession(response.access_token)
     } finally {
       loading.value = false
     }
   }
 
-  async function signInWithFacebook(accessToken: string): Promise<void> {
+  async function signInWithFacebook(accessToken: string, state: string): Promise<void> {
     loading.value = true
     try {
       const response = await authApi.loginWithFacebook({
         access_token: accessToken,
+        state,
         create_account: false,
       })
       await establishAdminSession(response.access_token)

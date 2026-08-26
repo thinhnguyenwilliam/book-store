@@ -1,5 +1,15 @@
 basePath: /
 definitions:
+  http.AddCartItemRequest:
+    properties:
+      bookId:
+        format: uuid
+        type: string
+      quantity:
+        maximum: 100
+        minimum: 1
+        type: integer
+    type: object
   http.AuthResponse:
     properties:
       access_token:
@@ -11,6 +21,12 @@ definitions:
         example: Bearer
         type: string
       user_id:
+        format: uuid
+        type: string
+    type: object
+  http.BatchCartItemRequest:
+    properties:
+      itemId:
         format: uuid
         type: string
     type: object
@@ -34,6 +50,9 @@ definitions:
       price_cents:
         example: 3999
         type: integer
+      seller_id:
+        format: uuid
+        type: string
       stock:
         example: 10
         type: integer
@@ -58,6 +77,9 @@ definitions:
       price_cents:
         example: 3999
         type: integer
+      seller_id:
+        format: uuid
+        type: string
       stock:
         example: 10
         type: integer
@@ -66,6 +88,48 @@ definitions:
         type: string
       updated_at:
         format: date-time
+        type: string
+    type: object
+  http.CartItemResponse:
+    properties:
+      book_id:
+        format: uuid
+        type: string
+      created_at:
+        format: date-time
+        type: string
+      id:
+        format: uuid
+        type: string
+      quantity:
+        type: integer
+      updated_at:
+        format: date-time
+        type: string
+    type: object
+  http.CartListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/http.CartItemResponse'
+        type: array
+    type: object
+  http.CreatePaymentRequest:
+    properties:
+      bankCode:
+        type: string
+      locale:
+        enum:
+        - vn
+        - en
+        type: string
+      orderId:
+        format: uuid
+        type: string
+      provider:
+        enum:
+        - wallet
+        - vnpay
         type: string
     type: object
   http.CursorPagination:
@@ -93,9 +157,17 @@ definitions:
     type: object
   http.ErrorDetail:
     properties:
+      code:
+        example: invalid_provider_credential
+        type: string
       message:
         example: invalid request
         type: string
+      provider:
+        example: google
+        type: string
+      retryable:
+        type: boolean
     type: object
   http.ErrorResponse:
     properties:
@@ -108,12 +180,16 @@ definitions:
         type: string
       create_account:
         type: boolean
+      state:
+        type: string
     type: object
   http.GoogleLoginRequest:
     properties:
       create_account:
         type: boolean
       credential:
+        type: string
+      state:
         type: string
     type: object
   http.HealthResponse:
@@ -131,6 +207,117 @@ definitions:
         example: password123
         type: string
     type: object
+  http.OrderItemResponse:
+    properties:
+      book_id:
+        format: uuid
+        type: string
+      id:
+        format: uuid
+        type: string
+      quantity:
+        type: integer
+      seller_id:
+        type: string
+      subtotal_cents:
+        type: integer
+      title:
+        type: string
+      unit_price_cents:
+        type: integer
+    type: object
+  http.OrderListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/http.OrderResponse'
+        type: array
+      pagination:
+        $ref: '#/definitions/http.CursorPagination'
+    type: object
+  http.OrderResponse:
+    properties:
+      created_at:
+        format: date-time
+        type: string
+      currency:
+        type: string
+      failure_reason:
+        type: string
+      id:
+        format: uuid
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/http.OrderItemResponse'
+        type: array
+      payment_id:
+        format: uuid
+        type: string
+      reservation_expires_at:
+        format: date-time
+        type: string
+      status:
+        type: string
+      total_cents:
+        type: integer
+      updated_at:
+        format: date-time
+        type: string
+    type: object
+  http.PaymentResponse:
+    properties:
+      amount_cents:
+        type: integer
+      checkout_url:
+        type: string
+      created_at:
+        format: date-time
+        type: string
+      currency:
+        type: string
+      expires_at:
+        format: date-time
+        type: string
+      failure_reason:
+        type: string
+      id:
+        format: uuid
+        type: string
+      order_id:
+        format: uuid
+        type: string
+      paid_at:
+        format: date-time
+        type: string
+      platform_fee_cents:
+        type: integer
+      provider:
+        type: string
+      provider_transaction_id:
+        type: string
+      status:
+        type: string
+      updated_at:
+        format: date-time
+        type: string
+    type: object
+  http.ProviderStateRequest:
+    properties:
+      create_account:
+        type: boolean
+      provider:
+        example: google
+        type: string
+    type: object
+  http.ProviderStateResponse:
+    properties:
+      expires_in:
+        example: 600
+        type: integer
+      state:
+        type: string
+    type: object
   http.RegisterRequest:
     properties:
       display_name:
@@ -143,10 +330,24 @@ definitions:
         example: password123
         type: string
     type: object
+  http.UpdateCartItemRequest:
+    properties:
+      quantity:
+        maximum: 100
+        minimum: 1
+        type: integer
+    type: object
   http.UpdateProfileRequest:
     properties:
       display_name:
         example: Reader Nguyen
+        type: string
+    type: object
+  http.UpdateWalletBalanceRequest:
+    properties:
+      delta_cents:
+        type: integer
+      reason:
         type: string
     type: object
   http.UserResponse:
@@ -162,6 +363,31 @@ definitions:
         type: string
       id:
         format: uuid
+        type: string
+      updated_at:
+        format: date-time
+        type: string
+    type: object
+  http.VNPayWebhookResponse:
+    properties:
+      Message:
+        type: string
+      RspCode:
+        type: string
+    type: object
+  http.WalletResponse:
+    properties:
+      balance_cents:
+        type: integer
+      created_at:
+        format: date-time
+        type: string
+      currency:
+        type: string
+      id:
+        format: uuid
+        type: string
+      owner_id:
         type: string
       updated_at:
         format: date-time
@@ -484,6 +710,49 @@ paths:
       summary: Update a customer
       tags:
       - Admin Customers
+  /api/v1/admin/wallets/{owner_id}/balance:
+    put:
+      consumes:
+      - application/json
+      description: Administrative funding/testing endpoint. It never directly overwrites
+        the stored balance.
+      parameters:
+      - description: Wallet owner ID
+        in: path
+        name: owner_id
+        required: true
+        type: string
+      - description: Unique retry key
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      - description: Signed balance delta
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.UpdateWalletBalanceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.WalletResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Adjust a wallet balance through double-entry ledger records
+      tags:
+      - Admin Wallets
   /api/v1/auth/facebook:
     post:
       consumes:
@@ -626,6 +895,41 @@ paths:
       summary: Log out
       tags:
       - Auth
+  /api/v1/auth/provider-state:
+    post:
+      consumes:
+      - application/json
+      description: Issues a short-lived state value and matching HttpOnly cookie for
+        Google or Facebook login CSRF protection.
+      parameters:
+      - description: External login transaction
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.ProviderStateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.ProviderStateResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Start an external login transaction
+      tags:
+      - Auth
   /api/v1/auth/refresh:
     post:
       description: Rotates the HttpOnly refresh cookie and returns a new short-lived
@@ -744,6 +1048,341 @@ paths:
       summary: Get a book
       tags:
       - Books
+  /api/v1/cart/items:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.CartListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List current cart items
+      tags:
+      - Cart
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Cart item
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.AddCartItemRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/http.CartItemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add a book to the current cart
+      tags:
+      - Cart
+  /api/v1/cart/items/{id}:
+    delete:
+      parameters:
+      - description: Cart item ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove one cart item
+      tags:
+      - Cart
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Cart item ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New quantity
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.UpdateCartItemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.CartItemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Replace a cart item quantity
+      tags:
+      - Cart
+  /api/v1/cart/items/batch-delete:
+    post:
+      consumes:
+      - application/json
+      description: POST /batch-delete is preferred because some proxies do not reliably
+        forward DELETE request bodies.
+      parameters:
+      - description: Cart item IDs
+        in: body
+        name: request
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/http.BatchCartItemRequest'
+          type: array
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove multiple cart items
+      tags:
+      - Cart
+  /api/v1/orders:
+    get:
+      parameters:
+      - default: 20
+        description: Items per request
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - description: Opaque cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.OrderListResponse'
+      security:
+      - BearerAuth: []
+      summary: List current-user orders
+      tags:
+      - Orders
+    post:
+      parameters:
+      - description: Unique retry key
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/http.OrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "412":
+          description: Precondition Failed
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create an order from the current cart and reserve stock
+      tags:
+      - Orders
+  /api/v1/orders/{id}:
+    get:
+      parameters:
+      - description: Order ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.OrderResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get one current-user order
+      tags:
+      - Orders
+  /api/v1/orders/{id}/cancel:
+    put:
+      parameters:
+      - description: Order ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.OrderResponse'
+        "412":
+          description: Precondition Failed
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Cancel an unpaid order and release reserved stock
+      tags:
+      - Orders
+  /api/v1/payments:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Unique retry key
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      - description: Order to pay
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.CreatePaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/http.PaymentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "412":
+          description: Precondition Failed
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Pay a stock-reserved order
+      tags:
+      - Payments
+  /api/v1/payments/{id}:
+    get:
+      parameters:
+      - description: Payment ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.PaymentResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get one current-user payment
+      tags:
+      - Payments
+  /api/v1/payments/order/{order_id}:
+    get:
+      parameters:
+      - description: Order ID
+        format: uuid
+        in: path
+        name: order_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.PaymentResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get the current-user payment for an order
+      tags:
+      - Payments
+  /api/v1/payments/webhooks/vnpay:
+    get:
+      description: Public server-to-server endpoint. Signature, merchant reference
+        and amount are verified before state changes.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.VNPayWebhookResponse'
+      summary: Receive signed VNPAY IPN notifications
+      tags:
+      - Payment Webhooks
   /api/v1/users/me:
     get:
       description: Returns the profile associated with the bearer token.
@@ -811,6 +1450,37 @@ paths:
       summary: Update current profile
       tags:
       - Users
+  /api/v1/wallets/me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.WalletResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get the current-user wallet balance
+      tags:
+      - Wallets
+    post:
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/http.WalletResponse'
+      security:
+      - BearerAuth: []
+      summary: Create the current-user wallet
+      tags:
+      - Wallets
   /healthz:
     get:
       description: Returns the current health status of the HTTP gateway.

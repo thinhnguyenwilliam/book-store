@@ -62,7 +62,7 @@ func NewVerifier(appID, appSecret, graphVersion string) *Verifier {
 	}
 }
 
-func (v *Verifier) Verify(ctx context.Context, accessToken string) (application.VerifiedIdentity, error) {
+func (v *Verifier) Verify(ctx context.Context, accessToken, _ string) (application.VerifiedIdentity, error) {
 	if v.appID == "" || v.appSecret == "" || v.graphVersion == "" {
 		return application.VerifiedIdentity{}, domain.ErrIdentityUnavailable
 	}

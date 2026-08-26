@@ -11,6 +11,32 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// UnaryDeadlineInterceptor guarantees that every unary call has a deadline.
+// An earlier caller deadline is preserved, so HTTP cancellation and deadlines
+// continue to propagate through the complete service chain.
+func UnaryDeadlineInterceptor(timeout time.Duration) grpc.UnaryClientInterceptor {
+	return func(
+		ctx context.Context,
+		method string,
+		req any,
+		reply any,
+		connection *grpc.ClientConn,
+		invoker grpc.UnaryInvoker,
+		options ...grpc.CallOption,
+	) error {
+		if timeout <= 0 {
+			return invoker(ctx, method, req, reply, connection, options...)
+		}
+		if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) <= timeout {
+			return invoker(ctx, method, req, reply, connection, options...)
+		}
+
+		callCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		return invoker(callCtx, method, req, reply, connection, options...)
+	}
+}
+
 func UnaryLoggingInterceptor(
 	ctx context.Context,
 	method string,

@@ -6,7 +6,7 @@ import { useAuthStore } from '@/features/auth/model/auth.store'
 import AuthPanel from '@/features/auth/ui/AuthPanel.vue'
 import FacebookSignInButton from '@/features/auth/ui/FacebookSignInButton.vue'
 import GoogleSignInButton from '@/features/auth/ui/GoogleSignInButton.vue'
-import { ApiError } from '@/shared/api/http-client'
+import { ApiError, providerLoginErrorMessage } from '@/shared/api/http-client'
 import { env } from '@/shared/config/env'
 import AppIcon from '@/shared/ui/AppIcon.vue'
 
@@ -26,25 +26,23 @@ async function submit(): Promise<void> {
   }
 }
 
-async function signUpWithGoogle(credential: string): Promise<void> {
+async function signUpWithGoogle(credential: string, state: string): Promise<void> {
   error.value = ''
   try {
-    await auth.signInWithGoogle(credential)
+    await auth.signInWithGoogle(credential, state)
     await router.push('/tai-khoan')
   } catch (requestError) {
-    error.value =
-      requestError instanceof ApiError ? requestError.message : 'Đăng ký Google không thành công.'
+    error.value = providerLoginErrorMessage(requestError, 'Google')
   }
 }
 
-async function signUpWithFacebook(accessToken: string): Promise<void> {
+async function signUpWithFacebook(accessToken: string, state: string): Promise<void> {
   error.value = ''
   try {
-    await auth.signInWithFacebook(accessToken)
+    await auth.signInWithFacebook(accessToken, state)
     await router.push('/tai-khoan')
   } catch (requestError) {
-    error.value =
-      requestError instanceof ApiError ? requestError.message : 'Đăng ký Facebook không thành công.'
+    error.value = providerLoginErrorMessage(requestError, 'Facebook')
   }
 }
 </script>
@@ -101,6 +99,7 @@ async function signUpWithFacebook(accessToken: string): Promise<void> {
     <div class="auth-social-buttons">
       <GoogleSignInButton
         :client-id="env.googleClientId"
+        :create-account="true"
         :disabled="auth.loading"
         text="signup_with"
         @credential="signUpWithGoogle"
@@ -109,6 +108,7 @@ async function signUpWithFacebook(accessToken: string): Promise<void> {
       <FacebookSignInButton
         :app-id="env.facebookAppId"
         :graph-version="env.facebookGraphVersion"
+        :create-account="true"
         :disabled="auth.loading"
         @access-token="signUpWithFacebook"
         @error="error = $event"

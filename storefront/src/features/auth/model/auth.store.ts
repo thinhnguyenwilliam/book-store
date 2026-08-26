@@ -89,10 +89,10 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function signInWithGoogle(credential: string): Promise<void> {
+  async function signInWithGoogle(credential: string, state: string): Promise<void> {
     loading.value = true
     try {
-      const response = await authApi.loginWithGoogle({ credential, create_account: true })
+      const response = await authApi.loginWithGoogle({ credential, state, create_account: true })
       applyAccessToken(response.access_token)
       await fetchProfileWithRetry()
     } finally {
@@ -100,11 +100,12 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function signInWithFacebook(accessToken: string): Promise<void> {
+  async function signInWithFacebook(accessToken: string, state: string): Promise<void> {
     loading.value = true
     try {
       const response = await authApi.loginWithFacebook({
         access_token: accessToken,
+        state,
         create_account: true,
       })
       applyAccessToken(response.access_token)

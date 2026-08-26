@@ -46,6 +46,8 @@ VITE_STOREFRONT_URL=http://localhost:5173
 
 `.env` không được commit; `.env.example` được dùng làm mẫu. Admin portal không tạo account khi đăng nhập Google/Facebook và vẫn kiểm tra role `admin` từ access token trước khi mở back-office. Facebook App Secret chỉ cấu hình ở Auth Service, không đặt trong file này.
 
+Google/Facebook dùng popup SDK và state lấy từ `/api/v1/auth/provider-state`; state được bind với `create_account=false`. Google còn dùng state làm ID-token nonce. Query `redirect` sau đăng nhập chỉ nhận đường dẫn nội bộ, không nhận URL tuyệt đối hoặc protocol-relative URL. Provider token bị bỏ ngay sau xác minh; phiên admin tiếp tục dùng access token ngắn hạn và refresh cookie HttpOnly của Book Store.
+
 ## Cấp quyền admin local
 
 Tài khoản đăng ký từ storefront mặc định chỉ có role `customer`. Cấp thêm role admin:

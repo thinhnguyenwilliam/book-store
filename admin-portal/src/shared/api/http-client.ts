@@ -3,7 +3,12 @@ import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestCo
 import { env } from '@/shared/config/env'
 
 interface ErrorEnvelope {
-  error?: { message?: string }
+  error?: {
+    message?: string
+    code?: string
+    provider?: string
+    retryable?: boolean
+  }
 }
 
 export interface AccessTokenResponse {
@@ -27,9 +32,31 @@ export class ApiError extends Error {
     public readonly status: number,
     message: string,
     public readonly traceId?: string,
+    public readonly code?: string,
+    public readonly provider?: string,
+    public readonly retryable = false,
   ) {
     super(message)
     this.name = 'ApiError'
+  }
+}
+
+export function providerLoginErrorMessage(error: unknown, providerLabel: string): string {
+  if (!(error instanceof ApiError)) return `Không thể đăng nhập ${providerLabel}.`
+  switch (error.code) {
+    case 'invalid_oauth_state':
+      return `Phiên đăng nhập ${providerLabel} đã hết hạn. Vui lòng thử lại.`
+    case 'invalid_provider_credential':
+      return `Thông tin đăng nhập ${providerLabel} không hợp lệ hoặc tài khoản chưa được phép.`
+    case 'external_identity_conflict':
+      return `Email ${providerLabel} đang liên kết với một tài khoản khác.`
+    case 'provider_not_configured':
+      return `Đăng nhập ${providerLabel} chưa được cấu hình.`
+    case 'provider_timeout':
+    case 'provider_unavailable':
+      return `${providerLabel} đang tạm thời không phản hồi. Vui lòng thử lại.`
+    default:
+      return error.message || `Không thể đăng nhập ${providerLabel}.`
   }
 }
 
@@ -156,6 +183,9 @@ function toApiError(error: unknown): ApiError {
       error.response.status,
       payload?.error?.message || `Request failed with status ${error.response.status}`,
       traceId,
+      payload?.error?.code,
+      payload?.error?.provider,
+      payload?.error?.retryable ?? false,
     )
   }
   return new ApiError(0, 'Không thể kết nối tới backend.', traceId)

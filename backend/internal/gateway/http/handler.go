@@ -3,18 +3,17 @@ package http
 import (
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
 )
 
-const requestTimeout = 5 * time.Second
-
 type Handler struct {
 	auth           bookstorev1.AuthServiceClient
 	users          bookstorev1.UserServiceClient
 	books          bookstorev1.BookServiceClient
+	orders         bookstorev1.OrderServiceClient
+	payments       bookstorev1.PaymentServiceClient
 	refreshCookie  RefreshCookieConfig
 	trustedOrigins map[string]struct{}
 }
@@ -29,6 +28,8 @@ func NewHandler(
 	auth bookstorev1.AuthServiceClient,
 	users bookstorev1.UserServiceClient,
 	books bookstorev1.BookServiceClient,
+	orders bookstorev1.OrderServiceClient,
+	payments bookstorev1.PaymentServiceClient,
 	refreshCookie RefreshCookieConfig,
 	trustedOrigins []string,
 ) *Handler {
@@ -40,6 +41,8 @@ func NewHandler(
 		auth:           auth,
 		users:          users,
 		books:          books,
+		orders:         orders,
+		payments:       payments,
 		refreshCookie:  refreshCookie,
 		trustedOrigins: origins,
 	}
@@ -51,17 +54,34 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 	api := e.Group("/api/v1")
 	api.POST("/auth/register", h.register)
 	api.POST("/auth/login", h.login)
+	api.POST("/auth/provider-state", h.providerState)
 	api.POST("/auth/google", h.googleLogin)
 	api.POST("/auth/facebook", h.facebookLogin)
 	api.POST("/auth/refresh", h.refresh)
 	api.POST("/auth/logout", h.logout)
 	api.GET("/books", h.listBooks)
 	api.GET("/books/:id", h.getBook)
+	api.GET("/payments/webhooks/vnpay", h.vnpayWebhook)
 
 	secured := api.Group("")
 	secured.Use(h.Authenticate)
 	secured.GET("/users/me", h.getMe)
 	secured.PUT("/users/me", h.updateMe)
+	secured.GET("/cart/items", h.listCartItems)
+	secured.POST("/cart/items", h.addCartItem)
+	secured.PUT("/cart/items/:id", h.updateCartItem)
+	secured.DELETE("/cart/items/:id", h.removeCartItem)
+	secured.DELETE("/cart/items", h.batchRemoveCartItems)
+	secured.POST("/cart/items/batch-delete", h.batchRemoveCartItems)
+	secured.POST("/orders", h.createOrder)
+	secured.GET("/orders", h.listOrders)
+	secured.GET("/orders/:id", h.getOrder)
+	secured.PUT("/orders/:id/cancel", h.cancelOrder)
+	secured.POST("/payments", h.createPayment)
+	secured.GET("/payments/:id", h.getPayment)
+	secured.GET("/payments/order/:order_id", h.getPaymentByOrder)
+	secured.POST("/wallets/me", h.createWallet)
+	secured.GET("/wallets/me", h.getWallet)
 
 	admin := secured.Group("/admin")
 	admin.Use(RequireRole("admin"))
@@ -72,6 +92,7 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 	admin.POST("/books", h.createBook)
 	admin.PUT("/books/:id", h.updateBook)
 	admin.DELETE("/books/:id", h.deleteBook)
+	admin.PUT("/wallets/:owner_id/balance", h.updateWalletBalance)
 }
 
 // health godoc
@@ -105,13 +126,8 @@ func (h *Handler) register(c echo.Context) error {
 		return errorResponse(c, err)
 	}
 
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
-	authResult, err := h.auth.Register(ctx, &bookstorev1.RegisterRequest{
-		Email:       request.Email,
-		Password:    request.Password,
-		DisplayName: request.DisplayName,
-	})
+	ctx := grpcContext(c)
+	authResult, err := h.auth.Register(ctx, registerProto(request))
 	if err != nil {
 		return errorResponse(c, err)
 	}
@@ -142,12 +158,8 @@ func (h *Handler) login(c echo.Context) error {
 		return errorResponse(c, err)
 	}
 
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
-	response, err := h.auth.Login(ctx, &bookstorev1.LoginRequest{
-		Email:    request.Email,
-		Password: request.Password,
-	})
+	ctx := grpcContext(c)
+	response, err := h.auth.Login(ctx, loginProto(request))
 	if err != nil {
 		return errorResponse(c, err)
 	}
@@ -178,16 +190,17 @@ func (h *Handler) googleLogin(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return errorResponse(c, err)
 	}
-
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
-	response, err := h.auth.LoginWithGoogle(ctx, &bookstorev1.GoogleLoginRequest{
-		Credential:    request.Credential,
-		CreateAccount: request.CreateAccount,
-	})
-	if err != nil {
-		return errorResponse(c, err)
+	if !h.validProviderState(c, providerGoogle, request.CreateAccount, request.State) {
+		h.clearProviderStateCookie(c, providerGoogle)
+		return providerError(c, http.StatusForbidden, providerGoogle, "invalid_oauth_state", "external login state is invalid or expired", false)
 	}
+
+	ctx := grpcContext(c)
+	response, err := h.auth.LoginWithGoogle(ctx, googleLoginProto(request))
+	if err != nil {
+		return providerErrorResponse(c, providerGoogle, err)
+	}
+	h.clearProviderStateCookie(c, providerGoogle)
 	h.setRefreshCookie(c, response.GetRefreshToken(), response.GetRefreshExpiresIn())
 	c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
 	return c.JSON(http.StatusOK, authJSON(response))
@@ -216,16 +229,17 @@ func (h *Handler) facebookLogin(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return errorResponse(c, err)
 	}
-
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
-	response, err := h.auth.LoginWithFacebook(ctx, &bookstorev1.FacebookLoginRequest{
-		AccessToken:   request.AccessToken,
-		CreateAccount: request.CreateAccount,
-	})
-	if err != nil {
-		return errorResponse(c, err)
+	if !h.validProviderState(c, providerFacebook, request.CreateAccount, request.State) {
+		h.clearProviderStateCookie(c, providerFacebook)
+		return providerError(c, http.StatusForbidden, providerFacebook, "invalid_oauth_state", "external login state is invalid or expired", false)
 	}
+
+	ctx := grpcContext(c)
+	response, err := h.auth.LoginWithFacebook(ctx, facebookLoginProto(request))
+	if err != nil {
+		return providerErrorResponse(c, providerFacebook, err)
+	}
+	h.clearProviderStateCookie(c, providerFacebook)
 	h.setRefreshCookie(c, response.GetRefreshToken(), response.GetRefreshExpiresIn())
 	c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
 	return c.JSON(http.StatusOK, authJSON(response))
@@ -251,8 +265,7 @@ func (h *Handler) refresh(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, errorBody("invalid refresh token"))
 	}
 
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
+	ctx := grpcContext(c)
 	response, err := h.auth.Refresh(ctx, &bookstorev1.RefreshRequest{RefreshToken: cookie.Value})
 	if err != nil {
 		h.clearRefreshCookie(c)
@@ -278,8 +291,7 @@ func (h *Handler) logout(c echo.Context) error {
 	}
 	cookie, err := c.Cookie(h.refreshCookie.Name)
 	if err == nil && cookie.Value != "" {
-		ctx, cancel := contextWithTimeout(c)
-		defer cancel()
+		ctx := grpcContext(c)
 		if _, err := h.auth.Logout(ctx, &bookstorev1.LogoutRequest{RefreshToken: cookie.Value}); err != nil {
 			h.clearRefreshCookie(c)
 			return errorResponse(c, err)
@@ -302,8 +314,7 @@ func (h *Handler) logout(c echo.Context) error {
 // @Router /api/v1/users/me [get]
 func (h *Handler) getMe(c echo.Context) error {
 	principal := principalFromContext(c)
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
+	ctx := grpcContext(c)
 	user, err := h.users.GetProfile(ctx, &bookstorev1.GetProfileRequest{Id: principal.UserID})
 	if err != nil {
 		return errorResponse(c, err)
@@ -332,12 +343,8 @@ func (h *Handler) updateMe(c echo.Context) error {
 	}
 
 	principal := principalFromContext(c)
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
-	user, err := h.users.UpdateProfile(ctx, &bookstorev1.UpdateProfileRequest{
-		Id:          principal.UserID,
-		DisplayName: request.DisplayName,
-	})
+	ctx := grpcContext(c)
+	user, err := h.users.UpdateProfile(ctx, updateProfileProto(principal.UserID, request))
 	if err != nil {
 		return errorResponse(c, err)
 	}
@@ -359,8 +366,7 @@ func (h *Handler) updateMe(c echo.Context) error {
 // @Failure 500 {object} ErrorResponse
 // @Router /api/v1/admin/customers [get]
 func (h *Handler) listCustomers(c echo.Context) error {
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
+	ctx := grpcContext(c)
 	response, err := h.users.ListProfiles(ctx, &bookstorev1.ListProfilesRequest{
 		Limit:  int32Query(c, "limit", 20),
 		Cursor: c.QueryParam("cursor"),
@@ -369,12 +375,8 @@ func (h *Handler) listCustomers(c echo.Context) error {
 		return errorResponse(c, err)
 	}
 
-	customers := make([]UserResponse, 0, len(response.GetUsers()))
-	for _, user := range response.GetUsers() {
-		customers = append(customers, userJSON(user))
-	}
 	return c.JSON(http.StatusOK, CustomerListResponse{
-		Data: customers,
+		Data: usersJSON(response.GetUsers()),
 		Pagination: CursorPagination{
 			NextCursor: response.GetNextCursor(),
 			HasMore:    response.GetHasMore(),
@@ -397,8 +399,7 @@ func (h *Handler) listCustomers(c echo.Context) error {
 // @Failure 500 {object} ErrorResponse
 // @Router /api/v1/admin/customers/{id} [get]
 func (h *Handler) getCustomer(c echo.Context) error {
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
+	ctx := grpcContext(c)
 	user, err := h.users.GetProfile(ctx, &bookstorev1.GetProfileRequest{Id: c.Param("id")})
 	if err != nil {
 		return errorResponse(c, err)
@@ -428,12 +429,8 @@ func (h *Handler) updateCustomer(c echo.Context) error {
 		return errorResponse(c, err)
 	}
 
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
-	user, err := h.users.UpdateProfile(ctx, &bookstorev1.UpdateProfileRequest{
-		Id:          c.Param("id"),
-		DisplayName: request.DisplayName,
-	})
+	ctx := grpcContext(c)
+	user, err := h.users.UpdateProfile(ctx, updateProfileProto(c.Param("id"), request))
 	if err != nil {
 		return errorResponse(c, err)
 	}
@@ -461,8 +458,7 @@ func (h *Handler) deleteCustomer(c echo.Context) error {
 		return c.JSON(http.StatusConflict, errorBody("you cannot delete your own admin account"))
 	}
 
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
+	ctx := grpcContext(c)
 	if _, err := h.auth.DeleteAccount(ctx, &bookstorev1.DeleteAccountRequest{Id: c.Param("id")}); err != nil {
 		return errorResponse(c, err)
 	}
@@ -482,8 +478,7 @@ func (h *Handler) deleteCustomer(c echo.Context) error {
 // @Router /api/v1/books [get]
 func (h *Handler) listBooks(c echo.Context) error {
 	limit := int32Query(c, "limit", 20)
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
+	ctx := grpcContext(c)
 	response, err := h.books.ListBooks(ctx, &bookstorev1.ListBooksRequest{
 		Limit:  limit,
 		Cursor: c.QueryParam("cursor"),
@@ -492,12 +487,8 @@ func (h *Handler) listBooks(c echo.Context) error {
 		return errorResponse(c, err)
 	}
 
-	books := make([]BookResponse, 0, len(response.GetBooks()))
-	for _, book := range response.GetBooks() {
-		books = append(books, bookJSON(book))
-	}
 	return c.JSON(http.StatusOK, BookListResponse{
-		Data: books,
+		Data: booksJSON(response.GetBooks()),
 		Pagination: CursorPagination{
 			NextCursor: response.GetNextCursor(),
 			HasMore:    response.GetHasMore(),
@@ -516,8 +507,7 @@ func (h *Handler) listBooks(c echo.Context) error {
 // @Failure 500 {object} ErrorResponse
 // @Router /api/v1/books/{id} [get]
 func (h *Handler) getBook(c echo.Context) error {
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
+	ctx := grpcContext(c)
 	book, err := h.books.GetBook(ctx, &bookstorev1.GetBookRequest{Id: c.Param("id")})
 	if err != nil {
 		return errorResponse(c, err)
@@ -546,15 +536,8 @@ func (h *Handler) createBook(c echo.Context) error {
 		return errorResponse(c, err)
 	}
 
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
-	book, err := h.books.CreateBook(ctx, &bookstorev1.CreateBookRequest{
-		Title:      request.Title,
-		Author:     request.Author,
-		Isbn:       request.ISBN,
-		PriceCents: request.PriceCents,
-		Stock:      request.Stock,
-	})
+	ctx := grpcContext(c)
+	book, err := h.books.CreateBook(ctx, createBookProto(request))
 	if err != nil {
 		return errorResponse(c, err)
 	}
@@ -583,16 +566,8 @@ func (h *Handler) updateBook(c echo.Context) error {
 		return errorResponse(c, err)
 	}
 
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
-	book, err := h.books.UpdateBook(ctx, &bookstorev1.UpdateBookRequest{
-		Id:         c.Param("id"),
-		Title:      request.Title,
-		Author:     request.Author,
-		Isbn:       request.ISBN,
-		PriceCents: request.PriceCents,
-		Stock:      request.Stock,
-	})
+	ctx := grpcContext(c)
+	book, err := h.books.UpdateBook(ctx, updateBookProto(c.Param("id"), request))
 	if err != nil {
 		return errorResponse(c, err)
 	}
@@ -612,8 +587,7 @@ func (h *Handler) updateBook(c echo.Context) error {
 // @Failure 500 {object} ErrorResponse
 // @Router /api/v1/admin/books/{id} [delete]
 func (h *Handler) deleteBook(c echo.Context) error {
-	ctx, cancel := contextWithTimeout(c)
-	defer cancel()
+	ctx := grpcContext(c)
 	if _, err := h.books.DeleteBook(ctx, &bookstorev1.DeleteBookRequest{Id: c.Param("id")}); err != nil {
 		return errorResponse(c, err)
 	}

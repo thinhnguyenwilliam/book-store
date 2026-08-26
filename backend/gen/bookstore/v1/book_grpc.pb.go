@@ -19,11 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	BookService_CreateBook_FullMethodName = "/bookstore.v1.BookService/CreateBook"
-	BookService_GetBook_FullMethodName    = "/bookstore.v1.BookService/GetBook"
-	BookService_ListBooks_FullMethodName  = "/bookstore.v1.BookService/ListBooks"
-	BookService_UpdateBook_FullMethodName = "/bookstore.v1.BookService/UpdateBook"
-	BookService_DeleteBook_FullMethodName = "/bookstore.v1.BookService/DeleteBook"
+	BookService_CreateBook_FullMethodName   = "/bookstore.v1.BookService/CreateBook"
+	BookService_GetBook_FullMethodName      = "/bookstore.v1.BookService/GetBook"
+	BookService_ListBooks_FullMethodName    = "/bookstore.v1.BookService/ListBooks"
+	BookService_UpdateBook_FullMethodName   = "/bookstore.v1.BookService/UpdateBook"
+	BookService_DeleteBook_FullMethodName   = "/bookstore.v1.BookService/DeleteBook"
+	BookService_ReserveStock_FullMethodName = "/bookstore.v1.BookService/ReserveStock"
+	BookService_CommitStock_FullMethodName  = "/bookstore.v1.BookService/CommitStock"
+	BookService_ReleaseStock_FullMethodName = "/bookstore.v1.BookService/ReleaseStock"
 )
 
 // BookServiceClient is the client API for BookService service.
@@ -35,6 +38,9 @@ type BookServiceClient interface {
 	ListBooks(ctx context.Context, in *ListBooksRequest, opts ...grpc.CallOption) (*ListBooksResponse, error)
 	UpdateBook(ctx context.Context, in *UpdateBookRequest, opts ...grpc.CallOption) (*Book, error)
 	DeleteBook(ctx context.Context, in *DeleteBookRequest, opts ...grpc.CallOption) (*DeleteBookResponse, error)
+	ReserveStock(ctx context.Context, in *ReserveStockRequest, opts ...grpc.CallOption) (*StockReservation, error)
+	CommitStock(ctx context.Context, in *CommitStockRequest, opts ...grpc.CallOption) (*StockReservation, error)
+	ReleaseStock(ctx context.Context, in *ReleaseStockRequest, opts ...grpc.CallOption) (*StockReservation, error)
 }
 
 type bookServiceClient struct {
@@ -95,6 +101,36 @@ func (c *bookServiceClient) DeleteBook(ctx context.Context, in *DeleteBookReques
 	return out, nil
 }
 
+func (c *bookServiceClient) ReserveStock(ctx context.Context, in *ReserveStockRequest, opts ...grpc.CallOption) (*StockReservation, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StockReservation)
+	err := c.cc.Invoke(ctx, BookService_ReserveStock_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bookServiceClient) CommitStock(ctx context.Context, in *CommitStockRequest, opts ...grpc.CallOption) (*StockReservation, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StockReservation)
+	err := c.cc.Invoke(ctx, BookService_CommitStock_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bookServiceClient) ReleaseStock(ctx context.Context, in *ReleaseStockRequest, opts ...grpc.CallOption) (*StockReservation, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StockReservation)
+	err := c.cc.Invoke(ctx, BookService_ReleaseStock_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BookServiceServer is the server API for BookService service.
 // All implementations must embed UnimplementedBookServiceServer
 // for forward compatibility.
@@ -104,6 +140,9 @@ type BookServiceServer interface {
 	ListBooks(context.Context, *ListBooksRequest) (*ListBooksResponse, error)
 	UpdateBook(context.Context, *UpdateBookRequest) (*Book, error)
 	DeleteBook(context.Context, *DeleteBookRequest) (*DeleteBookResponse, error)
+	ReserveStock(context.Context, *ReserveStockRequest) (*StockReservation, error)
+	CommitStock(context.Context, *CommitStockRequest) (*StockReservation, error)
+	ReleaseStock(context.Context, *ReleaseStockRequest) (*StockReservation, error)
 	mustEmbedUnimplementedBookServiceServer()
 }
 
@@ -128,6 +167,15 @@ func (UnimplementedBookServiceServer) UpdateBook(context.Context, *UpdateBookReq
 }
 func (UnimplementedBookServiceServer) DeleteBook(context.Context, *DeleteBookRequest) (*DeleteBookResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteBook not implemented")
+}
+func (UnimplementedBookServiceServer) ReserveStock(context.Context, *ReserveStockRequest) (*StockReservation, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReserveStock not implemented")
+}
+func (UnimplementedBookServiceServer) CommitStock(context.Context, *CommitStockRequest) (*StockReservation, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CommitStock not implemented")
+}
+func (UnimplementedBookServiceServer) ReleaseStock(context.Context, *ReleaseStockRequest) (*StockReservation, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReleaseStock not implemented")
 }
 func (UnimplementedBookServiceServer) mustEmbedUnimplementedBookServiceServer() {}
 func (UnimplementedBookServiceServer) testEmbeddedByValue()                     {}
@@ -240,6 +288,60 @@ func _BookService_DeleteBook_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BookService_ReserveStock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReserveStockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BookServiceServer).ReserveStock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BookService_ReserveStock_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BookServiceServer).ReserveStock(ctx, req.(*ReserveStockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BookService_CommitStock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CommitStockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BookServiceServer).CommitStock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BookService_CommitStock_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BookServiceServer).CommitStock(ctx, req.(*CommitStockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BookService_ReleaseStock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReleaseStockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BookServiceServer).ReleaseStock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BookService_ReleaseStock_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BookServiceServer).ReleaseStock(ctx, req.(*ReleaseStockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BookService_ServiceDesc is the grpc.ServiceDesc for BookService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -266,6 +368,18 @@ var BookService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteBook",
 			Handler:    _BookService_DeleteBook_Handler,
+		},
+		{
+			MethodName: "ReserveStock",
+			Handler:    _BookService_ReserveStock_Handler,
+		},
+		{
+			MethodName: "CommitStock",
+			Handler:    _BookService_CommitStock_Handler,
+		},
+		{
+			MethodName: "ReleaseStock",
+			Handler:    _BookService_ReleaseStock_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

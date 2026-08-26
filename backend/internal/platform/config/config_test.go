@@ -25,9 +25,14 @@ grpc:
   auth_address: "auth:50051"
   user_address: "user:50052"
   book_address: "book:50053"
+  order_address: "order:50054"
+  payment_address: "payment:50055"
   auth_listen_address: ":50051"
   user_listen_address: ":50052"
   book_listen_address: ":50053"
+  order_listen_address: ":50054"
+  payment_listen_address: ":50055"
+  call_timeout: "1500ms"
 postgres:
   url: "postgres://bookstore:bookstore@postgres:5432/bookstore"
   max_open_connections: 25
@@ -39,16 +44,56 @@ auth:
   jwt_issuer: "book-store-auth"
   access_token_ttl: "15m"
   refresh_token_ttl: "168h"
+payment:
+  currency: "VND"
+  platform_owner_id: "platform"
+  funding_owner_id: "system:funding"
+  clearing_owner_id: "gateway:vnpay:clearing"
+  default_provider: "wallet"
+  platform_fee_bps: 1000
+  reconcile_interval: "1m"
+  reconcile_grace: "2m"
+  reconcile_batch_size: 100
+  vnpay:
+    enabled: false
+    pay_url: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
+    api_url: "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction"
+    tmn_code: ""
+    hash_secret: ""
+    return_url: "http://localhost:5173/thanh-toan/ket-qua"
+    server_ip: "127.0.0.1"
+    timezone: "Asia/Ho_Chi_Minh"
+    expire_after: "15m"
+    http_timeout: "5s"
+commerce:
+  stock_reservation_ttl: "15m"
+  reconcile_interval: "5s"
+  reconcile_batch_size: 100
+  payment_reconcile_grace: "30s"
 redis:
+  enabled: true
   address: "redis:6379"
   password: ""
   database: 0
+  namespace: "bookstore-test"
+  dial_timeout: "500ms"
+  read_timeout: "50ms"
+  write_timeout: "50ms"
+  pool_size: 5
+  book_ttl: "1m"
+  cart_ttl: "5m"
+  lock_ttl: "3s"
 rabbitmq:
   url: "amqp://bookstore:bookstore@rabbitmq:5672/"
   exchange: "bookstore.events"
   user_profile_queue: "user.profile.create"
   account_registered_routing_key: "account.registered"
   account_deleted_routing_key: "account.deleted"
+  payment_events_queue: "order.payment-events"
+  payment_succeeded_routing_key: "payment.succeeded"
+  payment_failed_routing_key: "payment.failed"
+  payment_refunded_routing_key: "payment.refunded"
+  payment_consumer_name: "test-payment-worker"
   consumer_name: "test-worker"
   consumer_concurrency: 2
   prefetch: 4
@@ -79,6 +124,9 @@ logging:
 	}
 	if cfg.Shutdown.Timeout != "12s" {
 		t.Fatalf("Shutdown.Timeout = %q, want %q", cfg.Shutdown.Timeout, "12s")
+	}
+	if cfg.GRPC.CallTimeout != "1500ms" {
+		t.Fatalf("GRPC.CallTimeout = %q, want %q", cfg.GRPC.CallTimeout, "1500ms")
 	}
 }
 

@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+package bookstore.v1;
+
+import "bookstore/v1/payment.proto";
+
+option go_package = "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1;bookstorev1";
+
+service OrderService {
+  rpc AddToCart(AddToCartRequest) returns (CartItem);
+  rpc UpdateCartItem(UpdateCartItemRequest) returns (CartItem);
+  rpc RemoveFromCart(RemoveFromCartRequest) returns (RemoveFromCartResponse);
+  rpc BatchRemoveFromCart(BatchRemoveFromCartRequest) returns (RemoveFromCartResponse);
+  rpc ListCart(ListCartRequest) returns (ListCartResponse);
+  rpc CreateOrder(CreateOrderRequest) returns (Order);
+  rpc GetOrder(GetOrderRequest) returns (Order);
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
+  rpc CancelOrder(CancelOrderRequest) returns (Order);
+  rpc PayOrder(PayOrderRequest) returns (Payment);
+}
+
+message CartItem {
+  string id = 1;
+  string user_id = 2;
+  string book_id = 3;
+  int32 quantity = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+message AddToCartRequest {
+  string user_id = 1;
+  string book_id = 2;
+  int32 quantity = 3;
+}
+
+message UpdateCartItemRequest {
+  string user_id = 1;
+  string item_id = 2;
+  int32 quantity = 3;
+}
+
+message RemoveFromCartRequest {
+  string user_id = 1;
+  string item_id = 2;
+}
+
+message BatchRemoveFromCartRequest {
+  string user_id = 1;
+  repeated string item_ids = 2;
+}
+
+message RemoveFromCartResponse {}
+
+message ListCartRequest {
+  string user_id = 1;
+}
+
+message ListCartResponse {
+  repeated CartItem items = 1;
+}
+
+message OrderItem {
+  string id = 1;
+  string book_id = 2;
+  string seller_id = 3;
+  string title = 4;
+  int64 unit_price_cents = 5;
+  int32 quantity = 6;
+  int64 subtotal_cents = 7;
+}
+
+message Order {
+  string id = 1;
+  string user_id = 2;
+  string status = 3;
+  int64 total_cents = 4;
+  string currency = 5;
+  repeated OrderItem items = 6;
+  string payment_id = 7;
+  string failure_reason = 8;
+  string created_at = 9;
+  string updated_at = 10;
+  string reservation_expires_at = 11;
+}
+
+message CreateOrderRequest {
+  string user_id = 1;
+  string idempotency_key = 2;
+}
+
+message GetOrderRequest {
+  string user_id = 1;
+  string id = 2;
+}
+
+message ListOrdersRequest {
+  string user_id = 1;
+  int32 limit = 2;
+  string cursor = 3;
+}
+
+message ListOrdersResponse {
+  repeated Order orders = 1;
+  string next_cursor = 2;
+  bool has_more = 3;
+}
+
+message CancelOrderRequest {
+  string user_id = 1;
+  string id = 2;
+}
+
+message PayOrderRequest {
+  string user_id = 1;
+  string order_id = 2;
+  string idempotency_key = 3;
+  string provider = 4;
+  string client_ip = 5;
+  string locale = 6;
+  string bank_code = 7;
+}

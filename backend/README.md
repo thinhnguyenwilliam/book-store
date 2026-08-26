@@ -1,6 +1,6 @@
 # Book Store Backend
 
-Backend gồm năm process Go độc lập và một nhóm hạ tầng dùng cho local development:
+Backend gồm bảy process Go độc lập và một nhóm hạ tầng dùng cho local development:
 
 ```text
 Storefront / Admin Portal
@@ -9,9 +9,9 @@ Storefront / Admin Portal
            v
       Echo API Gateway
         /     |      \
-      gRPC   gRPC    gRPC
-      /       |        \
- Auth      User       Book
+        gRPC service mesh
+   /      /      |       \        \
+ Auth   User    Book    Order    Payment
   |         ^           |
   | outbox  | gRPC      |
   v         |           |
@@ -19,20 +19,22 @@ RabbitMQ -> Worker       |
    \         |         /
     PostgreSQL / bookstore
       |       |       |
-    auth    users   catalog     <- schemas
+ auth  users  catalog  orders  payments  <- schemas
 
 RabbitMQ xử lý domain event; Redis được giữ riêng cho cache/rate-limit.
 ```
 
-Gateway là public entry point. Ba service giao tiếp với Gateway bằng gRPC.
+Gateway là public entry point. Các service giao tiếp bằng unary gRPC; Order Service điều phối Book Service và Payment Service cho checkout Saga.
 
 ## Một database hay ba database?
 
-Local hiện chỉ chạy **một PostgreSQL container và một database `bookstore`**. Database này có ba schema:
+Local hiện chỉ chạy **một PostgreSQL container và một database `bookstore`**. Database này có năm schema:
 
 - `auth`: do auth-service sở hữu.
 - `users`: do user-service sở hữu.
 - `catalog`: do book-service sở hữu.
+- `orders`: do order-service sở hữu.
+- `payments`: do payment-service sở hữu.
 
 “Service sở hữu dữ liệu” nghĩa là service khác không query hoặc sửa trực tiếp schema đó; nó phải gọi gRPC/API của service sở hữu. Điều này không bắt buộc mỗi service phải có một PostgreSQL server riêng. Khi hệ thống lớn hơn, từng schema có thể được chuyển sang database/server riêng mà không đổi domain và use case.
 
@@ -45,9 +47,18 @@ postgres:
   url: "postgres://bookstore:bookstore@postgres:5432/bookstore?sslmode=disable"
 
 redis:
+  enabled: true
   address: "redis:6379"
   password: ""
   database: 0
+  namespace: "bookstore"
+  dial_timeout: "500ms"
+  read_timeout: "50ms"
+  write_timeout: "50ms"
+  pool_size: 20
+  book_ttl: "1m"
+  cart_ttl: "5m"
+  lock_ttl: "3s"
 
 rabbitmq:
   url: "amqp://bookstore:bookstore@rabbitmq:5672/"
@@ -72,6 +83,9 @@ gateway:
   write_timeout: "10s"
   idle_timeout: "60s"
 
+grpc:
+  call_timeout: "1500ms"       # timeout tối đa cho mỗi unary RPC
+
 postgres:
   max_open_connections: 25
   max_idle_connections: 10
@@ -85,11 +99,45 @@ auth:
   facebook_app_id: "your-meta-app-id"
   facebook_app_secret: "server-only-meta-app-secret"
   facebook_graph_version: "v25.0"
+
+payment:
+  currency: "VND"
+  platform_owner_id: "platform"
+  funding_owner_id: "system:funding"
+  clearing_owner_id: "gateway:vnpay:clearing"
+  default_provider: "wallet" # đổi thành vnpay sau khi cấu hình credential
+  platform_fee_bps: 1000 # 10%, đơn vị basis point
+  reconcile_interval: "1m"
+  reconcile_grace: "2m"
+  reconcile_batch_size: 100
+  vnpay:
+    enabled: false
+    pay_url: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
+    api_url: "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction"
+    tmn_code: "YOUR_VNPAY_TMN_CODE"
+    hash_secret: "YOUR_SERVER_ONLY_HASH_SECRET"
+    return_url: "http://localhost:5173/thanh-toan/ket-qua"
+    server_ip: "YOUR_PUBLIC_SERVER_IP"
+    timezone: "Asia/Ho_Chi_Minh"
+    expire_after: "15m"
+    http_timeout: "5s"
 ```
+
+`tmn_code` và `hash_secret` chỉ nằm trong file YAML local bị ignore hoặc secret manager/mounted secret ở production; không đưa vào frontend hay commit Git. `return_url` là trang browser quay về, không phải nguồn xác nhận thanh toán. Backend chỉ chuyển `pending` sang `succeeded` từ IPN đã xác thực hoặc kết quả query đối soát.
 
 `google_client_id` là OAuth Web Client ID công khai, không phải client secret. Endpoint `POST /api/v1/auth/google` nhận Google ID token trong trường `credential`; Auth Service kiểm tra chữ ký, audience, issuer, expiration, `email_verified` và lưu Google `sub` làm identity ổn định. Migration `007_account_identities.sql` tạo bảng liên kết identity với account hiện có.
 
 Endpoint `POST /api/v1/auth/facebook` nhận Facebook user access token. Auth Service dùng App ID + App Secret gọi `debug_token`, sau đó lấy `id,name,email` bằng Graph API và gửi `appsecret_proof`. Facebook App Secret chỉ được đặt trong backend. Khi chạy local, copy `config/local.yml.example` thành `config/local.yml`; file thật đã được `.gitignore` bỏ qua và không còn được Git theo dõi.
+
+### Bảo mật Google/Facebook login
+
+Storefront và admin portal đang dùng popup callback của Google GIS và Facebook JavaScript SDK, không dùng authorization-code redirect callback. Vì vậy runtime không tự ghép `redirect_uri`; authorized JavaScript origins, Facebook Site URL và Valid OAuth Redirect URIs phải cấu hình chính xác trong console của provider, chỉ dùng HTTPS production và không dùng wildcard hoặc giá trị nhận từ query string.
+
+Trước khi mở provider, frontend gọi `POST /api/v1/auth/provider-state`. Gateway sinh 256-bit random state, trả state trong JSON và đặt bản đối chiếu trong cookie `HttpOnly`, `SameSite`, sống 10 phút. State được bind theo provider và `create_account`; Google còn nhận cùng giá trị qua cả button `state` và ID-token `nonce`. Gateway so sánh cookie bằng constant-time comparison, còn Auth Service bắt buộc nonce trong ID token phải khớp. Cookie state được xóa sau đăng nhập thành công.
+
+Google ID token và Facebook user access token chỉ được dùng một lần để xác minh danh tính rồi bỏ, không lưu database và không log. Project không xin quyền gọi Google/Facebook API sau đăng nhập nên không cần provider refresh token. Session của Book Store dùng access token JWT `5m` và opaque refresh token trong cookie HttpOnly `168h`; refresh token được rotate/reuse-detect như luồng đăng nhập mật khẩu.
+
+Lỗi provider có envelope ổn định với `error.code`, `error.provider` và `error.retryable`. Các code chính gồm `invalid_oauth_state`, `invalid_provider_credential`, `external_identity_conflict`, `provider_not_configured`, `provider_timeout`, `provider_unavailable` và `external_login_failed`; raw response từ Google/Meta không được trả thẳng cho browser.
 
 Compose mount file này read-only vào container và truyền đường dẫn bằng CLI flag:
 
@@ -115,6 +163,28 @@ migrations/                      schema của database bookstore
 ```
 
 Các PostgreSQL adapter sử dụng GORM. Domain không import Echo, gRPC, GORM, Viper hoặc JWT.
+
+### Mapping HTTP/JSON và Protobuf
+
+Gateway không trả generated protobuf trực tiếp cho frontend. DTO public nằm trong
+`internal/gateway/http/dto.go`; toàn bộ chuyển đổi JSON DTO ↔ protobuf được gom tại
+`internal/gateway/http/mapper.go`. Ở phía service, delivery gRPC tiếp tục map
+protobuf ↔ domain model, nên domain và application layer không phụ thuộc contract
+transport sinh bởi `protoc`.
+
+Lỗi domain được service đổi thành gRPC status, sau đó Gateway đổi sang HTTP theo
+một bảng thống nhất: `InvalidArgument → 400`, `Unauthenticated → 401`,
+`PermissionDenied → 403`, `NotFound → 404`, `AlreadyExists/Aborted → 409`,
+`ResourceExhausted → 429`, `DeadlineExceeded → 504`, `Unimplemented → 501` và
+`Unavailable → 503`. Lỗi nội bộ không được trả nguyên văn ra client.
+
+### Context deadline
+
+`gateway.request_timeout` là ngân sách tổng của HTTP request. Context này mang
+cancellation, deadline, request ID và trace ID xuống gRPC. `grpc.call_timeout` là
+giới hạn riêng cho mỗi unary RPC; interceptor chỉ thêm giới hạn này khi caller
+chưa có deadline sớm hơn. Vì vậy khi browser hủy request hoặc hết deadline, DB,
+external identity provider và service downstream đều nhận cùng tín hiệu hủy.
 
 ## Structured log và xoay file hằng ngày
 
@@ -257,9 +327,9 @@ Chuẩn bị infrastructure nhưng không build/chạy container Go:
 make local-prepare
 ```
 
-Lệnh này dừng `gateway`, `auth-service`, `user-service`, `book-service`, `worker-service` trong Docker và chỉ giữ PostgreSQL, pgAdmin, Redis, RedisInsight, RabbitMQ. Các Docker volume dữ liệu không bị xóa.
+Lệnh này dừng toàn bộ bảy container Go, gồm cả `order-service` và `payment-service`, rồi chỉ giữ PostgreSQL, pgAdmin, Redis, RedisInsight, RabbitMQ. Các Docker volume dữ liệu không bị xóa.
 
-Mở năm terminal trong thư mục `backend`:
+Mở bảy terminal trong thư mục `backend`:
 
 ```bash
 # Terminal 1
@@ -272,9 +342,15 @@ make local-user
 make local-book
 
 # Terminal 4
-make local-worker
+make local-payment
 
 # Terminal 5
+make local-order
+
+# Terminal 6
+make local-worker
+
+# Terminal 7
 make local-gateway
 ```
 
@@ -284,6 +360,8 @@ Các lệnh trên dùng `go run` và [config/local.yml](config/local.yml). Nếu
 make watch-auth
 make watch-user
 make watch-book
+make watch-payment
+make watch-order
 make watch-worker
 make watch-gateway
 ```
@@ -292,7 +370,7 @@ Air được cài vào `.tools/air` ở lần chạy `watch-*` đầu tiên, kh�
 
 ### Air hot reload bên trong Docker
 
-Để phát triển với live reload cho Gateway, auth-service, user-service, book-service và worker-service:
+Để phát triển với live reload cho toàn bộ bảy Go process:
 
 ```bash
 make dev
@@ -416,11 +494,15 @@ make app-stop
 make local-auth
 make local-user
 make local-book
+make local-order
+make local-payment
 make local-worker
 make local-gateway
 make watch-auth
 make watch-user
 make watch-book
+make watch-order
+make watch-payment
 make watch-worker
 make watch-gateway
 ```
@@ -463,10 +545,94 @@ Phần truy cập PostgreSQL bật prepared-statement cache, bỏ default transa
 - `POST /api/v1/admin/books`
 - `PUT /api/v1/admin/books/:id`
 - `DELETE /api/v1/admin/books/:id`
+- `GET /api/v1/cart/items`
+- `POST /api/v1/cart/items`
+- `PUT /api/v1/cart/items/:id`
+- `DELETE /api/v1/cart/items/:id`
+- `DELETE /api/v1/cart/items`
+- `POST /api/v1/cart/items/batch-delete`
+- `POST /api/v1/orders`
+- `GET /api/v1/orders`
+- `GET /api/v1/orders/:id`
+- `PUT /api/v1/orders/:id/cancel`
+- `POST /api/v1/payments`
+- `GET /api/v1/payments/webhooks/vnpay` (public IPN, bắt buộc chữ ký VNPAY)
+- `GET /api/v1/payments/:id`
+- `GET /api/v1/payments/order/:order_id`
+- `POST /api/v1/wallets/me`
+- `GET /api/v1/wallets/me`
+- `PUT /api/v1/admin/wallets/:owner_id/balance`
+
+## Checkout Saga, stock và ledger
+
+`POST /api/v1/orders` snapshot title/price/seller từ Book Service rồi tạo stock reservation. Stock khả dụng được giảm trong transaction của Book Service, nhưng reservation vẫn có trạng thái riêng để `CommitStock` hoặc `ReleaseStock` chạy idempotent. Không gọi `DecreaseStock` mù.
+
+`POST /api/v1/payments` yêu cầu header `Idempotency-Key`. Với `provider=wallet`, Payment Service ghi debit buyer, credit seller và credit platform fee trong **một transaction PostgreSQL**; tổng các ledger entry luôn bằng zero. Với `provider=vnpay`, API trả payment `pending` cùng `checkout_url`; frontend redirect browser tới URL đó. `UpdateBalance` cũng tạo cặp ledger entry với funding wallet, không overwrite balance. Endpoint balance chỉ nằm dưới `/admin`.
+
+### Thanh toán tiền thật bằng VNPAY
+
+```text
+POST /payments (provider=vnpay)
+  -> lưu payment pending + allocations
+  -> trả checkout_url -> browser sang VNPAY
+
+VNPAY IPN -> GET /payments/webhooks/vnpay
+  -> verify HMAC-SHA512 trước khi dùng payload
+  -> kiểm tra provider reference + amount + trạng thái
+  -> cùng một PostgreSQL transaction:
+       ghi webhook inbox (chống xử lý trùng)
+       post double-entry ledger
+       cập nhật payment
+       ghi payments.outbox_events
+  -> dispatcher publish-confirm -> RabbitMQ -> Order Service
+```
+
+Payment Service chạy settlement reconciler theo `payment.reconcile_interval`. Các payment `pending`/`refund_pending` quá `reconcile_grace` được gọi VNPAY `querydr`; kết quả và mismatch được lưu vào `payments.settlement_reconciliations`. Mismatch reference/amount chỉ được ghi nhận để điều tra, không tự sửa ledger.
+
+Hoàn tiền VNPAY dùng API `refund` có checksum và request ID xác định từ idempotency key. Ledger nội bộ chỉ đảo khi provider xác nhận `refunded`; phản hồi đang xử lý được lưu `refund_pending` và reconciler theo dõi tiếp. Việc đảo ledger và tạo event `payment.refunded` nằm trong cùng transaction. Không dùng Return URL của browser để cộng tiền, trừ tiền hoặc xác nhận order.
+
+Thiết lập sandbox:
+
+1. Điền `payment.vnpay.tmn_code` và `payment.vnpay.hash_secret` trong `config/local.yml` (file này đã ignore).
+2. Đặt `payment.vnpay.enabled: true`; giữ `default_provider: wallet` nếu muốn chọn provider theo từng request, hoặc đổi thành `vnpay`.
+3. Khai báo IPN URL trên VNPAY là `https://YOUR_API_HOST/api/v1/payments/webhooks/vnpay`. Localhost cần HTTPS tunnel để VNPAY gọi được.
+4. Chạy `make migrate`, sau đó khởi động Payment, Order và Gateway cùng PostgreSQL/RabbitMQ.
+
+Order Service là Saga orchestrator:
+
+```text
+pending -> stock_reserved -> payment_pending -> confirmed
+              |                 |
+              |                 +-> payment declined -> release stock -> cancelled
+              |                 +-> commit error -> refund ledger + release stock -> cancelled
+              |                 +-> compensation error -> compensation_pending
+              +-> reservation expired -> release stock -> cancelled
+```
+
+Client phải giữ nguyên `Idempotency-Key` khi retry cùng thao tác. Payment bị timeout được tra lại bằng `order_id` trước khi compensation, tránh trường hợp thanh toán đã thành công nhưng response bị mất. Order Service có reconciler chạy nền: hoàn tất payment bị mất response, hủy reservation hết hạn và retry trạng thái `compensation_pending`. Trong microservice không có rollback ACID xuyên database; refund và release stock là các transaction bù trừ có lịch sử riêng.
+
+Để chạy flow local, dùng tuần tự các request trong [api.http](api.http): tạo wallet, admin fund wallet, thêm sách vào cart, tạo order rồi thanh toán. Book có `seller_id`; nếu bỏ trống thì doanh thu được gán cho platform wallet.
+
+## Redis cache
+
+Book Service cache `GetBook` và từng trang `ListBooks`; Order Service cache `ListCart` theo user. PostgreSQL luôn là source of truth. Mọi thao tác tạo/sửa/xóa sách, reserve/release stock và thay đổi cart đều tăng cache version, nên request tiếp theo dùng key mới thay vì đọc dữ liệu cũ. Key cũ tự hết hạn theo TTL và không cần `SCAN`/xóa hàng loạt trên request path.
+
+Cache dùng TTL jitter, `singleflight` trong process và Redis distributed lock giữa các replica để giảm cache stampede. Redis có timeout ngắn; cache miss hoặc Redis lỗi sẽ fallback PostgreSQL, không làm API ghi hay checkout thất bại. Docker Compose chờ Redis healthy trước khi khởi động Book/Order Service.
+
+Không lưu access token hoặc refresh token thô trong Redis. Access token hiện là JWT stateless; refresh token được hash và rotate/revoke bằng transaction PostgreSQL để chống replay. Nếu sau này cần revoke access token tức thời, nên thêm denylist theo `jti` với TTL bằng thời gian sống còn lại của token, không cache token plaintext.
+
+Kiểm tra cache local:
+
+```bash
+docker compose exec redis redis-cli --scan --pattern 'bookstore-local:cache:*'
+make e2e-checkout-local
+```
 
 ## Ghi chú production
 
-- Transactional outbox đã dùng PostgreSQL + RabbitMQ publisher confirms. Production nên chạy RabbitMQ cluster ba node, áp policy at-least-once cho DLX, thêm metrics/alert cho pending event và archive bảng outbox.
+- Transactional outbox của Auth và Payment đã dùng PostgreSQL + RabbitMQ publisher confirms. Production nên chạy RabbitMQ cluster ba node, áp policy at-least-once cho DLX, thêm metrics/alert cho pending event và archive bảng outbox.
+- Checkout tiền thật đã có VNPAY HMAC webhook, query/refund và settlement reconciliation. Trước khi go-live vẫn phải hoàn thành hợp đồng merchant, dùng production credential/URL, HTTPS public IPN, alert cho mismatch/pending lâu, đối soát báo cáo ngân hàng theo ngày và kiểm thử sandbox/UAT với VNPAY.
+- Redis cache là optimization và fail-open; production cần Redis HA/Sentinel hoặc managed Redis, metrics hit/miss/error/latency và giới hạn memory với eviction policy phù hợp. Không dùng Redis cache làm nguồn dữ liệu duy nhất cho cart hoặc payment.
 - Access token JWT dùng HMAC và sống `5m`; refresh token opaque sống `168h`, được rotate mỗi lần dùng, revoke theo session family khi phát hiện token cũ bị dùng lại và chỉ lưu hash trong `auth.refresh_sessions`. Production phải bật HTTPS, đặt `refresh_cookie_secure: true`, dùng secret manager cho JWT secret và chỉ whitelist origin storefront thật.
 - Khi chuyển Keycloak/Auth0, thay token adapter bằng OIDC/JWKS; application và domain không cần đổi.
 - gRPC đang dùng plaintext trong private Docker network. Production nên bật mTLS/service identity.

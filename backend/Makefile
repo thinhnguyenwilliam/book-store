@@ -1,11 +1,11 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help tools generate proto swagger tidy fmt test vet lint lint-tool build check perf migrate \
+.PHONY: help tools generate proto swagger tidy fmt test vet lint lint-tool build check perf e2e-checkout e2e-checkout-local migrate \
 	docker-config docker-build up run up-foreground down down-volumes restart ps logs \
 	dev dev-foreground dev-build dev-logs dev-ps dev-down dev-restart \
 	air-tool infra-up infra-stop infra-ps infra-logs app-stop local-prepare \
-	local-gateway local-auth local-user local-book local-worker \
-	watch-gateway watch-auth watch-user watch-book watch-worker hooks-install
+	local-gateway local-auth local-user local-book local-order local-payment local-worker \
+	watch-gateway watch-auth watch-user watch-book watch-order watch-payment watch-worker hooks-install
 
 TOOLS_DIR := $(CURDIR)/.tools
 CACHE_DIR := $(CURDIR)/.cache
@@ -22,7 +22,7 @@ LOCAL_CONFIG := config/local.yml
 LOCAL_SECRET_CONFIG ?= config/local.secret.yml
 LOCAL_SECRET_ARG = $(if $(wildcard $(LOCAL_SECRET_CONFIG)),-secrets $(LOCAL_SECRET_CONFIG),)
 INFRA_SERVICES := postgres pgadmin redis redisinsight rabbitmq
-APP_SERVICES := gateway auth-service user-service book-service worker-service
+APP_SERVICES := gateway auth-service user-service book-service order-service payment-service worker-service
 REPO_ROOT := $(abspath $(CURDIR)/..)
 
 help: ## Hiển thị các lệnh có thể sử dụng
@@ -95,6 +95,12 @@ check: lint test vet build docker-config ## Chạy toàn bộ kiểm tra trướ
 perf: ## Kiểm tra p95 của các read API local phải dưới 200ms
 	./scripts/perf-check.sh
 
+e2e-checkout: ## Kiểm thử local wallet -> cart -> order -> payment -> ledger
+	./scripts/e2e-checkout.sh
+
+e2e-checkout-local: ## Tự chạy/tắt service local và kiểm thử checkout đầy đủ
+	./scripts/e2e-checkout-local.sh
+
 docker-config: ## Kiểm tra cú pháp Docker Compose
 	docker compose config --quiet
 
@@ -136,7 +142,7 @@ dev-build: ## Build lại image development có Air
 	$(DEV_COMPOSE) build
 
 dev-logs: ## Theo dõi log hot reload của các Go service
-	$(DEV_COMPOSE) logs -f --tail=200 gateway auth-service user-service book-service worker-service
+	$(DEV_COMPOSE) logs -f --tail=200 gateway auth-service user-service book-service order-service payment-service worker-service
 
 dev-ps: ## Xem trạng thái container development
 	$(DEV_COMPOSE) ps
@@ -160,7 +166,7 @@ infra-ps: ## Xem trạng thái các container infrastructure
 infra-logs: ## Theo dõi log các container infrastructure
 	docker compose logs -f --tail=200 $(INFRA_SERVICES)
 
-app-stop: ## Dừng 5 container Go để giải phóng các port chạy local
+app-stop: ## Dừng 7 container Go để giải phóng các port chạy local
 	docker compose stop $(APP_SERVICES)
 
 local-prepare: ## Dừng container Go và chỉ khởi động infrastructure
@@ -178,6 +184,12 @@ local-user: ## Chạy user service trực tiếp trên máy, không hot reload
 
 local-book: ## Chạy book service trực tiếp trên máy, không hot reload
 	go run ./cmd/book-service -config $(LOCAL_CONFIG)
+
+local-order: ## Chạy order service trực tiếp trên máy, không hot reload
+	go run ./cmd/order-service -config $(LOCAL_CONFIG)
+
+local-payment: ## Chạy payment service trực tiếp trên máy, không hot reload
+	go run ./cmd/payment-service -config $(LOCAL_CONFIG)
 
 local-worker: ## Chạy worker service trực tiếp trên máy, không hot reload
 	go run ./cmd/worker-service -config $(LOCAL_CONFIG)
@@ -201,6 +213,12 @@ watch-user: $(AIR) ## Chạy user service local với Air hot reload
 
 watch-book: $(AIR) ## Chạy book service local với Air hot reload
 	$(call watch_service,book-service)
+
+watch-order: $(AIR) ## Chạy order service local với Air hot reload
+	$(call watch_service,order-service)
+
+watch-payment: $(AIR) ## Chạy payment service local với Air hot reload
+	$(call watch_service,payment-service)
 
 watch-worker: $(AIR) ## Chạy worker service local với Air hot reload
 	$(call watch_service,worker-service)

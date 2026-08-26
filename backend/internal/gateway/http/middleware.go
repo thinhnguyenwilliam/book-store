@@ -24,8 +24,7 @@ func (h *Handler) Authenticate(next echo.HandlerFunc) echo.HandlerFunc {
 			return c.JSON(http.StatusUnauthorized, errorBody("missing or invalid bearer token"))
 		}
 
-		ctx, cancel := contextWithTimeout(c)
-		defer cancel()
+		ctx := grpcContext(c)
 		claims, err := h.auth.VerifyToken(ctx, &bookstorev1.VerifyTokenRequest{AccessToken: parts[1]})
 		if err != nil {
 			return errorResponse(c, err)

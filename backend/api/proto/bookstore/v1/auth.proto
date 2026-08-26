@@ -29,6 +29,7 @@ message LoginRequest {
 message GoogleLoginRequest {
   string credential = 1;
   bool create_account = 2;
+  string nonce = 3;
 }
 
 message FacebookLoginRequest {

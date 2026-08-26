@@ -24,6 +24,12 @@ const routes: RouteRecordRaw[] = [
       },
       { path: 'gio-hang', name: 'cart', component: () => import('@/pages/CartPage.vue') },
       {
+        path: 'thanh-toan/ket-qua',
+        name: 'payment-result',
+        component: () => import('@/pages/PaymentResultPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
         path: 'dang-nhap',
         name: 'login',
         component: () => import('@/pages/LoginPage.vue'),

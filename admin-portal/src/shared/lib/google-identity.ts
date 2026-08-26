@@ -3,6 +3,7 @@ export type GoogleButtonText = 'signin_with' | 'signup_with' | 'continue_with'
 interface GoogleCredentialResponse {
   credential: string
   select_by: string
+  state?: string
 }
 
 interface GoogleIdentityAPI {
@@ -11,6 +12,7 @@ interface GoogleIdentityAPI {
     callback: (response: GoogleCredentialResponse) => void
     auto_select?: boolean
     cancel_on_tap_outside?: boolean
+    nonce?: string
   }): void
   renderButton(
     parent: HTMLElement,
@@ -22,6 +24,7 @@ interface GoogleIdentityAPI {
       text: GoogleButtonText
       logo_alignment: 'left'
       width: number
+      state?: string
     },
   ): void
   disableAutoSelect(): void
@@ -42,7 +45,7 @@ const scriptSource = 'https://accounts.google.com/gsi/client'
 
 let loadPromise: Promise<GoogleNamespace> | undefined
 let initializedClientID = ''
-let credentialHandler: ((credential: string) => void) | undefined
+let credentialHandler: ((credential: string, state: string) => void) | undefined
 
 function googleNamespace(): GoogleNamespace | undefined {
   return (window as GoogleWindow).google
@@ -88,19 +91,22 @@ export async function renderGoogleButton(
   parent: HTMLElement,
   clientID: string,
   text: GoogleButtonText,
-  onCredential: (credential: string) => void,
+  state: string,
+  onCredential: (credential: string, state: string) => void,
 ): Promise<void> {
   const google = await loadGoogleIdentity()
   credentialHandler = onCredential
 
-  if (initializedClientID !== clientID) {
+  const initializationKey = `${clientID}:${state}`
+  if (initializedClientID !== initializationKey) {
     google.accounts.id.initialize({
       client_id: clientID,
-      callback: (response) => credentialHandler?.(response.credential),
+      callback: (response) => credentialHandler?.(response.credential, response.state ?? ''),
       auto_select: false,
       cancel_on_tap_outside: true,
+      nonce: state,
     })
-    initializedClientID = clientID
+    initializedClientID = initializationKey
   }
 
   parent.replaceChildren()
@@ -112,6 +118,7 @@ export async function renderGoogleButton(
     text,
     logo_alignment: 'left',
     width: Math.min(Math.max(parent.clientWidth, 240), 400),
+    state,
   })
 }
 

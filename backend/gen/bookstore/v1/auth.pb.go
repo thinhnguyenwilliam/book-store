@@ -137,6 +137,7 @@ type GoogleLoginRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Credential    string                 `protobuf:"bytes,1,opt,name=credential,proto3" json:"credential,omitempty"`
 	CreateAccount bool                   `protobuf:"varint,2,opt,name=create_account,json=createAccount,proto3" json:"create_account,omitempty"`
+	Nonce         string                 `protobuf:"bytes,3,opt,name=nonce,proto3" json:"nonce,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -183,6 +184,13 @@ func (x *GoogleLoginRequest) GetCreateAccount() bool {
 		return x.CreateAccount
 	}
 	return false
+}
+
+func (x *GoogleLoginRequest) GetNonce() string {
+	if x != nil {
+		return x.Nonce
+	}
+	return ""
 }
 
 type FacebookLoginRequest struct {
@@ -632,12 +640,13 @@ const file_bookstore_v1_auth_proto_rawDesc = "" +
 	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\"@\n" +
 	"\fLoginRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\"[\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"q\n" +
 	"\x12GoogleLoginRequest\x12\x1e\n" +
 	"\n" +
 	"credential\x18\x01 \x01(\tR\n" +
 	"credential\x12%\n" +
-	"\x0ecreate_account\x18\x02 \x01(\bR\rcreateAccount\"`\n" +
+	"\x0ecreate_account\x18\x02 \x01(\bR\rcreateAccount\x12\x14\n" +
+	"\x05nonce\x18\x03 \x01(\tR\x05nonce\"`\n" +
 	"\x14FacebookLoginRequest\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12%\n" +
 	"\x0ecreate_account\x18\x02 \x01(\bR\rcreateAccount\"\xbc\x01\n" +

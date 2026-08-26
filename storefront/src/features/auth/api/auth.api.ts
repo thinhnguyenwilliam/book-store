@@ -5,6 +5,8 @@ import type {
   FacebookLoginPayload,
   GoogleLoginPayload,
   LoginPayload,
+  ProviderStatePayload,
+  ProviderStateResponse,
   RegisterPayload,
   UserProfile,
 } from '../model/types'
@@ -15,6 +17,14 @@ export function login(payload: LoginPayload) {
 
 export function register(payload: RegisterPayload) {
   return apiRequest<AuthResponse>('/api/v1/auth/register', { method: 'POST', data: payload })
+}
+
+export function createProviderState(payload: ProviderStatePayload) {
+  return apiRequest<ProviderStateResponse>('/api/v1/auth/provider-state', {
+    method: 'POST',
+    data: payload,
+    skipAuthRefresh: true,
+  })
 }
 
 export function loginWithGoogle(payload: GoogleLoginPayload) {
