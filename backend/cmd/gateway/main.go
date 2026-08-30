@@ -94,6 +94,18 @@ func run(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
+	chatTicketTTL, err := time.ParseDuration(cfg.Chat.WebSocketTicketTTL)
+	if err != nil {
+		return err
+	}
+	chatPresenceTTL, err := time.ParseDuration(cfg.Chat.PresenceTTL)
+	if err != nil {
+		return err
+	}
+	chatPingInterval, err := time.ParseDuration(cfg.Chat.PingInterval)
+	if err != nil {
+		return err
+	}
 
 	authConnection, err := grpc.NewClient(
 		cfg.GRPC.AuthAddress,
@@ -165,19 +177,83 @@ func run(cfg config.Config) error {
 	}
 	defer func() { _ = paymentConnection.Close() }()
 
-	handler := gatewayhttp.NewHandler(
+	notificationConnection, err := grpc.NewClient(
+		cfg.GRPC.NotificationAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout), grpcclient.UnaryLoggingInterceptor),
+		grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor),
+	)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = notificationConnection.Close() }()
+
+	commentConnection, err := grpc.NewClient(
+		cfg.GRPC.CommentAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout), grpcclient.UnaryLoggingInterceptor),
+		grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor),
+	)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = commentConnection.Close() }()
+
+	chatConnection, err := grpc.NewClient(
+		cfg.GRPC.ChatAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout), grpcclient.UnaryLoggingInterceptor),
+		grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor),
+	)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = chatConnection.Close() }()
+	chatClient := bookstorev1.NewChatServiceClient(chatConnection)
+	realtimeStartupCtx, cancelRealtimeStartup := context.WithTimeout(context.Background(), 5*time.Second)
+	realtime, err := gatewayhttp.NewChatRealtime(realtimeStartupCtx, gatewayhttp.ChatRealtimeConfig{
+		RedisAddress: cfg.Redis.Address, RedisPassword: cfg.Redis.Password, RedisDatabase: cfg.Redis.Database,
+		RedisNamespace: cfg.Redis.Namespace, RedisChannel: cfg.Chat.RedisChannel,
+		TicketTTL: chatTicketTTL, PresenceTTL: chatPresenceTTL, PingInterval: chatPingInterval,
+		CallTimeout: grpcCallTimeout, MaxMessageBytes: cfg.Chat.MaxMessageBytes, AllowedOrigins: cfg.Gateway.AllowedOrigins,
+	}, chatClient)
+	cancelRealtimeStartup()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		if err := realtime.Close(closeCtx); err != nil {
+			slog.Warn("close chat realtime", "error", err)
+		}
+	}()
+
+	handler, err := gatewayhttp.NewHandler(
 		bookstorev1.NewAuthServiceClient(authConnection),
 		bookstorev1.NewUserServiceClient(userConnection),
 		bookstorev1.NewBookServiceClient(bookConnection),
 		bookstorev1.NewOrderServiceClient(orderConnection),
 		bookstorev1.NewPaymentServiceClient(paymentConnection),
+		bookstorev1.NewNotificationServiceClient(notificationConnection),
+		bookstorev1.NewCommentServiceClient(commentConnection),
+		chatClient,
+		realtime,
 		gatewayhttp.RefreshCookieConfig{
 			Name:     cfg.Gateway.RefreshCookieName,
 			Secure:   cfg.Gateway.RefreshCookieSecure,
 			SameSite: sameSiteMode(cfg.Gateway.RefreshCookieSameSite),
 		},
+		gatewayhttp.GraphQLConfig{
+			BodyLimit: cfg.Gateway.GraphQLBodyLimit, MaxComplexity: cfg.Gateway.GraphQLMaxComplexity,
+			MaxDepth: cfg.Gateway.GraphQLMaxDepth, ParserTokenLimit: cfg.Gateway.GraphQLParserTokens,
+			IntrospectionEnabled: cfg.Gateway.GraphQLIntrospection,
+		},
 		cfg.Gateway.AllowedOrigins,
 	)
+	if err != nil {
+		return err
+	}
 
 	e := echo.New()
 	e.HideBanner = true
@@ -199,7 +275,7 @@ func run(cfg config.Config) error {
 		LogResponseSize: true,
 		LogError:        true,
 		LogValuesFunc: func(c echo.Context, values middleware.RequestLoggerValues) error {
-			sloMet := values.Latency < performanceTarget
+			sloMet := strings.HasPrefix(values.URI, "/api/v1/chat/ws") || values.Latency < performanceTarget
 			attributes := []any{
 				"request_id", values.RequestID,
 				"remote_ip", values.RemoteIP,
@@ -235,6 +311,9 @@ func run(cfg config.Config) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	if err := realtime.Start(ctx); err != nil {
+		return err
+	}
 
 	errCh := make(chan error, 1)
 	go func() {

@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 
 import { ApiError, onSessionExpired, setApiAccessToken } from '@/shared/api/http-client'
 import { disableGoogleAutoSelect } from '@/shared/lib/google-identity'
+import { revokeLocalPushToken, unregisterCurrentPushDevice } from '@/features/push/lib/push'
 import * as authApi from '../api/auth.api'
 import type { LoginPayload, RegisterPayload, UserProfile } from './types'
 
@@ -33,7 +34,10 @@ export const useAuthStore = defineStore('auth', () => {
     setApiAccessToken(null)
   }
 
-  onSessionExpired(clearSession)
+  onSessionExpired(() => {
+    void revokeLocalPushToken()
+    clearSession()
+  })
 
   async function fetchProfile(): Promise<void> {
     if (!isAuthenticated.value) return
@@ -138,6 +142,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function signOut(): Promise<void> {
     try {
+      await unregisterCurrentPushDevice()
       await authApi.logout()
     } finally {
       disableGoogleAutoSelect()

@@ -1,20 +1,32 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 
-import { useAdminBooksStore } from '@/features/books/model/books.store'
+import {
+  getAdminDashboard,
+  type DashboardSnapshot,
+} from '@/features/dashboard/api/dashboard.graphql'
+import { ApiError } from '@/shared/api/http-client'
 import { formatDateTime, formatPrice } from '@/shared/lib/format'
 import AppIcon from '@/shared/ui/AppIcon.vue'
 
-const books = useAdminBooksStore()
-const recentBooks = computed(() => books.books.slice(0, 5))
-const lowStockBooks = computed(() =>
-  [...books.books]
-    .filter((book) => book.stock <= 5)
-    .sort((a, b) => a.stock - b.stock)
-    .slice(0, 5),
-)
+const snapshot = ref<DashboardSnapshot>()
+const loading = ref(true)
+const error = ref('')
+const controller = new AbortController()
 
-onMounted(() => books.fetchInitial())
+onMounted(async () => {
+  try {
+    snapshot.value = await getAdminDashboard(controller.signal)
+  } catch (requestError) {
+    if (!controller.signal.aborted) {
+      error.value =
+        requestError instanceof ApiError ? requestError.message : 'Không thể tải dashboard.'
+    }
+  } finally {
+    loading.value = false
+  }
+})
+onBeforeUnmount(() => controller.abort())
 </script>
 
 <template>
@@ -37,8 +49,8 @@ onMounted(() => books.fetchInitial())
         <span class="stat-card__icon stat-card__icon--green"><AppIcon name="book" /></span>
         <div>
           <p>Sách đã tải</p>
-          <strong>{{ books.totalLoaded }}</strong
-          ><small v-if="books.hasMore">Còn dữ liệu ở trang sau</small
+          <strong>{{ snapshot?.loadedCount ?? 0 }}</strong
+          ><small v-if="snapshot?.hasMoreBooks">Còn dữ liệu ở trang sau</small
           ><small v-else>Toàn bộ danh mục</small>
         </div>
       </article>
@@ -46,15 +58,15 @@ onMounted(() => books.fetchInitial())
         <span class="stat-card__icon stat-card__icon--gold"><AppIcon name="package" /></span>
         <div>
           <p>Tổng tồn kho</p>
-          <strong>{{ books.inventoryUnits }}</strong
-          ><small>Đơn vị trong {{ books.totalLoaded }} đầu sách</small>
+          <strong>{{ snapshot?.inventoryUnits ?? 0 }}</strong
+          ><small>Đơn vị trong {{ snapshot?.loadedCount ?? 0 }} đầu sách</small>
         </div>
       </article>
       <article class="stat-card">
         <span class="stat-card__icon stat-card__icon--red"><AppIcon name="alert" /></span>
         <div>
           <p>Sắp hết hàng</p>
-          <strong>{{ books.lowStockCount }}</strong
+          <strong>{{ snapshot?.lowStockCount ?? 0 }}</strong
           ><small>Ngưỡng cảnh báo ≤ 5</small>
         </div>
       </article>
@@ -62,13 +74,15 @@ onMounted(() => books.fetchInitial())
         <span class="stat-card__icon stat-card__icon--blue"><AppIcon name="value" /></span>
         <div>
           <p>Giá trị tồn kho</p>
-          <strong class="stat-card__money">{{ formatPrice(books.inventoryValueCents) }}</strong
+          <strong class="stat-card__money">{{
+            formatPrice(snapshot?.inventoryValueCents ?? 0)
+          }}</strong
           ><small>Tính theo giá bán hiện tại</small>
         </div>
       </article>
     </section>
 
-    <p v-if="books.error" class="inline-error">{{ books.error }}</p>
+    <p v-if="error" class="inline-error">{{ error }}</p>
 
     <section class="dashboard-grid">
       <article class="panel">
@@ -81,9 +95,9 @@ onMounted(() => books.fetchInitial())
             >Xem tất cả <AppIcon name="arrow-right" :size="15"
           /></RouterLink>
         </header>
-        <div v-if="books.loading" class="skeleton-list"><i v-for="item in 4" :key="item" /></div>
-        <div v-else-if="recentBooks.length" class="recent-list">
-          <div v-for="book in recentBooks" :key="book.id" class="recent-book">
+        <div v-if="loading" class="skeleton-list"><i v-for="item in 4" :key="item" /></div>
+        <div v-else-if="snapshot?.recentBooks.length" class="recent-list">
+          <div v-for="book in snapshot.recentBooks" :key="book.id" class="recent-book">
             <span class="book-monogram">{{ book.title.slice(0, 1).toUpperCase() }}</span>
             <div>
               <strong>{{ book.title }}</strong
@@ -105,8 +119,8 @@ onMounted(() => books.fetchInitial())
             <h2>Cảnh báo tồn kho</h2>
           </div>
         </header>
-        <div v-if="lowStockBooks.length" class="stock-list">
-          <div v-for="book in lowStockBooks" :key="book.id">
+        <div v-if="snapshot?.lowStockBooks.length" class="stock-list">
+          <div v-for="book in snapshot.lowStockBooks" :key="book.id">
             <span :class="{ 'stock-dot--empty': book.stock === 0 }" class="stock-dot" />
             <p>
               <strong>{{ book.title }}</strong
@@ -118,6 +132,32 @@ onMounted(() => books.fetchInitial())
         <div v-else class="empty-compact empty-compact--success">
           <AppIcon name="check" :size="22" />
           <p>Không có sách nào sắp hết.</p>
+        </div>
+      </article>
+
+      <article class="panel panel--wide">
+        <header class="panel__header">
+          <div>
+            <p class="eyebrow">Tài khoản mới</p>
+            <h2>Khách hàng gần đây</h2>
+          </div>
+          <RouterLink :to="{ name: 'customers' }"
+            >Quản lý khách hàng <AppIcon name="arrow-right" :size="15"
+          /></RouterLink>
+        </header>
+        <div v-if="loading" class="skeleton-list"><i v-for="item in 3" :key="item" /></div>
+        <div v-else-if="snapshot?.customers.length" class="recent-list">
+          <div v-for="customer in snapshot.customers" :key="customer.id" class="recent-book">
+            <span class="book-monogram">{{ customer.display_name.slice(0, 1).toUpperCase() }}</span>
+            <div>
+              <strong>{{ customer.display_name }}</strong
+              ><small>{{ customer.email }} · {{ formatDateTime(customer.created_at) }}</small>
+            </div>
+          </div>
+        </div>
+        <div v-else class="empty-compact">
+          <AppIcon name="user" :size="25" />
+          <p>Chưa có hồ sơ khách hàng.</p>
         </div>
       </article>
     </section>

@@ -9,6 +9,8 @@
 @fundingKey = fund-reader-http-001
 @orderKey = order-reader-http-001
 @paymentKey = payment-reader-http-001
+@pushDeviceId = 33333333-3333-4333-8333-333333333333
+@fcmRegistrationToken = paste-fcm-registration-token-from-browser-here
 
 ### 1. Gateway health check
 GET {{baseUrl}}/healthz
@@ -313,3 +315,199 @@ Authorization: Bearer {{login.response.body.$.access_token}}
 ### 14. Swagger JSON
 GET {{baseUrl}}/swagger/doc.json
 Accept: application/json
+
+### 15. List my notifications
+# @name firstNotificationPage
+GET {{baseUrl}}/api/v1/notifications?limit=20
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 15.1. Get unread notification count
+GET {{baseUrl}}/api/v1/notifications/unread-count
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 15.2. Mark one notification read
+# Run only when request 15 returned at least one notification.
+PUT {{baseUrl}}/api/v1/notifications/{{firstNotificationPage.response.body.$.data[0].id}}/read
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 15.3. Mark all notifications read
+PUT {{baseUrl}}/api/v1/notifications/read-all
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 15.4. Register or refresh a Web Push installation
+POST {{baseUrl}}/api/v1/notifications/devices
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "device_id": "{{pushDeviceId}}",
+  "registration_token": "{{fcmRegistrationToken}}",
+  "application": "storefront",
+  "platform": "web"
+}
+
+### 15.5. Unregister the Web Push installation
+DELETE {{baseUrl}}/api/v1/notifications/devices/{{pushDeviceId}}
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 16. Create a root comment
+# @name createComment
+POST {{baseUrl}}/api/v1/books/{{createBook.response.body.$.id}}/comments
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "content": "Cuốn sách rất dễ đọc và thực tế."
+}
+
+### 16.1. Reply to the root comment
+# @name createReply
+POST {{baseUrl}}/api/v1/books/{{createBook.response.body.$.id}}/comments
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "content": "Mình cũng có cùng cảm nhận.",
+  "parent_id": "{{createComment.response.body.$.id}}"
+}
+
+### 16.2. List root comments
+GET {{baseUrl}}/api/v1/books/{{createBook.response.body.$.id}}/comments?limit=20
+Accept: application/json
+
+### 16.3. List all replies in the thread
+GET {{baseUrl}}/api/v1/comments/{{createComment.response.body.$.id}}/replies?limit=50
+Accept: application/json
+
+### 16.4. Update own reply
+PUT {{baseUrl}}/api/v1/comments/{{createReply.response.body.$.id}}
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "content": "Mình cũng có cùng cảm nhận, đặc biệt là chương cuối."
+}
+
+### 16.5. Soft-delete own reply
+DELETE {{baseUrl}}/api/v1/comments/{{createReply.response.body.$.id}}
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 16.6. Hide comment - admin only
+PUT {{baseUrl}}/api/v1/admin/comments/{{createComment.response.body.$.id}}/status
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "status": "hidden"
+}
+
+### 17. Open or get my support conversation
+# @name supportConversation
+POST {{baseUrl}}/api/v1/chat/conversations/support
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 17.1. List accessible conversations
+GET {{baseUrl}}/api/v1/chat/conversations?limit=20
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 17.2. Send an idempotent chat message
+# @name supportMessage
+POST {{baseUrl}}/api/v1/chat/conversations/{{supportConversation.response.body.$.id}}/messages
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+Idempotency-Key: {{$uuid}}
+
+{
+  "content": "Xin chào, mình cần hỗ trợ về đơn hàng."
+}
+
+### 17.3. List latest messages
+GET {{baseUrl}}/api/v1/chat/conversations/{{supportConversation.response.body.$.id}}/messages?limit=30
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 17.4. Mark conversation read through the latest sequence
+PUT {{baseUrl}}/api/v1/chat/conversations/{{supportConversation.response.body.$.id}}/read
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "sequence_number": 0
+}
+
+### 17.5. Get unread chat count
+GET {{baseUrl}}/api/v1/chat/unread-count
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 17.6. Issue one-time WebSocket ticket
+# Use the returned ticket immediately at:
+# ws://localhost:8080/api/v1/chat/ws?ticket=<ticket>
+POST {{baseUrl}}/api/v1/chat/ws-ticket
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 17.7. Update own chat message
+PUT {{baseUrl}}/api/v1/chat/messages/{{supportMessage.response.body.$.id}}
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "content": "Xin chào, mình cần hỗ trợ kiểm tra đơn hàng."
+}
+
+### 17.8. Soft-delete own chat message
+DELETE {{baseUrl}}/api/v1/chat/messages/{{supportMessage.response.body.$.id}}
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+### 18. GraphQL book detail - public aggregation
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+Accept: application/json
+
+{
+  "query": "query BookDetail($id: ID!) { bookDetail(id: $id, commentsFirst: 20) { book { id title author isbn priceCents stock } comments { nodes { id authorName content replyCount } pageInfo { hasNextPage endCursor } } } }",
+  "variables": {
+    "id": "{{createBook.response.body.$.id}}"
+  }
+}
+
+### 18.1. GraphQL admin dashboard
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "query": "query AdminDashboard { adminDashboard(booksFirst: 30, customersFirst: 5) { catalog { loadedCount inventoryUnits lowStockCount inventoryValueCents recentBooks { id title stock } lowStockBooks { id title stock } pageInfo { hasNextPage endCursor } } customers { loadedCount recentCustomers { id email displayName } pageInfo { hasNextPage endCursor } } } }"
+}
+
+### 18.2. GraphQL current-user order detail
+POST {{baseUrl}}/graphql
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "query": "query OrderDetail($id: ID!) { orderDetail(id: $id) { order { id status totalCents currency items { id bookId title quantity subtotalCents } } payment { id status amountCents provider paidAt } } }",
+  "variables": {
+    "id": "{{createOrder.response.body.$.id}}"
+  }
+}

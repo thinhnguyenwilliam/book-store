@@ -25,6 +25,14 @@ func TestDeliveryAttemptUsesQuorumQueueDeliveryCount(t *testing.T) {
 	}
 }
 
+func TestDeliveryEventIDIsAddedToHandlerContext(t *testing.T) {
+	delivery := amqp.Delivery{MessageId: "outbox-event-123"}
+	ctx := contextWithDeliveryEventID(context.Background(), delivery)
+	if got := EventIDFromContext(ctx); got != delivery.MessageId {
+		t.Fatalf("handler event ID = %q, want %q", got, delivery.MessageId)
+	}
+}
+
 func TestRetryDelayIsExponentiallyBounded(t *testing.T) {
 	if got := retryDelay(1); got != 500*time.Millisecond {
 		t.Fatalf("first retry delay = %s", got)

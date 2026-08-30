@@ -41,6 +41,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/CustomersPage.vue'),
         meta: { title: 'Quản lý khách hàng' },
       },
+      {
+        path: 'tro-chuyen',
+        name: 'chat',
+        component: () => import('@/pages/ChatPage.vue'),
+        meta: { title: 'Trò chuyện hỗ trợ' },
+      },
     ],
   },
   {

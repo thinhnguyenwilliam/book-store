@@ -13,6 +13,7 @@ var (
 	ErrInsufficientStock  = errors.New("insufficient book stock")
 	ErrReservationMissing = errors.New("stock reservation not found")
 	ErrReservationState   = errors.New("invalid stock reservation state")
+	ErrBookInUse          = errors.New("book has stock reservation history and cannot be deleted")
 )
 
 type Book struct {

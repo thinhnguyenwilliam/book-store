@@ -33,7 +33,7 @@ type Dispatcher struct {
 }
 
 func NewDispatcher(db *gorm.DB, publisher Publisher, table string, interval time.Duration) (*Dispatcher, error) {
-	if table != "auth.outbox_events" && table != "payments.outbox_events" {
+	if table != "auth.outbox_events" && table != "payments.outbox_events" && table != "chat.outbox_events" {
 		return nil, fmt.Errorf("unsupported outbox table %q", table)
 	}
 	return &Dispatcher{db: db, publisher: publisher, table: table, interval: interval}, nil

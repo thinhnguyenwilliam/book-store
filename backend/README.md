@@ -1,6 +1,6 @@
 # Book Store Backend
 
-Backend gồm bảy process Go độc lập và một nhóm hạ tầng dùng cho local development:
+Backend gồm mười process Go độc lập và một nhóm hạ tầng dùng cho local development:
 
 ```text
 Storefront / Admin Portal
@@ -11,7 +11,7 @@ Storefront / Admin Portal
         /     |      \
         gRPC service mesh
    /      /      |       \        \
- Auth   User    Book    Order    Payment
+ Auth   User    Book    Order    Payment    Notification    Comment    Chat
   |         ^           |
   | outbox  | gRPC      |
   v         |           |
@@ -19,7 +19,7 @@ RabbitMQ -> Worker       |
    \         |         /
     PostgreSQL / bookstore
       |       |       |
- auth  users  catalog  orders  payments  <- schemas
+ auth  users  catalog  orders  payments  notifications  comments  chat  <- schemas
 
 RabbitMQ xử lý domain event; Redis được giữ riêng cho cache/rate-limit.
 ```
@@ -28,15 +28,20 @@ Gateway là public entry point. Các service giao tiếp bằng unary gRPC; Orde
 
 ## Một database hay ba database?
 
-Local hiện chỉ chạy **một PostgreSQL container và một database `bookstore`**. Database này có năm schema:
+Local hiện chỉ chạy **một PostgreSQL container và một database `bookstore`**. Database này có tám schema:
 
 - `auth`: do auth-service sở hữu.
 - `users`: do user-service sở hữu.
 - `catalog`: do book-service sở hữu.
 - `orders`: do order-service sở hữu.
 - `payments`: do payment-service sở hữu.
+- `notifications`: do notification-service sở hữu; gồm inbox event, thông báo trong app và trạng thái gửi email.
+- `comments`: do comment-service sở hữu; chứa thread bình luận và câu trả lời.
+- `chat`: do chat-service sở hữu; chứa support conversation, member, message, read cursor và transactional outbox.
 
 “Service sở hữu dữ liệu” nghĩa là service khác không query hoặc sửa trực tiếp schema đó; nó phải gọi gRPC/API của service sở hữu. Điều này không bắt buộc mỗi service phải có một PostgreSQL server riêng. Khi hệ thống lớn hơn, từng schema có thể được chuyển sang database/server riêng mà không đổi domain và use case.
+
+Foreign key chỉ được khai báo giữa các bảng do cùng một service sở hữu. Migration `011_intraservice_foreign_keys.sql` bảo vệ Order aggregate, stock reservation và các bảng financial ledger/payment. Các ID xuyên service như `user_id`, `book_id` trong Order hoặc `order_id` trong Payment vẫn là logical reference và được kiểm tra qua gRPC/event, không tạo foreign key xuyên bounded context.
 
 ## Cấu hình Viper
 
@@ -159,6 +164,7 @@ internal/<service>/application/  use cases và ports
 internal/<service>/adapter/      PostgreSQL/JWT/bcrypt adapters
 internal/<service>/delivery/grpc gRPC transport
 internal/gateway/http/           Echo handlers và middleware
+internal/gateway/graphql/        schema, resolvers và runtime GraphQL sinh bởi gqlgen
 migrations/                      schema của database bookstore
 ```
 
@@ -185,6 +191,24 @@ cancellation, deadline, request ID và trace ID xuống gRPC. `grpc.call_timeout
 giới hạn riêng cho mỗi unary RPC; interceptor chỉ thêm giới hạn này khi caller
 chưa có deadline sớm hơn. Vì vậy khi browser hủy request hoặc hết deadline, DB,
 external identity provider và service downstream đều nhận cùng tín hiệu hủy.
+
+### GraphQL aggregation API
+
+`POST /graphql` là lớp query bổ sung tại Gateway; REST và gRPC hiện tại không bị thay thế. Ba root query đầu tiên:
+
+- `bookDetail`: public, gọi Book Service và Comment Service song song.
+- `adminDashboard`: yêu cầu role `admin`, gọi Book Service và User Service song song. Các chỉ số catalog/customer chỉ phản ánh cursor page được yêu cầu, không giả làm global total.
+- `orderDetail`: yêu cầu đăng nhập, Order Service kiểm tra ownership trước khi Gateway ghép Payment Service.
+
+Gateway giới hạn body `64K`, parser token, query depth và complexity. Introspection bật trong `local.yml.example` để phát triển nhưng tắt trong `config.yml` mặc định production. GraphQL chỉ phục vụ query qua POST; các command đăng nhập, giỏ hàng, tạo đơn, thanh toán và webhook tiếp tục dùng REST.
+
+Sau khi sửa `schema.graphqls`, chạy:
+
+```bash
+make graphql
+```
+
+Pre-commit hook và CI cùng sinh lại mã gqlgen rồi kiểm tra `git diff`, vì vậy generated runtime/model không thể lệch schema.
 
 ## Structured log và xoay file hằng ngày
 
@@ -327,9 +351,9 @@ Chuẩn bị infrastructure nhưng không build/chạy container Go:
 make local-prepare
 ```
 
-Lệnh này dừng toàn bộ bảy container Go, gồm cả `order-service` và `payment-service`, rồi chỉ giữ PostgreSQL, pgAdmin, Redis, RedisInsight, RabbitMQ. Các Docker volume dữ liệu không bị xóa.
+Lệnh này dừng toàn bộ mười container Go rồi chỉ giữ PostgreSQL, pgAdmin, Redis, RedisInsight, RabbitMQ và Mailpit. Các Docker volume dữ liệu không bị xóa.
 
-Mở bảy terminal trong thư mục `backend`:
+Mở mười terminal trong thư mục `backend`:
 
 ```bash
 # Terminal 1
@@ -351,6 +375,15 @@ make local-order
 make local-worker
 
 # Terminal 7
+make local-notification
+
+# Terminal 8
+make local-comment
+
+# Terminal 9
+make local-chat
+
+# Terminal 10
 make local-gateway
 ```
 
@@ -363,6 +396,9 @@ make watch-book
 make watch-payment
 make watch-order
 make watch-worker
+make watch-notification
+make watch-comment
+make watch-chat
 make watch-gateway
 ```
 
@@ -370,7 +406,7 @@ Air được cài vào `.tools/air` ở lần chạy `watch-*` đầu tiên, kh�
 
 ### Air hot reload bên trong Docker
 
-Để phát triển với live reload cho toàn bộ bảy Go process:
+Để phát triển với live reload cho toàn bộ mười Go process:
 
 ```bash
 make dev
@@ -389,6 +425,7 @@ Các địa chỉ:
 - RedisInsight: `http://localhost:5540`
 - RabbitMQ AMQP: `localhost:5672`
 - RabbitMQ Management: `http://localhost:15672`
+- Mailpit inbox: `http://localhost:8025`
 
 Đăng nhập pgAdmin:
 
@@ -472,6 +509,7 @@ make check
 make generate
 make proto
 make swagger
+make graphql
 make fmt
 make lint
 make test
@@ -497,6 +535,7 @@ make local-book
 make local-order
 make local-payment
 make local-worker
+make local-notification
 make local-gateway
 make watch-auth
 make watch-user
@@ -504,11 +543,13 @@ make watch-book
 make watch-order
 make watch-payment
 make watch-worker
+make watch-notification
 make watch-gateway
 ```
 
 `make proto` cài Buf và protobuf plugins vào `backend/.tools`, không cài `protoc` toàn hệ thống.
 `make swagger` sinh lại `docs/docs.go`, `docs/swagger.json` và `docs/swagger.yaml` từ annotations trên HTTP handler. Swagger sử dụng DTO do Gateway tự định nghĩa, không expose model generated từ protobuf.
+`make graphql` sinh runtime/model type-safe từ `internal/gateway/graphql/schema.graphqls` bằng phiên bản gqlgen được pin trong `go.mod`.
 
 ## Linter và mục tiêu API dưới 200 ms
 
@@ -562,6 +603,44 @@ Phần truy cập PostgreSQL bật prepared-statement cache, bỏ default transa
 - `POST /api/v1/wallets/me`
 - `GET /api/v1/wallets/me`
 - `PUT /api/v1/admin/wallets/:owner_id/balance`
+- `GET /api/v1/notifications?limit=20&cursor=<opaque-cursor>`
+- `GET /api/v1/notifications/unread-count`
+- `PUT /api/v1/notifications/:id/read`
+- `PUT /api/v1/notifications/read-all`
+- `POST /api/v1/notifications/devices`
+- `DELETE /api/v1/notifications/devices/:device_id`
+- `GET /api/v1/books/:id/comments?limit=20&cursor=<opaque-cursor>`
+- `POST /api/v1/books/:id/comments`
+- `GET /api/v1/comments/:id/replies?limit=50&cursor=<opaque-cursor>`
+- `PUT /api/v1/comments/:id`
+- `DELETE /api/v1/comments/:id`
+- `PUT /api/v1/admin/comments/:id/status`
+- `POST /api/v1/chat/conversations/support`
+- `GET /api/v1/chat/conversations?limit=20&cursor=<opaque-cursor>`
+- `GET /api/v1/chat/conversations/:id/messages?limit=30&cursor=<opaque-cursor>`
+- `POST /api/v1/chat/conversations/:id/messages`
+- `PUT /api/v1/chat/conversations/:id/read`
+- `GET /api/v1/chat/unread-count`
+- `PUT /api/v1/chat/messages/:id`
+- `DELETE /api/v1/chat/messages/:id`
+- `POST /api/v1/chat/ws-ticket`
+- `GET /api/v1/chat/ws?ticket=<one-time-ticket>` (WebSocket upgrade)
+
+### Cây comment và reply
+
+Comment Service dùng adjacency list mở rộng thay vì Nested Set. `parent_id` trỏ tới comment cha trực tiếp, `root_id` gom toàn bộ thread và `depth` giới hạn tối đa ba cấp. Cách này cho phép insert reply theo O(1), tránh phải cập nhật hàng loạt chỉ số trái/phải và giảm lock khi nhiều người bình luận đồng thời.
+
+Comment gốc được phân trang cursor theo thời gian giảm dần; replies của từng thread dùng cursor theo thời gian tăng dần. Xoá comment là soft delete để giữ cấu trúc khi comment cha đã có câu trả lời. `parent_id` và `root_id` có self foreign key thật vì đều nằm trong Comment Service; `book_id` và `author_id` là logical reference xuyên service, được xác minh qua Book/User gRPC khi tạo comment.
+
+### Chat hỗ trợ realtime
+
+Chat Service lưu conversation, member, message và read cursor trong PostgreSQL. Mỗi khách hàng có tối đa một support conversation trạng thái `open`; admin được xem tất cả support conversation và được thêm làm member khi phản hồi. `sequence_number` được tăng dưới row lock của conversation để bảo đảm thứ tự, còn unique `(sender_id, client_message_id)` làm retry idempotent.
+
+Browser không đặt access token hoặc refresh token vào WebSocket URL. Frontend gọi `POST /api/v1/chat/ws-ticket` bằng bearer access token để lấy ticket ngẫu nhiên 256-bit, sống 30 giây và chỉ dùng một lần; Gateway dùng `GETDEL` trên Redis trước khi upgrade. Origin của handshake phải nằm trong `gateway.allowed_origins`.
+
+PostgreSQL là nguồn dữ liệu chính. Redis giữ ticket, presence có TTL và Pub/Sub giữa nhiều Gateway replica; nếu frame realtime bị bỏ lỡ, client reconnect rồi đồng bộ lại bằng cursor API. Transactional outbox `chat.outbox_events` phát `chat.message.created` qua RabbitMQ để Notification Service tạo thông báo trong app. Chat tần suất cao nên phase này không gửi một email cho từng message.
+
+WebSocket nhận các command `message.send`, `conversation.read`, `typing.changed`, `ping` và phát các event `message.created`, `message.updated`, `message.deleted`, `conversation.read`, `typing.changed`, `presence.changed`, `pong`, `error`. Tin nhắn tối đa 4.000 ký tự; sender lấy từ ticket đã xác thực, không tin `sender_id` do browser gửi.
 
 ## Checkout Saga, stock và ledger
 
@@ -612,6 +691,28 @@ pending -> stock_reserved -> payment_pending -> confirmed
 Client phải giữ nguyên `Idempotency-Key` khi retry cùng thao tác. Payment bị timeout được tra lại bằng `order_id` trước khi compensation, tránh trường hợp thanh toán đã thành công nhưng response bị mất. Order Service có reconciler chạy nền: hoàn tất payment bị mất response, hủy reservation hết hạn và retry trạng thái `compensation_pending`. Trong microservice không có rollback ACID xuyên database; refund và release stock là các transaction bù trừ có lịch sử riêng.
 
 Để chạy flow local, dùng tuần tự các request trong [api.http](api.http): tạo wallet, admin fund wallet, thêm sách vào cart, tạo order rồi thanh toán. Book có `seller_id`; nếu bỏ trống thì doanh thu được gán cho platform wallet.
+
+## Notification Service phase 1
+
+Notification Service subscribe `account.registered`, `payment.succeeded`, `payment.failed` và `payment.refunded` từ RabbitMQ. Mỗi `MessageId` được ghi vào `notifications.inbox_events` trong cùng transaction với thông báo và email delivery, nên RabbitMQ redelivery không tạo bản ghi trùng.
+
+Thông báo trong app được đọc qua Gateway bằng access token; Gateway luôn lấy `user_id` từ principal, không nhận user ID tùy ý từ browser. Storefront hiển thị chuông, số chưa đọc, danh sách gần nhất và tự refresh mỗi 30 giây.
+
+Email local gửi qua SMTP Mailpit tại `localhost:1025`; xem thư ở `http://localhost:8025`. Có thể tắt bằng `notification.email_enabled: false`. Email worker claim delivery bằng `FOR UPDATE SKIP LOCKED`, retry tách khỏi RabbitMQ theo `email_retry_delay` và dừng tại `email_max_attempts`; vì vậy SMTP outage không chặn domain event và nhiều replica không cùng claim một delivery. Production phải đặt SMTP credential trong secret YAML/secret manager, bật STARTTLS và không commit password. SMTP có bản chất at-least-once: trường hợp server đã nhận thư nhưng connection mất trước response cuối có thể phát sinh một email trùng; provider hỗ trợ idempotency key sẽ xử lý tốt hơn SMTP thuần.
+
+### Firebase Cloud Messaging
+
+FCM là delivery channel bổ sung cho Web Push, không thay PostgreSQL, RabbitMQ, email hoặc WebSocket. Domain event vẫn được ACK sau khi inbox/notification/push delivery commit; push worker claim `notifications.push_deliveries` bằng `FOR UPDATE SKIP LOCKED`, retry có delay và giới hạn số lần. FCM trả `UNREGISTERED` thì installation bị vô hiệu hóa và các delivery còn chờ của installation đó được đánh dấu `skipped`.
+
+FCM mặc định tắt để project vẫn chạy khi chưa có Firebase account. Để bật local:
+
+1. Tạo Firebase project và hai Web App (storefront/admin có thể dùng cùng project), bật Cloud Messaging và tạo Web Push VAPID key.
+2. Copy `.env.example` thành `.env` ở mỗi frontend rồi điền các biến `VITE_FIREBASE_*`. Firebase Web config và public VAPID key không phải service-account secret.
+3. Tải service-account JSON vào `backend/secrets/firebase-service-account.json`. Thư mục này đã nằm trong `.gitignore`; tuyệt đối không commit file đó.
+4. Trong `backend/config/local.yml`, đặt `notification.push_enabled: true`, `firebase.project_id` và `firebase.credentials_file: "secrets/firebase-service-account.json"`.
+5. Chạy `make migrate`, sau đó restart Notification Service và Gateway.
+
+Storefront/Admin chỉ gọi `Notification.requestPermission()` sau khi người dùng bấm **Bật push**. Khi logout, frontend unregister installation và xóa local FCM token. Web Push production cần HTTPS. Khi chạy Notification Service trong container, mount service-account bằng Docker/Kubernetes secret rồi trỏ `credentials_file` tới đường dẫn read-only trong container; trên Google Cloud có thể để trống `credentials_file` và dùng Application Default Credentials/Workload Identity.
 
 ## Redis cache
 

@@ -7,6 +7,29 @@ cd "$repo_root"
 
 staged_files=$(git diff --cached --name-only --diff-filter=ACMRD)
 
+if printf '%s\n' "$staged_files" | grep -Eq '^backend/(gqlgen\.yml|internal/gateway/graphql/schema\.graphqls|go\.(mod|sum))$'; then
+  if ! git diff --quiet -- \
+    backend/gqlgen.yml \
+    backend/internal/gateway/graphql \
+    backend/go.mod \
+    backend/go.sum; then
+    echo "[pre-commit] GraphQL-related files contain unstaged changes." >&2
+    echo "[pre-commit] Stage or stash them before committing so generated code matches the schema." >&2
+    exit 1
+  fi
+
+  echo "[pre-commit] Regenerating GraphQL code..."
+  if ! make -C backend graphql; then
+    echo "[pre-commit] GraphQL generation failed; commit aborted." >&2
+    exit 1
+  fi
+  git add -A -- \
+    backend/internal/gateway/graphql/generated \
+    backend/internal/gateway/graphql/model \
+    backend/internal/gateway/graphql/schema.resolvers.go
+  echo "[pre-commit] GraphQL generated code is up to date and staged."
+fi
+
 if ! printf '%s\n' "$staged_files" | grep -Eq '^backend/(cmd/gateway/.*\.go|internal/gateway/http/.*\.go|Makefile|go\.(mod|sum))$'; then
   exit 0
 fi

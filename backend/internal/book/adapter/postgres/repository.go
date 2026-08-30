@@ -227,6 +227,9 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 		Where("id = ?", id).
 		Delete(&bookModel{})
 	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrForeignKeyViolated) {
+			return domain.ErrBookInUse
+		}
 		return fmt.Errorf("delete book: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {

@@ -17,4 +17,13 @@ export const env = Object.freeze({
   googleClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || '',
   facebookAppId: import.meta.env.VITE_FACEBOOK_APP_ID?.trim() || '',
   facebookGraphVersion: import.meta.env.VITE_FACEBOOK_GRAPH_VERSION?.trim() || 'v25.0',
+  firebase: Object.freeze({
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY?.trim() || '',
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN?.trim() || '',
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID?.trim() || '',
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET?.trim() || '',
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID?.trim() || '',
+    appId: import.meta.env.VITE_FIREBASE_APP_ID?.trim() || '',
+    vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY?.trim() || '',
+  }),
 })
