@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 
 import { ApiError, onSessionExpired, setApiAccessToken } from '@/shared/api/http-client'
 import { disableGoogleAutoSelect } from '@/shared/lib/google-identity'
+import { revokeLocalPushToken, unregisterCurrentPushDevice } from '@/features/push/lib/push'
 import * as authApi from '../api/auth.api'
 import { tokenHasRole } from './token'
 import type { LoginPayload, UserProfile } from './types'
@@ -31,7 +32,10 @@ export const useAuthStore = defineStore('admin-auth', () => {
     setApiAccessToken(null)
   }
 
-  onSessionExpired(clearSession)
+  onSessionExpired(() => {
+    void revokeLocalPushToken()
+    clearSession()
+  })
 
   async function establishAdminSession(accessToken: string): Promise<void> {
     applyAccessToken(accessToken)
@@ -99,6 +103,7 @@ export const useAuthStore = defineStore('admin-auth', () => {
 
   async function signOut(): Promise<void> {
     try {
+      await unregisterCurrentPushDevice()
       await authApi.logout()
     } finally {
       accessDenied.value = false

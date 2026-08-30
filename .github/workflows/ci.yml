@@ -40,6 +40,12 @@ jobs:
           make -C backend swagger
           git diff --exit-code -- backend/docs
 
+      - name: Verify generated GraphQL code
+        working-directory: .
+        run: |
+          make -C backend graphql
+          git diff --exit-code -- backend/internal/gateway/graphql/generated backend/internal/gateway/graphql/model backend/internal/gateway/graphql/schema.resolvers.go
+
       - name: Run backend checks
         run: make check
 

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/features/auth/model/auth.store'
+import PushNotificationToggle from '@/features/push/ui/PushNotificationToggle.vue'
 import { env } from '@/shared/config/env'
 import { initials } from '@/shared/lib/format'
 import AppIcon from '@/shared/ui/AppIcon.vue'
@@ -53,6 +54,9 @@ async function signOut(): Promise<void> {
         <RouterLink :to="{ name: 'customers' }" @click="sidebarOpen = false">
           <AppIcon name="user" /><span>Khách hàng</span>
         </RouterLink>
+        <RouterLink :to="{ name: 'chat' }" @click="sidebarOpen = false">
+          <AppIcon name="chat" /><span>Trò chuyện</span>
+        </RouterLink>
         <p class="navigation__section">Liên kết</p>
         <a :href="env.storefrontUrl" target="_blank" rel="noopener noreferrer">
           <AppIcon name="external" /><span>Mở storefront</span>
@@ -80,14 +84,17 @@ async function signOut(): Promise<void> {
           <p>Book Store Admin</p>
           <h1>{{ pageTitle }}</h1>
         </div>
-        <a
-          class="topbar__store"
-          :href="env.storefrontUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Xem cửa hàng <AppIcon name="external" :size="16" />
-        </a>
+        <div class="topbar__actions">
+          <PushNotificationToggle />
+          <a
+            class="topbar__store"
+            :href="env.storefrontUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Xem cửa hàng <AppIcon name="external" :size="16" />
+          </a>
+        </div>
       </header>
       <main class="workspace__main"><RouterView /></main>
     </div>

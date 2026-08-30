@@ -21,17 +21,28 @@ gateway:
   read_timeout: "5s"
   write_timeout: "10s"
   idle_timeout: "60s"
+  graphql_body_limit: "64K"
+  graphql_max_complexity: 120
+  graphql_max_depth: 8
+  graphql_parser_tokens: 1000
+  graphql_introspection: false
 grpc:
   auth_address: "auth:50051"
   user_address: "user:50052"
   book_address: "book:50053"
   order_address: "order:50054"
   payment_address: "payment:50055"
+  notification_address: "notification:50056"
+  comment_address: "comment:50057"
+  chat_address: "chat:50058"
   auth_listen_address: ":50051"
   user_listen_address: ":50052"
   book_listen_address: ":50053"
   order_listen_address: ":50054"
   payment_listen_address: ":50055"
+  notification_listen_address: ":50056"
+  comment_listen_address: ":50057"
+  chat_listen_address: ":50058"
   call_timeout: "1500ms"
 postgres:
   url: "postgres://bookstore:bookstore@postgres:5432/bookstore"
@@ -70,6 +81,38 @@ commerce:
   reconcile_interval: "5s"
   reconcile_batch_size: 100
   payment_reconcile_grace: "30s"
+notification:
+  email_enabled: false
+  email_poll_interval: "2s"
+  email_retry_delay: "30s"
+  email_max_attempts: 10
+  email_batch_size: 100
+  push_enabled: false
+  push_poll_interval: "2s"
+  push_retry_delay: "30s"
+  push_max_attempts: 5
+  push_batch_size: 100
+  smtp:
+    host: "localhost"
+    port: 1025
+    username: ""
+    password: ""
+    from_address: "no-reply@bookstore.local"
+    from_name: "Book Store"
+    start_tls: false
+    timeout: "5s"
+  firebase:
+    project_id: ""
+    credentials_file: ""
+    storefront_url: "http://localhost:5173"
+    admin_url: "http://localhost:5174"
+    http_timeout: "10s"
+chat:
+  websocket_ticket_ttl: "30s"
+  presence_ttl: "90s"
+  ping_interval: "25s"
+  redis_channel: "chat.events"
+  max_message_bytes: 8192
 redis:
   enabled: true
   address: "redis:6379"
@@ -94,6 +137,9 @@ rabbitmq:
   payment_failed_routing_key: "payment.failed"
   payment_refunded_routing_key: "payment.refunded"
   payment_consumer_name: "test-payment-worker"
+  notification_events_queue: "notification.events"
+  notification_consumer_name: "test-notification-worker"
+  chat_message_created_routing_key: "chat.message.created"
   consumer_name: "test-worker"
   consumer_concurrency: 2
   prefetch: 4

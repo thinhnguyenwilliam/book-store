@@ -1,11 +1,11 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help tools generate proto swagger tidy fmt test vet lint lint-tool build check perf e2e-checkout e2e-checkout-local migrate \
+.PHONY: help tools generate proto swagger graphql tidy fmt test vet lint lint-tool build check perf e2e-checkout e2e-checkout-local migrate \
 	docker-config docker-build up run up-foreground down down-volumes restart ps logs \
 	dev dev-foreground dev-build dev-logs dev-ps dev-down dev-restart \
 	air-tool infra-up infra-stop infra-ps infra-logs app-stop local-prepare \
-	local-gateway local-auth local-user local-book local-order local-payment local-worker \
-	watch-gateway watch-auth watch-user watch-book watch-order watch-payment watch-worker hooks-install
+	local-gateway local-auth local-user local-book local-order local-payment local-worker local-notification local-comment local-chat \
+	watch-gateway watch-auth watch-user watch-book watch-order watch-payment watch-worker watch-notification watch-comment watch-chat hooks-install
 
 TOOLS_DIR := $(CURDIR)/.tools
 CACHE_DIR := $(CURDIR)/.cache
@@ -21,8 +21,8 @@ DEV_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.dev.yml
 LOCAL_CONFIG := config/local.yml
 LOCAL_SECRET_CONFIG ?= config/local.secret.yml
 LOCAL_SECRET_ARG = $(if $(wildcard $(LOCAL_SECRET_CONFIG)),-secrets $(LOCAL_SECRET_CONFIG),)
-INFRA_SERVICES := postgres pgadmin redis redisinsight rabbitmq
-APP_SERVICES := gateway auth-service user-service book-service order-service payment-service worker-service
+INFRA_SERVICES := postgres pgadmin redis redisinsight rabbitmq mailpit
+APP_SERVICES := gateway auth-service user-service book-service order-service payment-service worker-service notification-service comment-service chat-service
 REPO_ROOT := $(abspath $(CURDIR)/..)
 
 help: ## Hiển thị các lệnh có thể sử dụng
@@ -58,13 +58,16 @@ $(AIR):
 	@mkdir -p $(TOOLS_DIR) $(CACHE_DIR)/go-build
 	GOBIN=$(TOOLS_DIR) GOCACHE=$(CACHE_DIR)/go-build go install github.com/air-verse/air@$(AIR_VERSION)
 
-generate: proto swagger ## Sinh protobuf và Swagger docs
+generate: proto swagger graphql ## Sinh protobuf, Swagger và GraphQL code
 
 proto: $(BUF) $(PROTOC_GEN_GO) $(PROTOC_GEN_GO_GRPC) ## Sinh Go code từ protobuf
 	PATH=$(TOOLS_DIR):$(PATH) XDG_CACHE_HOME=$(CACHE_DIR) $(BUF) generate
 
 swagger: $(SWAG) ## Sinh Swagger docs từ HTTP annotations
 	GOCACHE=$(CACHE_DIR)/go-build $(SWAG) init -g main.go -d cmd/gateway,internal/gateway/http -o docs --parseInternal --outputTypes go,json,yaml
+
+graphql: ## Sinh GraphQL runtime và model type-safe từ schema
+	GOCACHE=$(CACHE_DIR)/go-build go tool gqlgen generate
 
 hooks-install: ## Cài Git hooks được quản lý trong repository
 	git -C $(REPO_ROOT) config core.hooksPath .githooks
@@ -142,7 +145,7 @@ dev-build: ## Build lại image development có Air
 	$(DEV_COMPOSE) build
 
 dev-logs: ## Theo dõi log hot reload của các Go service
-	$(DEV_COMPOSE) logs -f --tail=200 gateway auth-service user-service book-service order-service payment-service worker-service
+	$(DEV_COMPOSE) logs -f --tail=200 gateway auth-service user-service book-service order-service payment-service worker-service notification-service comment-service chat-service
 
 dev-ps: ## Xem trạng thái container development
 	$(DEV_COMPOSE) ps
@@ -166,7 +169,7 @@ infra-ps: ## Xem trạng thái các container infrastructure
 infra-logs: ## Theo dõi log các container infrastructure
 	docker compose logs -f --tail=200 $(INFRA_SERVICES)
 
-app-stop: ## Dừng 7 container Go để giải phóng các port chạy local
+app-stop: ## Dừng các container Go để giải phóng các port chạy local
 	docker compose stop $(APP_SERVICES)
 
 local-prepare: ## Dừng container Go và chỉ khởi động infrastructure
@@ -193,6 +196,15 @@ local-payment: ## Chạy payment service trực tiếp trên máy, không hot re
 
 local-worker: ## Chạy worker service trực tiếp trên máy, không hot reload
 	go run ./cmd/worker-service -config $(LOCAL_CONFIG)
+
+local-notification: ## Chạy notification service trực tiếp trên máy
+	go run ./cmd/notification-service -config $(LOCAL_CONFIG) $(LOCAL_SECRET_ARG)
+
+local-comment: ## Chạy comment service trực tiếp trên máy
+	go run ./cmd/comment-service -config $(LOCAL_CONFIG)
+
+local-chat: ## Chạy chat service trực tiếp trên máy
+	go run ./cmd/chat-service -config $(LOCAL_CONFIG)
 
 define watch_service
 	$(AIR) -c .air.local.toml \
@@ -222,3 +234,12 @@ watch-payment: $(AIR) ## Chạy payment service local với Air hot reload
 
 watch-worker: $(AIR) ## Chạy worker service local với Air hot reload
 	$(call watch_service,worker-service)
+
+watch-notification: $(AIR) ## Chạy notification service local với Air hot reload
+	$(call watch_service,notification-service,$(LOCAL_SECRET_ARG))
+
+watch-comment: $(AIR) ## Chạy comment service local với Air hot reload
+	$(call watch_service,comment-service)
+
+watch-chat: $(AIR) ## Chạy chat service local với Air hot reload
+	$(call watch_service,chat-service)

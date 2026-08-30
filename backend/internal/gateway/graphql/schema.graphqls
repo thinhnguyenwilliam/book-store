@@ -1,0 +1,137 @@
+"Signed 64-bit integer used for monetary values in the smallest currency unit."
+scalar Long
+
+type Query {
+  "Public book data and its first cursor-paginated comment page."
+  bookDetail(id: ID!, commentsFirst: Int = 10, commentsAfter: String): BookDetail!
+
+  "Back-office catalog and customer snapshot. Requires the admin role."
+  adminDashboard(
+    booksFirst: Int = 20
+    booksAfter: String
+    customersFirst: Int = 5
+    customersAfter: String
+  ): AdminDashboard!
+
+  "Current customer's order and payment data. Requires authentication."
+  orderDetail(id: ID!): OrderDetail!
+}
+
+type BookDetail {
+  book: Book!
+  comments: CommentConnection!
+}
+
+type Book {
+  id: ID!
+  title: String!
+  author: String!
+  isbn: String!
+  priceCents: Long!
+  stock: Int!
+  sellerId: ID!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type Comment {
+  id: ID!
+  bookId: ID!
+  authorId: ID!
+  authorName: String!
+  parentId: ID
+  rootId: ID!
+  depth: Int!
+  content: String!
+  status: String!
+  replyCount: Long!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type CommentConnection {
+  nodes: [Comment!]!
+  pageInfo: PageInfo!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  endCursor: String
+}
+
+type AdminDashboard {
+  catalog: CatalogSnapshot!
+  customers: CustomerSnapshot!
+}
+
+"Statistics cover only the requested cursor page; they are never presented as global totals."
+type CatalogSnapshot {
+  loadedCount: Int!
+  inventoryUnits: Long!
+  lowStockCount: Int!
+  inventoryValueCents: Long!
+  recentBooks: [Book!]!
+  lowStockBooks: [Book!]!
+  pageInfo: PageInfo!
+}
+
+type CustomerSnapshot {
+  loadedCount: Int!
+  recentCustomers: [Customer!]!
+  pageInfo: PageInfo!
+}
+
+type Customer {
+  id: ID!
+  email: String!
+  displayName: String!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type OrderDetail {
+  order: Order!
+  payment: Payment
+}
+
+type Order {
+  id: ID!
+  userId: ID!
+  status: String!
+  totalCents: Long!
+  currency: String!
+  items: [OrderItem!]!
+  paymentId: ID
+  failureReason: String
+  reservationExpiresAt: String
+  createdAt: String!
+  updatedAt: String!
+}
+
+type OrderItem {
+  id: ID!
+  bookId: ID!
+  sellerId: ID!
+  title: String!
+  unitPriceCents: Long!
+  quantity: Int!
+  subtotalCents: Long!
+}
+
+type Payment {
+  id: ID!
+  orderId: ID!
+  buyerId: ID!
+  status: String!
+  amountCents: Long!
+  platformFeeCents: Long!
+  currency: String!
+  failureReason: String
+  provider: String!
+  providerTransactionId: String
+  checkoutUrl: String
+  expiresAt: String
+  paidAt: String
+  createdAt: String!
+  updatedAt: String!
+}

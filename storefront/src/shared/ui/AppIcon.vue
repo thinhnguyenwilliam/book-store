@@ -5,8 +5,10 @@ withDefaults(
       | 'arrow-left'
       | 'arrow-right'
       | 'bag'
+      | 'bell'
       | 'book'
       | 'check'
+      | 'chat'
       | 'close'
       | 'logout'
       | 'lock'
@@ -41,11 +43,18 @@ withDefaults(
       <path d="M6 8h12l1 12H5L6 8Z" />
       <path d="M9 9V6a3 3 0 0 1 6 0v3" />
     </template>
+    <template v-else-if="name === 'bell'">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+      <path d="M10 21h4" />
+    </template>
     <template v-else-if="name === 'book'">
       <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
     </template>
     <template v-else-if="name === 'check'"><path d="m5 12 4 4L19 6" /></template>
+    <template v-else-if="name === 'chat'">
+      <path d="M21 15a4 4 0 0 1-4 4H8l-5 3 1.5-5A8 8 0 1 1 21 15Z" />
+    </template>
     <template v-else-if="name === 'close'"><path d="m6 6 12 12M18 6 6 18" /></template>
     <template v-else-if="name === 'logout'">
       <path d="M10 17l5-5-5-5M15 12H3" />

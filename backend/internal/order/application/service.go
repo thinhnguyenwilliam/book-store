@@ -87,6 +87,9 @@ func (s *Service) Reconcile(ctx context.Context, limit int) error {
 	}
 	var result error
 	for _, order := range orders {
+		if err := ctx.Err(); err != nil {
+			return errors.Join(result, err)
+		}
 		switch order.Status {
 		case domain.StatusPending:
 			s.releaseItems(ctx, order.ID, order.Items)
@@ -505,6 +508,9 @@ func (s *Service) compensatePaidOrder(
 
 func (s *Service) releaseItems(ctx context.Context, orderID string, items []domain.Item) {
 	for _, item := range items {
+		if ctx.Err() != nil {
+			return
+		}
 		_ = s.books.ReleaseStock(ctx, orderID, item.BookID)
 	}
 }
@@ -512,6 +518,9 @@ func (s *Service) releaseItems(ctx context.Context, orderID string, items []doma
 func (s *Service) releaseItemsStrict(ctx context.Context, orderID string, items []domain.Item) error {
 	var result error
 	for _, item := range items {
+		if err := ctx.Err(); err != nil {
+			return errors.Join(result, err)
+		}
 		result = errors.Join(result, s.books.ReleaseStock(ctx, orderID, item.BookID))
 	}
 	return result

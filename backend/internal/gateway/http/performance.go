@@ -13,6 +13,9 @@ import (
 func RequestDeadline(timeout time.Duration) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			if c.Request().URL.Path == "/api/v1/chat/ws" {
+				return next(c)
+			}
 			ctx, cancel := context.WithTimeout(c.Request().Context(), timeout)
 			defer cancel()
 			c.SetRequest(c.Request().WithContext(ctx))

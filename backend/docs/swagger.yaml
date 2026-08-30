@@ -114,6 +114,132 @@ definitions:
           $ref: '#/definitions/http.CartItemResponse'
         type: array
     type: object
+  http.ChatMessageListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/http.ChatMessageResponse'
+        type: array
+      pagination:
+        $ref: '#/definitions/http.CursorPagination'
+    type: object
+  http.ChatMessageRequest:
+    properties:
+      client_message_id:
+        type: string
+      content:
+        type: string
+    type: object
+  http.ChatMessageResponse:
+    properties:
+      client_message_id:
+        type: string
+      content:
+        type: string
+      conversation_id:
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      edited_at:
+        type: string
+      id:
+        type: string
+      message_type:
+        type: string
+      sender_id:
+        type: string
+      sender_name:
+        type: string
+      sequence_number:
+        type: integer
+    type: object
+  http.ChatMessageUpdateRequest:
+    properties:
+      content:
+        type: string
+    type: object
+  http.ChatReadRequest:
+    properties:
+      sequence_number:
+        type: integer
+    type: object
+  http.CommentListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/http.CommentResponse'
+        type: array
+      pagination:
+        $ref: '#/definitions/http.CursorPagination'
+    type: object
+  http.CommentRequest:
+    properties:
+      content:
+        type: string
+      parent_id:
+        type: string
+    type: object
+  http.CommentResponse:
+    properties:
+      author_id:
+        type: string
+      author_name:
+        type: string
+      book_id:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      depth:
+        type: integer
+      id:
+        type: string
+      parent_id:
+        type: string
+      reply_count:
+        type: integer
+      root_id:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  http.ConversationListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/http.ConversationResponse'
+        type: array
+      pagination:
+        $ref: '#/definitions/http.CursorPagination'
+    type: object
+  http.ConversationResponse:
+    properties:
+      created_at:
+        type: string
+      customer_id:
+        type: string
+      id:
+        type: string
+      last_message_at:
+        type: string
+      last_message_preview:
+        type: string
+      last_message_sequence:
+        type: integer
+      status:
+        type: string
+      type:
+        type: string
+      unread_count:
+        type: integer
+      updated_at:
+        type: string
+    type: object
   http.CreatePaymentRequest:
     properties:
       bankCode:
@@ -205,6 +331,43 @@ definitions:
         type: string
       password:
         example: password123
+        type: string
+    type: object
+  http.MarkAllReadResponse:
+    properties:
+      updated:
+        type: integer
+    type: object
+  http.ModerateCommentRequest:
+    properties:
+      status:
+        type: string
+    type: object
+  http.NotificationListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/http.NotificationResponse'
+        type: array
+      pagination:
+        $ref: '#/definitions/http.CursorPagination'
+    type: object
+  http.NotificationResponse:
+    properties:
+      body:
+        type: string
+      created_at:
+        type: string
+      data:
+        additionalProperties: {}
+        type: object
+      id:
+        type: string
+      read_at:
+        type: string
+      title:
+        type: string
+      type:
         type: string
     type: object
   http.OrderItemResponse:
@@ -318,6 +481,39 @@ definitions:
       state:
         type: string
     type: object
+  http.PushDeviceRequest:
+    properties:
+      application:
+        type: string
+      device_id:
+        type: string
+      platform:
+        type: string
+      registration_token:
+        type: string
+    required:
+    - application
+    - device_id
+    - platform
+    - registration_token
+    type: object
+  http.PushDeviceResponse:
+    properties:
+      application:
+        type: string
+      created_at:
+        type: string
+      device_id:
+        type: string
+      id:
+        type: string
+      last_seen_at:
+        type: string
+      platform:
+        type: string
+      updated_at:
+        type: string
+    type: object
   http.RegisterRequest:
     properties:
       display_name:
@@ -330,12 +526,22 @@ definitions:
         example: password123
         type: string
     type: object
+  http.UnreadCountResponse:
+    properties:
+      count:
+        type: integer
+    type: object
   http.UpdateCartItemRequest:
     properties:
       quantity:
         maximum: 100
         minimum: 1
         type: integer
+    type: object
+  http.UpdateCommentRequest:
+    properties:
+      content:
+        type: string
     type: object
   http.UpdateProfileRequest:
     properties:
@@ -526,6 +732,35 @@ paths:
       summary: Update a book
       tags:
       - Admin Books
+  /api/v1/admin/comments/{id}/status:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Comment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: published or hidden
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.ModerateCommentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.CommentResponse'
+      security:
+      - BearerAuth: []
+      summary: Hide or publish a comment
+      tags:
+      - Admin
+      - Comments
   /api/v1/admin/customers:
     get:
       description: Returns user profiles using cursor pagination. The bearer token
@@ -1048,6 +1283,59 @@ paths:
       summary: Get a book
       tags:
       - Books
+  /api/v1/books/{id}/comments:
+    get:
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Opaque cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.CommentListResponse'
+      summary: List root comments of a book
+      tags:
+      - Comments
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Comment content and optional parent_id
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.CommentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/http.CommentResponse'
+      security:
+      - BearerAuth: []
+      summary: Comment on a book or reply to a comment
+      tags:
+      - Comments
   /api/v1/cart/items:
     get:
       produces:
@@ -1180,6 +1468,407 @@ paths:
       summary: Remove multiple cart items
       tags:
       - Cart
+  /api/v1/chat/conversations:
+    get:
+      parameters:
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Opaque cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.ConversationListResponse'
+      security:
+      - BearerAuth: []
+      summary: List accessible chat conversations
+      tags:
+      - Chat
+  /api/v1/chat/conversations/{id}/messages:
+    get:
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Opaque cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.ChatMessageListResponse'
+      security:
+      - BearerAuth: []
+      summary: List conversation messages using cursor pagination
+      tags:
+      - Chat
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Message
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.ChatMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/http.ChatMessageResponse'
+      security:
+      - BearerAuth: []
+      summary: Send an idempotent text message
+      tags:
+      - Chat
+  /api/v1/chat/conversations/{id}/read:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Last read sequence; zero means latest
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.ChatReadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              format: int64
+              type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Advance the current user's read cursor
+      tags:
+      - Chat
+  /api/v1/chat/conversations/support:
+    post:
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/http.ConversationResponse'
+      security:
+      - BearerAuth: []
+      summary: Open or return the current support conversation
+      tags:
+      - Chat
+  /api/v1/chat/messages/{id}:
+    delete:
+      parameters:
+      - description: Message ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.ChatMessageResponse'
+      security:
+      - BearerAuth: []
+      summary: Soft-delete an own message; admins may remove abusive messages
+      tags:
+      - Chat
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Message ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New content
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.ChatMessageUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.ChatMessageResponse'
+      security:
+      - BearerAuth: []
+      summary: Update an own chat message
+      tags:
+      - Chat
+  /api/v1/chat/unread-count:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              format: int64
+              type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Count unread chat messages
+      tags:
+      - Chat
+  /api/v1/chat/ws:
+    get:
+      parameters:
+      - description: One-time WebSocket ticket
+        in: query
+        name: ticket
+        required: true
+        type: string
+      responses:
+        "101":
+          description: Switching Protocols
+          schema:
+            type: string
+      summary: Upgrade to the chat WebSocket using a one-time ticket
+      tags:
+      - Chat
+  /api/v1/chat/ws-ticket:
+    post:
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Issue a one-time short-lived WebSocket ticket
+      tags:
+      - Chat
+  /api/v1/comments/{id}:
+    delete:
+      parameters:
+      - description: Comment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.CommentResponse'
+      security:
+      - BearerAuth: []
+      summary: Soft-delete own comment
+      tags:
+      - Comments
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Comment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New content
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.UpdateCommentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.CommentResponse'
+      security:
+      - BearerAuth: []
+      summary: Update own comment
+      tags:
+      - Comments
+  /api/v1/comments/{id}/replies:
+    get:
+      parameters:
+      - description: Root comment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Opaque cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.CommentListResponse'
+      summary: List replies in a comment thread
+      tags:
+      - Comments
+  /api/v1/notifications:
+    get:
+      parameters:
+      - description: Page size (1-100)
+        in: query
+        name: limit
+        type: integer
+      - description: Opaque cursor
+        in: query
+        name: cursor
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.NotificationListResponse'
+      security:
+      - BearerAuth: []
+      summary: List current user's notifications
+      tags:
+      - Notifications
+  /api/v1/notifications/{id}/read:
+    put:
+      parameters:
+      - description: Notification ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.NotificationResponse'
+      security:
+      - BearerAuth: []
+      summary: Mark a notification as read
+      tags:
+      - Notifications
+  /api/v1/notifications/devices:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Push device
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/http.PushDeviceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/http.PushDeviceResponse'
+      security:
+      - BearerAuth: []
+      summary: Register or refresh an FCM device installation
+      tags:
+      - Notifications
+  /api/v1/notifications/devices/{device_id}:
+    delete:
+      parameters:
+      - description: Stable client device ID
+        in: path
+        name: device_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Unregister the current user's push device
+      tags:
+      - Notifications
+  /api/v1/notifications/read-all:
+    put:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.MarkAllReadResponse'
+      security:
+      - BearerAuth: []
+      summary: Mark all notifications as read
+      tags:
+      - Notifications
+  /api/v1/notifications/unread-count:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.UnreadCountResponse'
+      security:
+      - BearerAuth: []
+      summary: Get unread notification count
+      tags:
+      - Notifications
   /api/v1/orders:
     get:
       parameters:

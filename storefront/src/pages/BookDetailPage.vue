@@ -2,9 +2,11 @@
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import { getBook } from '@/features/books/api/books.api'
+import { getBookDetail } from '@/features/books/api/book-detail.graphql'
 import type { Book } from '@/features/books/model/types'
 import BookCover from '@/features/books/ui/BookCover.vue'
+import CommentThread from '@/features/comments/ui/CommentThread.vue'
+import type { Comment } from '@/features/comments/model/types'
 import { useCartStore } from '@/features/cart/model/cart.store'
 import { useNotificationStore } from '@/features/notifications/model/notification.store'
 import { ApiError } from '@/shared/api/http-client'
@@ -15,6 +17,7 @@ const route = useRoute()
 const cart = useCartStore()
 const notifications = useNotificationStore()
 const book = ref<Book>()
+const initialComments = ref<Comment[]>([])
 const loading = ref(true)
 const error = ref('')
 let controller: AbortController | undefined
@@ -25,7 +28,9 @@ async function loadBook(id: string): Promise<void> {
   loading.value = true
   error.value = ''
   try {
-    book.value = await getBook(id, controller.signal)
+    const detail = await getBookDetail(id, controller.signal)
+    book.value = detail.book
+    initialComments.value = detail.comments
   } catch (requestError) {
     if (controller.signal.aborted) return
     error.value =
@@ -109,6 +114,12 @@ onBeforeUnmount(() => controller?.abort())
           </div>
         </div>
       </div>
+      <CommentThread
+        v-if="book"
+        :key="book.id"
+        :book-id="book.id"
+        :initial-comments="initialComments"
+      />
     </div>
   </section>
 </template>

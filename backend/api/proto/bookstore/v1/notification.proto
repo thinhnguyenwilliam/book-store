@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package bookstore.v1;
+
+option go_package = "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1;bookstorev1";
+
+service NotificationService {
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+  rpc GetUnreadNotificationCount(GetUnreadNotificationCountRequest) returns (GetUnreadNotificationCountResponse);
+  rpc MarkNotificationRead(MarkNotificationReadRequest) returns (Notification);
+  rpc MarkAllNotificationsRead(MarkAllNotificationsReadRequest) returns (MarkAllNotificationsReadResponse);
+  rpc RegisterPushDevice(RegisterPushDeviceRequest) returns (PushDevice);
+  rpc UnregisterPushDevice(UnregisterPushDeviceRequest) returns (UnregisterPushDeviceResponse);
+}
+
+message Notification {
+  string id = 1;
+  string user_id = 2;
+  string type = 3;
+  string title = 4;
+  string body = 5;
+  string data_json = 6;
+  string read_at = 7;
+  string created_at = 8;
+}
+
+message ListNotificationsRequest {
+  string user_id = 1;
+  int32 limit = 2;
+  string cursor = 3;
+}
+
+message ListNotificationsResponse {
+  repeated Notification notifications = 1;
+  string next_cursor = 2;
+  bool has_more = 3;
+}
+
+message GetUnreadNotificationCountRequest {
+  string user_id = 1;
+}
+
+message GetUnreadNotificationCountResponse {
+  int64 count = 1;
+}
+
+message MarkNotificationReadRequest {
+  string user_id = 1;
+  string id = 2;
+}
+
+message MarkAllNotificationsReadRequest {
+  string user_id = 1;
+}
+
+message MarkAllNotificationsReadResponse {
+  int64 updated = 1;
+}
+
+message PushDevice {
+  string id = 1;
+  string device_id = 2;
+  string user_id = 3;
+  string application = 4;
+  string platform = 5;
+  string last_seen_at = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message RegisterPushDeviceRequest {
+  string user_id = 1;
+  string device_id = 2;
+  string registration_token = 3;
+  string platform = 4;
+  string application = 5;
+}
+
+message UnregisterPushDeviceRequest {
+  string user_id = 1;
+  string device_id = 2;
+}
+
+message UnregisterPushDeviceResponse {
+  bool removed = 1;
+}

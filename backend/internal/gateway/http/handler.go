@@ -5,17 +5,25 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
+	gatewaygraphql "github.com/thinhnguyenwilliam/book-store/backend/internal/gateway/graphql"
 )
 
 type Handler struct {
-	auth           bookstorev1.AuthServiceClient
-	users          bookstorev1.UserServiceClient
-	books          bookstorev1.BookServiceClient
-	orders         bookstorev1.OrderServiceClient
-	payments       bookstorev1.PaymentServiceClient
-	refreshCookie  RefreshCookieConfig
-	trustedOrigins map[string]struct{}
+	auth             bookstorev1.AuthServiceClient
+	users            bookstorev1.UserServiceClient
+	books            bookstorev1.BookServiceClient
+	orders           bookstorev1.OrderServiceClient
+	payments         bookstorev1.PaymentServiceClient
+	notifications    bookstorev1.NotificationServiceClient
+	comments         bookstorev1.CommentServiceClient
+	chat             bookstorev1.ChatServiceClient
+	realtime         *ChatRealtime
+	refreshCookie    RefreshCookieConfig
+	trustedOrigins   map[string]struct{}
+	graphQL          http.Handler
+	graphQLBodyLimit string
 }
 
 type RefreshCookieConfig struct {
@@ -24,32 +32,59 @@ type RefreshCookieConfig struct {
 	SameSite http.SameSite
 }
 
+type GraphQLConfig struct {
+	BodyLimit            string
+	MaxComplexity        int
+	MaxDepth             int
+	ParserTokenLimit     int
+	IntrospectionEnabled bool
+}
+
 func NewHandler(
 	auth bookstorev1.AuthServiceClient,
 	users bookstorev1.UserServiceClient,
 	books bookstorev1.BookServiceClient,
 	orders bookstorev1.OrderServiceClient,
 	payments bookstorev1.PaymentServiceClient,
+	notifications bookstorev1.NotificationServiceClient,
+	comments bookstorev1.CommentServiceClient,
+	chat bookstorev1.ChatServiceClient,
+	realtime *ChatRealtime,
 	refreshCookie RefreshCookieConfig,
+	graphQLConfig GraphQLConfig,
 	trustedOrigins []string,
-) *Handler {
+) (*Handler, error) {
 	origins := make(map[string]struct{}, len(trustedOrigins))
 	for _, origin := range trustedOrigins {
 		origins[origin] = struct{}{}
 	}
-	return &Handler{
-		auth:           auth,
-		users:          users,
-		books:          books,
-		orders:         orders,
-		payments:       payments,
-		refreshCookie:  refreshCookie,
-		trustedOrigins: origins,
+	graphQLServer, err := gatewaygraphql.NewServer(gatewaygraphql.ServerConfig{
+		MaxComplexity: graphQLConfig.MaxComplexity, MaxDepth: graphQLConfig.MaxDepth,
+		ParserTokenLimit: graphQLConfig.ParserTokenLimit, IntrospectionEnabled: graphQLConfig.IntrospectionEnabled,
+	}, books, users, orders, payments, comments)
+	if err != nil {
+		return nil, err
 	}
+	return &Handler{
+		auth:             auth,
+		users:            users,
+		books:            books,
+		orders:           orders,
+		payments:         payments,
+		notifications:    notifications,
+		comments:         comments,
+		chat:             chat,
+		realtime:         realtime,
+		refreshCookie:    refreshCookie,
+		trustedOrigins:   origins,
+		graphQL:          graphQLServer,
+		graphQLBodyLimit: graphQLConfig.BodyLimit,
+	}, nil
 }
 
 func (h *Handler) RegisterRoutes(e *echo.Echo) {
 	e.GET("/healthz", h.health)
+	e.POST("/graphql", h.graphQLRequest, middleware.BodyLimit(h.graphQLBodyLimit))
 
 	api := e.Group("/api/v1")
 	api.POST("/auth/register", h.register)
@@ -61,7 +96,10 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 	api.POST("/auth/logout", h.logout)
 	api.GET("/books", h.listBooks)
 	api.GET("/books/:id", h.getBook)
+	api.GET("/books/:id/comments", h.listBookComments)
+	api.GET("/comments/:id/replies", h.listCommentReplies)
 	api.GET("/payments/webhooks/vnpay", h.vnpayWebhook)
+	api.GET("/chat/ws", h.chatWebSocket)
 
 	secured := api.Group("")
 	secured.Use(h.Authenticate)
@@ -82,6 +120,24 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 	secured.GET("/payments/order/:order_id", h.getPaymentByOrder)
 	secured.POST("/wallets/me", h.createWallet)
 	secured.GET("/wallets/me", h.getWallet)
+	secured.GET("/notifications", h.listNotifications)
+	secured.GET("/notifications/unread-count", h.unreadNotificationCount)
+	secured.PUT("/notifications/:id/read", h.markNotificationRead)
+	secured.PUT("/notifications/read-all", h.markAllNotificationsRead)
+	secured.POST("/notifications/devices", h.registerPushDevice)
+	secured.DELETE("/notifications/devices/:device_id", h.unregisterPushDevice)
+	secured.POST("/books/:id/comments", h.createComment)
+	secured.PUT("/comments/:id", h.updateComment)
+	secured.DELETE("/comments/:id", h.deleteComment)
+	secured.POST("/chat/conversations/support", h.createSupportConversation)
+	secured.GET("/chat/conversations", h.listChatConversations)
+	secured.GET("/chat/conversations/:id/messages", h.listChatMessages)
+	secured.POST("/chat/conversations/:id/messages", h.sendChatMessage)
+	secured.PUT("/chat/conversations/:id/read", h.markChatRead)
+	secured.GET("/chat/unread-count", h.unreadChatCount)
+	secured.PUT("/chat/messages/:id", h.updateChatMessage)
+	secured.DELETE("/chat/messages/:id", h.deleteChatMessage)
+	secured.POST("/chat/ws-ticket", h.issueChatWebSocketTicket)
 
 	admin := secured.Group("/admin")
 	admin.Use(RequireRole("admin"))
@@ -93,6 +149,7 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 	admin.PUT("/books/:id", h.updateBook)
 	admin.DELETE("/books/:id", h.deleteBook)
 	admin.PUT("/wallets/:owner_id/balance", h.updateWalletBalance)
+	admin.PUT("/comments/:id/status", h.moderateComment)
 }
 
 // health godoc

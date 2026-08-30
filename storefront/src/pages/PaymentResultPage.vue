@@ -97,6 +97,12 @@ onBeforeUnmount(() => {
         </dl>
       </template>
       <div class="payment-result__actions">
+        <RouterLink
+          v-if="payment"
+          class="button button--outline"
+          :to="{ name: 'order-detail', params: { id: payment.order_id } }"
+          >Xem đơn hàng</RouterLink
+        >
         <RouterLink class="button button--primary" to="/tai-khoan">Về tài khoản</RouterLink>
         <RouterLink class="button button--outline" to="/sach">Tiếp tục xem sách</RouterLink>
       </div>

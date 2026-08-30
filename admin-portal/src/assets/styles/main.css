@@ -340,12 +340,18 @@ svg {
   font-size: 1.42rem;
   font-weight: 650;
 }
+.topbar__actions {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  margin-left: auto;
+}
 .topbar__store {
   display: flex;
   min-height: 38px;
   gap: 8px;
   align-items: center;
-  margin-left: auto;
+  margin-left: 0;
   padding: 0 13px;
   border: 1px solid var(--color-line);
   border-radius: 9px;
@@ -737,6 +743,9 @@ svg {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(290px, 0.8fr);
   gap: 18px;
+}
+.panel--wide {
+  grid-column: 1 / -1;
 }
 .panel,
 .catalog-panel {

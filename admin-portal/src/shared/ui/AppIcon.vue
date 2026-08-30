@@ -6,6 +6,7 @@ withDefaults(
       | 'arrow-right'
       | 'book'
       | 'check'
+      | 'chat'
       | 'close'
       | 'dashboard'
       | 'edit'
@@ -47,6 +48,9 @@ withDefaults(
       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
     </template>
     <template v-else-if="name === 'check'"><path d="m5 12 4 4L19 6" /></template>
+    <template v-else-if="name === 'chat'">
+      <path d="M21 15a4 4 0 0 1-4 4H8l-5 3 1.5-5A8 8 0 1 1 21 15Z" />
+    </template>
     <template v-else-if="name === 'close'"><path d="m6 6 12 12M18 6 6 18" /></template>
     <template v-else-if="name === 'dashboard'">
       <rect x="3" y="3" width="7" height="7" rx="1" />

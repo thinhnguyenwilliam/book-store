@@ -48,3 +48,18 @@ services:
     <<: *air-service
     environment:
       SERVICE: worker-service
+
+  notification-service:
+    <<: *air-service
+    environment:
+      SERVICE: notification-service
+
+  comment-service:
+    <<: *air-service
+    environment:
+      SERVICE: comment-service
+
+  chat-service:
+    <<: *air-service
+    environment:
+      SERVICE: chat-service

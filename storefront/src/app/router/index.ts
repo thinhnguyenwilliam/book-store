@@ -30,6 +30,12 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true },
       },
       {
+        path: 'don-hang/:id',
+        name: 'order-detail',
+        component: () => import('@/pages/OrderDetailPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
         path: 'dang-nhap',
         name: 'login',
         component: () => import('@/pages/LoginPage.vue'),

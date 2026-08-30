@@ -204,6 +204,9 @@ func runReconciler(ctx context.Context, service *application.Service, interval t
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if ctx.Err() != nil {
+				return
+			}
 			reconcileCtx, cancel := context.WithTimeout(ctx, interval)
 			if err := service.Reconcile(reconcileCtx, batchSize); err != nil && !errors.Is(err, context.Canceled) {
 				slog.WarnContext(reconcileCtx, "order saga reconciliation failed", "error", err)

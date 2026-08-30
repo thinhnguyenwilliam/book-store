@@ -95,6 +95,7 @@ consumeLoop:
 				handlerCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), c.shutdownTimeout)
 				defer cancel()
 				handlerCtx = contextWithDeliveryTraceID(handlerCtx, delivery)
+				handlerCtx = contextWithDeliveryEventID(handlerCtx, delivery)
 				if err := handler(handlerCtx, delivery.Type, delivery.Body); err != nil {
 					attempt := deliveryAttempt(delivery)
 					requeue := attempt < maxDeliveryAttempts
@@ -131,6 +132,28 @@ consumeLoop:
 	}
 	slog.Info("RabbitMQ consumer graceful shutdown completed")
 	return consumeErr
+}
+
+type eventIDContextKey struct{}
+
+// EventIDFromContext returns the stable outbox message ID attached by the
+// publisher. Consumers use it as their inbox idempotency key.
+func EventIDFromContext(ctx context.Context) string {
+	value, _ := ctx.Value(eventIDContextKey{}).(string)
+	return value
+}
+
+func contextWithDeliveryEventID(ctx context.Context, delivery amqp.Delivery) context.Context {
+	eventID := delivery.MessageId
+	if eventID == "" {
+		if value, ok := delivery.Headers["event_id"].(string); ok {
+			eventID = value
+		}
+	}
+	if eventID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, eventIDContextKey{}, eventID)
 }
 
 func deliveryAttempt(delivery amqp.Delivery) int {
