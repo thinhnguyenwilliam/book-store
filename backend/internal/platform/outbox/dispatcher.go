@@ -13,12 +13,13 @@ import (
 const batchSize = 50
 
 type Publisher interface {
-	Publish(ctx context.Context, eventID, eventType string, payload []byte) error
+	Publish(ctx context.Context, eventID, eventType, aggregateID string, payload []byte) error
 }
 
 type event struct {
 	ID          string
 	EventType   string
+	AggregateID string
 	TraceID     string
 	Payload     []byte
 	Attempts    int
@@ -33,7 +34,7 @@ type Dispatcher struct {
 }
 
 func NewDispatcher(db *gorm.DB, publisher Publisher, table string, interval time.Duration) (*Dispatcher, error) {
-	if table != "auth.outbox_events" && table != "payments.outbox_events" && table != "chat.outbox_events" {
+	if table != "auth.outbox_events" && table != "payments.outbox_events" && table != "chat.outbox_events" && table != "orders.outbox_events" && table != "orders.customer_activity_outbox_events" && table != "catalog.outbox_events" {
 		return nil, fmt.Errorf("unsupported outbox table %q", table)
 	}
 	return &Dispatcher{db: db, publisher: publisher, table: table, interval: interval}, nil
@@ -65,7 +66,7 @@ func (d *Dispatcher) dispatch(ctx context.Context) {
 		}
 		publishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		publishCtx = apptrace.ContextWithID(publishCtx, item.TraceID)
-		if err := d.publisher.Publish(publishCtx, item.ID, item.EventType, item.Payload); err != nil {
+		if err := d.publisher.Publish(publishCtx, item.ID, item.EventType, item.AggregateID, item.Payload); err != nil {
 			d.releaseWithError(publishCtx, item, err)
 			cancel()
 			continue
@@ -83,12 +84,20 @@ func (d *Dispatcher) claim(ctx context.Context) ([]event, error) {
 	claimed := make([]event, 0, batchSize)
 	err := d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		query := fmt.Sprintf(`
-			SELECT id, event_type, trace_id, payload, attempts, available_at
-			FROM %s
-			WHERE published_at IS NULL
-			  AND available_at <= NOW()
-			  AND (processing_at IS NULL OR processing_at < NOW() - INTERVAL '1 minute')
-			ORDER BY created_at
+			SELECT candidate.id, candidate.event_type, candidate.aggregate_id, candidate.trace_id,
+			       candidate.payload, candidate.attempts, candidate.available_at
+			FROM %[1]s AS candidate
+			WHERE candidate.published_at IS NULL
+			  AND candidate.available_at <= NOW()
+			  AND (candidate.processing_at IS NULL OR candidate.processing_at < NOW() - INTERVAL '1 minute')
+			  AND NOT EXISTS (
+			      SELECT 1
+			      FROM %[1]s AS predecessor
+			      WHERE predecessor.aggregate_id = candidate.aggregate_id
+			        AND predecessor.published_at IS NULL
+			        AND predecessor.sequence_number < candidate.sequence_number
+			  )
+			ORDER BY candidate.sequence_number
 			FOR UPDATE SKIP LOCKED
 			LIMIT ?`, d.table) // #nosec G201 -- table is allowlisted by NewDispatcher.
 		if err := tx.Raw(query, batchSize).Scan(&claimed).Error; err != nil {

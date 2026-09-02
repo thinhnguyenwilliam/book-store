@@ -5,6 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
+	customeractivity "github.com/thinhnguyenwilliam/book-store/backend/internal/events/customeractivity"
 )
 
 type CommentRequest struct {
@@ -89,6 +90,7 @@ func (h *Handler) createComment(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, err)
 	}
+	h.recordServerActivity(c, customeractivity.EventCommentCreated, item.GetBookId(), "", item.GetId(), 0)
 	return c.JSON(http.StatusCreated, commentJSON(item))
 }
 

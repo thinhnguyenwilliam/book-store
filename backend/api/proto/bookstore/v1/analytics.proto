@@ -1,0 +1,100 @@
+syntax = "proto3";
+
+package bookstore.v1;
+
+option go_package = "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1;bookstorev1";
+
+service AnalyticsService {
+  rpc GetOrderAnalytics(GetOrderAnalyticsRequest) returns (OrderAnalytics);
+  rpc GetCustomerActivityAnalytics(GetCustomerActivityAnalyticsRequest) returns (CustomerActivityAnalytics);
+  rpc GetTrendingBooks(GetTrendingBooksRequest) returns (BookActivityList);
+  rpc GetRelatedBooks(GetRelatedBooksRequest) returns (RelatedBookList);
+}
+
+message GetCustomerActivityAnalyticsRequest {
+  string from = 1;
+  string to = 2;
+  int32 limit = 3;
+}
+
+message EventCount {
+  string event_type = 1;
+  int64 count = 2;
+}
+
+message BookActivityMetric {
+  string book_id = 1;
+  int64 views = 2;
+  int64 cart_adds = 3;
+  int64 comments = 4;
+  double score = 5;
+}
+
+message CustomerActivityAnalytics {
+  string from = 1;
+  string to = 2;
+  int64 total_events = 3;
+  int64 unique_actors = 4;
+  int64 abandoned_carts = 5;
+  double view_to_cart_rate = 6;
+  double cart_to_checkout_rate = 7;
+  double checkout_to_order_rate = 8;
+  repeated EventCount event_counts = 9;
+  repeated BookActivityMetric top_books = 10;
+  string last_event_at = 11;
+}
+
+message GetTrendingBooksRequest {
+  string from = 1;
+  string to = 2;
+  int32 limit = 3;
+}
+
+message BookActivityList {
+  repeated BookActivityMetric books = 1;
+}
+
+message GetRelatedBooksRequest {
+  string book_id = 1;
+  string from = 2;
+  string to = 3;
+  int32 limit = 4;
+}
+
+message RelatedBook {
+  string book_id = 1;
+  int64 shared_actors = 2;
+  double score = 3;
+}
+
+message RelatedBookList {
+  repeated RelatedBook books = 1;
+}
+
+message GetOrderAnalyticsRequest {
+  string from = 1;
+  string to = 2;
+}
+
+message DailyOrderMetric {
+  string date = 1;
+  int64 created = 2;
+  int64 confirmed = 3;
+  int64 cancelled = 4;
+}
+
+message OrderAnalytics {
+  string from = 1;
+  string to = 2;
+  int64 total_orders = 3;
+  int64 confirmed_orders = 4;
+  int64 cancelled_orders = 5;
+  int64 payment_attempts = 6;
+  int64 payment_succeeded = 7;
+  int64 payment_failed = 8;
+  int64 stock_reservation_failed = 9;
+  double payment_success_rate = 10;
+  double average_confirmation_seconds = 11;
+  repeated DailyOrderMetric daily = 12;
+  string last_event_at = 13;
+}

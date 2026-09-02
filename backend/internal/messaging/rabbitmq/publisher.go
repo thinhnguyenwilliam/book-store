@@ -23,7 +23,7 @@ func NewPublisher(config Config) *Publisher {
 	return &Publisher{config: config}
 }
 
-func (p *Publisher) Publish(ctx context.Context, eventID, eventType string, payload []byte) error {
+func (p *Publisher) Publish(ctx context.Context, eventID, eventType, aggregateID string, payload []byte) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -39,8 +39,9 @@ func (p *Publisher) Publish(ctx context.Context, eventID, eventType string, payl
 		false,
 		amqp.Publishing{
 			Headers: amqp.Table{
-				"event_id": eventID,
-				"trace_id": apptrace.IDFromContext(ctx),
+				"event_id":     eventID,
+				"aggregate_id": aggregateID,
+				"trace_id":     apptrace.IDFromContext(ctx),
 			},
 			ContentType:  "application/json",
 			DeliveryMode: amqp.Persistent,

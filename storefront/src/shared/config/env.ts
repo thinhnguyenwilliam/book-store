@@ -11,9 +11,14 @@ function positiveNumber(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
+function booleanValue(value: string | undefined): boolean {
+  return value?.trim().toLowerCase() === 'true'
+}
+
 export const env = Object.freeze({
   apiBaseUrl: required('VITE_API_BASE_URL').replace(/\/$/, ''),
   apiTimeoutMs: positiveNumber(import.meta.env.VITE_API_TIMEOUT_MS, 10_000),
+  vnpayEnabled: booleanValue(import.meta.env.VITE_VNPAY_ENABLED),
   googleClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || '',
   facebookAppId: import.meta.env.VITE_FACEBOOK_APP_ID?.trim() || '',
   facebookGraphVersion: import.meta.env.VITE_FACEBOOK_GRAPH_VERSION?.trim() || 'v25.0',

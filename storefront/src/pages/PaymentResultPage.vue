@@ -4,10 +4,13 @@ import { useRoute } from 'vue-router'
 
 import { getPayment } from '@/features/payments/api/payment.api'
 import type { Payment } from '@/features/payments/model/types'
+import { useCartStore } from '@/features/cart/model/cart.store'
+import { clearCheckoutAttempt } from '@/features/orders/lib/checkout-attempt'
 import { ApiError } from '@/shared/api/http-client'
 import { formatPrice } from '@/shared/lib/format'
 
 const route = useRoute()
+const cart = useCartStore()
 const payment = ref<Payment | null>(null)
 const loading = ref(true)
 const error = ref('')
@@ -46,7 +49,11 @@ async function loadPayment(): Promise<void> {
     try {
       payment.value = await getPayment(paymentId.value)
       error.value = ''
-      if (payment.value.status !== 'pending') break
+      if (payment.value.status !== 'pending') {
+        clearCheckoutAttempt()
+        await cart.syncAuthenticated(true)
+        break
+      }
     } catch (requestError) {
       error.value =
         requestError instanceof ApiError

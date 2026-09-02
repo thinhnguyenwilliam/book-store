@@ -12,6 +12,135 @@
     },
     "basePath": "/",
     "paths": {
+        "/api/v1/admin/analytics/customer-activity": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns Kafka-backed event counts, conversion funnel, cart abandonment and trending books. Data is eventually consistent.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Analytics"
+                ],
+                "summary": "Get customer behavior analytics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive start",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Inclusive calendar end, or exclusive RFC3339 end",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Number of top books",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.CustomerActivityAnalyticsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/analytics/orders": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the Kafka-backed order read model. Dates accept RFC3339 or YYYY-MM-DD; an omitted range defaults to the last 30 days. Data is eventually consistent.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Analytics"
+                ],
+                "summary": "Get order lifecycle analytics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive start",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Inclusive calendar end, or exclusive RFC3339 end",
+                        "name": "to",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.OrderAnalyticsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/books": {
             "post": {
                 "security": [
@@ -992,6 +1121,159 @@
                 }
             }
         },
+        "/api/v1/books/search": {
+            "get": {
+                "description": "Full-text catalog search with typo tolerance, autocomplete-aware relevance, filters and cursor pagination.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Books"
+                ],
+                "summary": "Search books",
+                "parameters": [
+                    {
+                        "maxLength": 200,
+                        "type": "string",
+                        "description": "Title, author or ISBN",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 50,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Items per request",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Opaque cursor returned by the previous request",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "description": "Minimum price in cents",
+                        "name": "min_price_cents",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "description": "Maximum price in cents",
+                        "name": "max_price_cents",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by stock availability",
+                        "name": "in_stock",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Seller UUID",
+                        "name": "seller_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exact author filter",
+                        "name": "author",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "relevance",
+                            "newest",
+                            "price_asc",
+                            "price_desc"
+                        ],
+                        "type": "string",
+                        "default": "relevance",
+                        "description": "Sort mode",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.BookSearchResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/books/suggest": {
+            "get": {
+                "description": "Returns typo-tolerant title and author suggestions for an as-you-type query.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Books"
+                ],
+                "summary": "Autocomplete books",
+                "parameters": [
+                    {
+                        "maxLength": 120,
+                        "minLength": 2,
+                        "type": "string",
+                        "description": "At least two characters",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "maximum": 10,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 8,
+                        "description": "Maximum suggestions",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.BookSuggestionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/books/{id}": {
             "get": {
                 "description": "Returns one book by ID.",
@@ -1112,6 +1394,57 @@
                         "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/http.CommentResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/books/{id}/related": {
+            "get": {
+                "description": "Finds books viewed, carted or commented on by actors who also interacted with the requested book.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Recommendations"
+                ],
+                "summary": "Get behaviorally related book IDs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Book ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Inclusive start",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Inclusive calendar end, or exclusive RFC3339 end",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Result size",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.RelatedBookListResponse"
                         }
                     }
                 }
@@ -1796,6 +2129,58 @@
                 }
             }
         },
+        "/api/v1/customer-activity": {
+            "post": {
+                "description": "Queues a non-critical browser activity event for Kafka. Authorization is optional; anonymous clients must provide stable anonymous_id and session_id UUIDs. Authoritative order/comment events are generated server-side and cannot be submitted here.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Customer Activity"
+                ],
+                "summary": "Track storefront customer activity",
+                "parameters": [
+                    {
+                        "description": "Customer activity",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/http.CustomerActivityRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/http.CustomerActivityAcceptedResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/notifications": {
             "get": {
                 "security": [
@@ -2301,6 +2686,49 @@
                 }
             }
         },
+        "/api/v1/recommendations/trending": {
+            "get": {
+                "description": "Ranks books from recent view, add-to-cart and comment activity. The default range is the last 30 days.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Recommendations"
+                ],
+                "summary": "Get trending book IDs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive start",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Inclusive calendar end, or exclusive RFC3339 end",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Result size",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.BookActivityListResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/users/me": {
             "get": {
                 "security": [
@@ -2522,6 +2950,38 @@
                 }
             }
         },
+        "http.BookActivityListResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/http.BookActivityMetricResponse"
+                    }
+                }
+            }
+        },
+        "http.BookActivityMetricResponse": {
+            "type": "object",
+            "properties": {
+                "book_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "cart_adds": {
+                    "type": "integer"
+                },
+                "comments": {
+                    "type": "integer"
+                },
+                "score": {
+                    "type": "number"
+                },
+                "views": {
+                    "type": "integer"
+                }
+            }
+        },
         "http.BookListResponse": {
             "type": "object",
             "properties": {
@@ -2603,6 +3063,57 @@
                 "updated_at": {
                     "type": "string",
                     "format": "date-time"
+                }
+            }
+        },
+        "http.BookSearchHitResponse": {
+            "type": "object",
+            "properties": {
+                "book": {
+                    "$ref": "#/definitions/http.BookResponse"
+                },
+                "highlights": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "score": {
+                    "type": "number"
+                }
+            }
+        },
+        "http.BookSearchResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/http.BookSearchHitResponse"
+                    }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/http.CursorPagination"
+                },
+                "took_ms": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "http.BookSuggestionResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/http.BookSearchHitResponse"
+                    }
+                },
+                "took_ms": {
+                    "type": "integer"
                 }
             }
         },
@@ -2873,6 +3384,102 @@
                 }
             }
         },
+        "http.CustomerActivityAcceptedResponse": {
+            "type": "object",
+            "properties": {
+                "event_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "accepted"
+                }
+            }
+        },
+        "http.CustomerActivityAnalyticsResponse": {
+            "type": "object",
+            "properties": {
+                "abandoned_carts": {
+                    "type": "integer"
+                },
+                "cart_to_checkout_rate": {
+                    "type": "number"
+                },
+                "checkout_to_order_rate": {
+                    "type": "number"
+                },
+                "event_counts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/http.EventCountResponse"
+                    }
+                },
+                "from": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "last_event_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "to": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "top_books": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/http.BookActivityMetricResponse"
+                    }
+                },
+                "total_events": {
+                    "type": "integer"
+                },
+                "unique_actors": {
+                    "type": "integer"
+                },
+                "view_to_cart_rate": {
+                    "type": "number"
+                }
+            }
+        },
+        "http.CustomerActivityRequest": {
+            "type": "object",
+            "properties": {
+                "anonymous_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "book_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "event_type": {
+                    "type": "string",
+                    "enum": [
+                        "book.viewed",
+                        "book.searched",
+                        "book.added_to_cart",
+                        "book.removed_from_cart",
+                        "checkout.started"
+                    ]
+                },
+                "quantity": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 1
+                },
+                "query": {
+                    "type": "string",
+                    "maxLength": 200
+                },
+                "session_id": {
+                    "type": "string",
+                    "format": "uuid"
+                }
+            }
+        },
         "http.CustomerListResponse": {
             "type": "object",
             "properties": {
@@ -2884,6 +3491,24 @@
                 },
                 "pagination": {
                     "$ref": "#/definitions/http.CursorPagination"
+                }
+            }
+        },
+        "http.DailyOrderMetricResponse": {
+            "type": "object",
+            "properties": {
+                "cancelled": {
+                    "type": "integer"
+                },
+                "confirmed": {
+                    "type": "integer"
+                },
+                "created": {
+                    "type": "integer"
+                },
+                "date": {
+                    "type": "string",
+                    "example": "2026-09-01"
                 }
             }
         },
@@ -2921,6 +3546,17 @@
             "properties": {
                 "error": {
                     "$ref": "#/definitions/http.ErrorDetail"
+                }
+            }
+        },
+        "http.EventCountResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "event_type": {
+                    "type": "string"
                 }
             }
         },
@@ -3028,6 +3664,56 @@
                 },
                 "type": {
                     "type": "string"
+                }
+            }
+        },
+        "http.OrderAnalyticsResponse": {
+            "type": "object",
+            "properties": {
+                "average_confirmation_seconds": {
+                    "type": "number"
+                },
+                "cancelled_orders": {
+                    "type": "integer"
+                },
+                "confirmed_orders": {
+                    "type": "integer"
+                },
+                "daily": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/http.DailyOrderMetricResponse"
+                    }
+                },
+                "from": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "last_event_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "payment_attempts": {
+                    "type": "integer"
+                },
+                "payment_failed": {
+                    "type": "integer"
+                },
+                "payment_succeeded": {
+                    "type": "integer"
+                },
+                "payment_success_rate": {
+                    "type": "number"
+                },
+                "stock_reservation_failed": {
+                    "type": "integer"
+                },
+                "to": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "total_orders": {
+                    "type": "integer"
                 }
             }
         },
@@ -3256,6 +3942,32 @@
                 "password": {
                     "type": "string",
                     "example": "password123"
+                }
+            }
+        },
+        "http.RelatedBookListResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/http.RelatedBookResponse"
+                    }
+                }
+            }
+        },
+        "http.RelatedBookResponse": {
+            "type": "object",
+            "properties": {
+                "book_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "score": {
+                    "type": "number"
+                },
+                "shared_actors": {
+                    "type": "integer"
                 }
             }
         },

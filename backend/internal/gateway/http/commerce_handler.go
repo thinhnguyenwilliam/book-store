@@ -7,6 +7,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
+	customeractivity "github.com/thinhnguyenwilliam/book-store/backend/internal/events/customeractivity"
 )
 
 const idempotencyHeader = "Idempotency-Key"
@@ -51,6 +52,7 @@ func (h *Handler) addCartItem(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, err)
 	}
+	h.recordServerActivity(c, customeractivity.EventBookAddedToCart, item.GetBookId(), "", "", item.GetQuantity())
 	return c.JSON(http.StatusCreated, cartItemJSON(item))
 }
 
@@ -147,6 +149,7 @@ func (h *Handler) createOrder(c echo.Context) error {
 	if err != nil {
 		return errorResponse(c, err)
 	}
+	h.recordServerActivity(c, customeractivity.EventCheckoutStarted, "", order.GetId(), "", 0)
 	return c.JSON(http.StatusCreated, orderJSON(order))
 }
 

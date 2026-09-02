@@ -13,6 +13,8 @@ type Repository interface {
 	RemoveCartItems(ctx context.Context, userID string, itemIDs []string) error
 	ListCart(ctx context.Context, userID string) ([]*domain.CartItem, error)
 	ClearCart(ctx context.Context, userID string) error
+	ClearOrderedCartItems(ctx context.Context, userID string, items []domain.Item) error
+	RestoreCartItems(ctx context.Context, userID string, items []domain.Item, now time.Time) error
 	CreateOrder(ctx context.Context, order *domain.Order) error
 	FindOrder(ctx context.Context, userID, id string) (*domain.Order, error)
 	FindOrderByIdempotency(ctx context.Context, userID, idempotencyKey string) (*domain.Order, error)
@@ -24,6 +26,7 @@ type Repository interface {
 		status, paymentID, failureReason string,
 		now time.Time,
 	) (*domain.Order, error)
+	BeginPayment(ctx context.Context, userID, id string, now time.Time) (*domain.Order, error)
 	ListOrdersForReconciliation(
 		ctx context.Context, now, paymentCutoff time.Time, limit int,
 	) ([]*domain.Order, error)

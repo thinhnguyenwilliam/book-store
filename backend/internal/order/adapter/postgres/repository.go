@@ -2,11 +2,16 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+	customeractivity "github.com/thinhnguyenwilliam/book-store/backend/internal/events/customeractivity"
+	orderevent "github.com/thinhnguyenwilliam/book-store/backend/internal/events/order"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/order/domain"
+	apptrace "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/trace"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -43,8 +48,10 @@ type orderModel struct {
 }
 
 type orderItemModel struct {
-	ID             string    `gorm:"type:uuid;primaryKey"`
-	OrderID        string    `gorm:"type:uuid;not null"`
+	ID             string  `gorm:"type:uuid;primaryKey"`
+	OrderID        string  `gorm:"type:uuid;not null"`
+	CartItemID     *string `gorm:"type:uuid"`
+	CartUpdatedAt  *time.Time
 	BookID         string    `gorm:"type:uuid;not null"`
 	SellerID       string    `gorm:"not null"`
 	Title          string    `gorm:"not null"`
@@ -52,6 +59,16 @@ type orderItemModel struct {
 	Quantity       int32     `gorm:"not null"`
 	SubtotalCents  int64     `gorm:"not null"`
 	CreatedAt      time.Time `gorm:"not null"`
+}
+
+type orderOutboxModel struct {
+	ID          string    `gorm:"type:uuid;primaryKey"`
+	AggregateID string    `gorm:"type:uuid;not null"`
+	EventType   string    `gorm:"not null"`
+	TraceID     string    `gorm:"not null"`
+	Payload     []byte    `gorm:"type:jsonb;not null"`
+	AvailableAt time.Time `gorm:"not null"`
+	CreatedAt   time.Time `gorm:"not null"`
 }
 
 func (r *Repository) AddCartItem(ctx context.Context, item *domain.CartItem) (*domain.CartItem, error) {
@@ -138,6 +155,64 @@ func (r *Repository) ClearCart(ctx context.Context, userID string) error {
 	return nil
 }
 
+func (r *Repository) ClearOrderedCartItems(ctx context.Context, userID string, items []domain.Item) error {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, item := range items {
+			if item.CartItemID == "" || item.CartUpdatedAt.IsZero() {
+				continue
+			}
+			// Delete only the exact cart snapshot used to price this order. If the
+			// customer changed the quantity while checkout was running, preserve it.
+			result := tx.Table("orders.cart_items").
+				Where("id = ? AND user_id = ? AND quantity = ? AND updated_at = ?",
+					item.CartItemID, userID, item.Quantity, item.CartUpdatedAt).
+				Delete(&cartItemModel{})
+			if result.Error != nil {
+				return result.Error
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("clear ordered cart items: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) RestoreCartItems(
+	ctx context.Context,
+	userID string,
+	items []domain.Item,
+	now time.Time,
+) error {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, item := range items {
+			id := item.CartItemID
+			if id == "" {
+				id = uuid.NewString()
+			}
+			record := cartItemModel{
+				ID: id, UserID: userID, BookID: item.BookID, Quantity: item.Quantity,
+				CreatedAt: now, UpdatedAt: now,
+			}
+			if err := tx.Table("orders.cart_items").Clauses(clause.OnConflict{
+				Columns: []clause.Column{{Name: "user_id"}, {Name: "book_id"}},
+				DoUpdates: clause.Assignments(map[string]any{
+					"quantity":   gorm.Expr("GREATEST(cart_items.quantity, EXCLUDED.quantity)"),
+					"updated_at": now,
+				}),
+			}).Create(&record).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("restore cart items: %w", err)
+	}
+	return nil
+}
+
 func (r *Repository) CreateOrder(ctx context.Context, order *domain.Order) error {
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		record := orderRecord(order)
@@ -151,7 +226,10 @@ func (r *Repository) CreateOrder(ctx context.Context, order *domain.Order) error
 		for _, item := range order.Items {
 			items = append(items, orderItemRecord(order.ID, item, order.CreatedAt))
 		}
-		return tx.Table("orders.order_items").Create(&items).Error
+		if err := tx.Table("orders.order_items").Create(&items).Error; err != nil {
+			return err
+		}
+		return writeOrderEvent(ctx, tx, order, "", orderevent.EventCreated, "", order.CreatedAt)
 	})
 	if err != nil {
 		return fmt.Errorf("create order: %w", err)
@@ -219,26 +297,79 @@ func (r *Repository) UpdateOrderState(
 	status, paymentID, failureReason string,
 	now time.Time,
 ) (*domain.Order, error) {
-	updates := map[string]any{
-		"status": status, "failure_reason": failureReason, "updated_at": now,
-	}
-	if paymentID != "" {
-		updates["payment_id"] = paymentID
-	}
-	result := r.db.WithContext(ctx).Table("orders.orders").
-		Where("user_id = ? AND id = ? AND status IN ?", userID, id, allowedStatuses).Updates(updates)
-	if result.Error != nil {
-		return nil, fmt.Errorf("update order state: %w", result.Error)
-	}
-	if result.RowsAffected == 0 {
-		current, err := r.FindOrder(ctx, userID, id)
-		if err != nil {
-			return nil, err
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current orderModel
+		if err := tx.Table("orders.orders").Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("user_id = ? AND id = ?", userID, id).First(&current).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return domain.ErrOrderNotFound
+			}
+			return err
 		}
 		if current.Status == status {
-			return current, nil
+			return nil
 		}
-		return nil, domain.ErrOrderState
+		if !containsStatus(allowedStatuses, current.Status) {
+			return domain.ErrOrderState
+		}
+		updates := map[string]any{"status": status, "failure_reason": failureReason, "updated_at": now}
+		if paymentID != "" {
+			updates["payment_id"] = paymentID
+			current.PaymentID = &paymentID
+		}
+		if err := tx.Table("orders.orders").Where("id = ?", id).Updates(updates).Error; err != nil {
+			return err
+		}
+		previousStatus := current.Status
+		current.Status, current.FailureReason, current.UpdatedAt = status, failureReason, now
+		return writeOrderEvent(
+			ctx, tx, orderDomain(current), previousStatus, eventTypeForStatus(status),
+			failureStage(previousStatus, status, failureReason), now,
+		)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("update order state: %w", err)
+	}
+	return r.FindOrder(ctx, userID, id)
+}
+
+func (r *Repository) BeginPayment(
+	ctx context.Context,
+	userID, id string,
+	now time.Time,
+) (*domain.Order, error) {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current orderModel
+		if err := tx.Table("orders.orders").Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("user_id = ? AND id = ?", userID, id).First(&current).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return domain.ErrOrderNotFound
+			}
+			return err
+		}
+		if current.Status == domain.StatusPaymentPending {
+			return nil
+		}
+		if current.Status != domain.StatusStockReserved {
+			return domain.ErrOrderState
+		}
+		if !current.ReservationExpiresAt.After(now) {
+			return domain.ErrReservationExpired
+		}
+		previousStatus := current.Status
+		current.Status = domain.StatusPaymentPending
+		current.UpdatedAt = now
+		if err := tx.Table("orders.orders").Where("id = ?", id).
+			Updates(map[string]any{"status": current.Status, "updated_at": now}).Error; err != nil {
+			return err
+		}
+		return writeOrderEvent(
+			ctx, tx, orderDomain(current), previousStatus,
+			orderevent.EventPaymentPending, "", now,
+		)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("begin order payment: %w", err)
 	}
 	return r.FindOrder(ctx, userID, id)
 }
@@ -336,16 +467,132 @@ func orderDomain(order orderModel) *domain.Order {
 }
 
 func orderItemRecord(orderID string, item domain.Item, createdAt time.Time) orderItemModel {
+	var cartItemID *string
+	var cartUpdatedAt *time.Time
+	if item.CartItemID != "" {
+		cartItemID = &item.CartItemID
+	}
+	if !item.CartUpdatedAt.IsZero() {
+		cartUpdatedAt = &item.CartUpdatedAt
+	}
 	return orderItemModel{
-		ID: item.ID, OrderID: orderID, BookID: item.BookID, SellerID: item.SellerID,
+		ID: item.ID, OrderID: orderID, CartItemID: cartItemID, CartUpdatedAt: cartUpdatedAt,
+		BookID: item.BookID, SellerID: item.SellerID,
 		Title: item.Title, UnitPriceCents: item.UnitPriceCents, Quantity: item.Quantity,
 		SubtotalCents: item.SubtotalCents, CreatedAt: createdAt,
 	}
 }
 
 func orderItemDomain(item orderItemModel) domain.Item {
-	return domain.Item{
+	result := domain.Item{
 		ID: item.ID, BookID: item.BookID, SellerID: item.SellerID, Title: item.Title,
 		UnitPriceCents: item.UnitPriceCents, Quantity: item.Quantity, SubtotalCents: item.SubtotalCents,
 	}
+	if item.CartItemID != nil {
+		result.CartItemID = *item.CartItemID
+	}
+	if item.CartUpdatedAt != nil {
+		result.CartUpdatedAt = *item.CartUpdatedAt
+	}
+	return result
+}
+
+func writeOrderEvent(
+	ctx context.Context,
+	tx *gorm.DB,
+	order *domain.Order,
+	previousStatus, eventType, stage string,
+	occurredAt time.Time,
+) error {
+	eventID := uuid.NewString()
+	event := orderevent.Event{
+		EventID: eventID, EventType: eventType, SchemaVersion: orderevent.SchemaVersion,
+		AggregateType: "order", AggregateID: order.ID, OccurredAt: occurredAt.UTC(),
+		TraceID: apptrace.IDFromContext(ctx), PreviousStatus: previousStatus, FailureStage: stage,
+		Order: orderevent.Snapshot{
+			ID: order.ID, UserID: order.UserID, Status: order.Status, TotalCents: order.TotalCents,
+			Currency: order.Currency, PaymentID: order.PaymentID, FailureReason: order.FailureReason,
+		},
+	}
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal order integration event: %w", err)
+	}
+	model := orderOutboxModel{
+		ID: eventID, AggregateID: order.ID, EventType: eventType, TraceID: event.TraceID,
+		Payload: payload, AvailableAt: occurredAt.UTC(), CreatedAt: occurredAt.UTC(),
+	}
+	if err := tx.Table("orders.outbox_events").Create(&model).Error; err != nil {
+		return fmt.Errorf("create order outbox event: %w", err)
+	}
+	if eventType == orderevent.EventConfirmed {
+		activityID := uuid.NewString()
+		activity := customeractivity.Event{
+			EventID: activityID, EventType: customeractivity.EventOrderConfirmed,
+			SchemaVersion: customeractivity.SchemaVersion, ActorID: order.UserID,
+			UserID: order.UserID, OrderID: order.ID, Source: "order-service",
+			OccurredAt: occurredAt.UTC(), TraceID: event.TraceID,
+		}
+		activityPayload, marshalErr := json.Marshal(activity)
+		if marshalErr != nil {
+			return fmt.Errorf("marshal confirmed customer activity: %w", marshalErr)
+		}
+		activityOutbox := orderOutboxModel{
+			ID: activityID, AggregateID: order.UserID, EventType: activity.EventType,
+			TraceID: activity.TraceID, Payload: activityPayload,
+			AvailableAt: occurredAt.UTC(), CreatedAt: occurredAt.UTC(),
+		}
+		if err := tx.Table("orders.customer_activity_outbox_events").Create(&activityOutbox).Error; err != nil {
+			return fmt.Errorf("create order customer activity outbox event: %w", err)
+		}
+	}
+	return nil
+}
+
+func eventTypeForStatus(status string) string {
+	switch status {
+	case domain.StatusStockReserved:
+		return orderevent.EventStockReserved
+	case domain.StatusPaymentPending:
+		return orderevent.EventPaymentPending
+	case domain.StatusConfirmed:
+		return orderevent.EventConfirmed
+	case domain.StatusCancelled:
+		return orderevent.EventCancelled
+	case domain.StatusCompensationPending:
+		return orderevent.EventCompensationPending
+	default:
+		return "order.status_changed"
+	}
+}
+
+func failureStage(previousStatus, status, reason string) string {
+	if status == domain.StatusCompensationPending {
+		return "stock_commit"
+	}
+	if status != domain.StatusCancelled {
+		return ""
+	}
+	if reason == "cancelled by customer" {
+		return "customer"
+	}
+	switch previousStatus {
+	case domain.StatusPending, domain.StatusStockReserved:
+		return "stock_reservation"
+	case domain.StatusPaymentPending:
+		return "payment"
+	case domain.StatusCompensationPending:
+		return "compensation"
+	default:
+		return "unknown"
+	}
+}
+
+func containsStatus(statuses []string, candidate string) bool {
+	for _, status := range statuses {
+		if status == candidate {
+			return true
+		}
+	}
+	return false
 }

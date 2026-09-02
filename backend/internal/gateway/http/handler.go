@@ -19,12 +19,21 @@ type Handler struct {
 	notifications    bookstorev1.NotificationServiceClient
 	comments         bookstorev1.CommentServiceClient
 	chat             bookstorev1.ChatServiceClient
+	analytics        bookstorev1.AnalyticsServiceClient
+	search           bookstorev1.SearchServiceClient
+	activity         ActivityRecorder
 	realtime         *ChatRealtime
 	refreshCookie    RefreshCookieConfig
 	trustedOrigins   map[string]struct{}
 	graphQL          http.Handler
 	graphQLBodyLimit string
 }
+
+func (h *Handler) SetAnalyticsClient(client bookstorev1.AnalyticsServiceClient) {
+	h.analytics = client
+}
+
+func (h *Handler) SetSearchClient(client bookstorev1.SearchServiceClient) { h.search = client }
 
 type RefreshCookieConfig struct {
 	Name     string
@@ -95,11 +104,14 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 	api.POST("/auth/refresh", h.refresh)
 	api.POST("/auth/logout", h.logout)
 	api.GET("/books", h.listBooks)
+	api.GET("/books/search", h.searchBooks)
+	api.GET("/books/suggest", h.suggestBooks)
 	api.GET("/books/:id", h.getBook)
 	api.GET("/books/:id/comments", h.listBookComments)
 	api.GET("/comments/:id/replies", h.listCommentReplies)
 	api.GET("/payments/webhooks/vnpay", h.vnpayWebhook)
 	api.GET("/chat/ws", h.chatWebSocket)
+	api.POST("/customer-activity", h.trackCustomerActivity, h.OptionalAuthenticate)
 
 	secured := api.Group("")
 	secured.Use(h.Authenticate)
@@ -150,6 +162,11 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 	admin.DELETE("/books/:id", h.deleteBook)
 	admin.PUT("/wallets/:owner_id/balance", h.updateWalletBalance)
 	admin.PUT("/comments/:id/status", h.moderateComment)
+	admin.GET("/analytics/orders", h.getOrderAnalytics)
+	admin.GET("/analytics/customer-activity", h.getCustomerActivityAnalytics)
+
+	api.GET("/recommendations/trending", h.getTrendingBooks)
+	api.GET("/books/:id/related", h.getRelatedBooks)
 }
 
 // health godoc

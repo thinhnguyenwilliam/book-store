@@ -91,23 +91,21 @@ func (s *Service) Reconcile(ctx context.Context, limit int) error {
 			return errors.Join(result, err)
 		}
 		switch order.Status {
-		case domain.StatusPending:
-			s.releaseItems(ctx, order.ID, order.Items)
-			_, reconcileErr := s.repository.UpdateOrderState(
-				ctx, order.UserID, order.ID, []string{domain.StatusPending},
-				domain.StatusCancelled, "", "stock reservation expired", s.now().UTC(),
+		case domain.StatusPending, domain.StatusStockReserved:
+			// Claim the order before calling Book Service. This makes PayOrder,
+			// cancellation and expiry mutually exclusive across Order Service replicas.
+			claimed, claimErr := s.repository.UpdateOrderState(
+				ctx, order.UserID, order.ID, []string{order.Status},
+				domain.StatusCompensationPending, "", "stock reservation expired", s.now().UTC(),
 			)
-			result = errors.Join(result, reconcileErr)
-		case domain.StatusStockReserved:
-			if releaseErr := s.releaseItemsStrict(ctx, order.ID, order.Items); releaseErr != nil {
-				result = errors.Join(result, releaseErr)
+			if errors.Is(claimErr, domain.ErrOrderState) {
 				continue
 			}
-			_, reconcileErr := s.repository.UpdateOrderState(
-				ctx, order.UserID, order.ID, []string{domain.StatusStockReserved},
-				domain.StatusCancelled, "", "stock reservation expired", s.now().UTC(),
-			)
-			result = errors.Join(result, reconcileErr)
+			if claimErr != nil {
+				result = errors.Join(result, claimErr)
+				continue
+			}
+			result = errors.Join(result, s.reconcileCompensation(ctx, claimed))
 		case domain.StatusPaymentPending:
 			result = errors.Join(result, s.reconcilePaymentPending(ctx, order))
 		case domain.StatusCompensationPending:
@@ -193,6 +191,9 @@ func (s *Service) reconcileCompensation(ctx context.Context, order *domain.Order
 		}
 	}
 	if err := s.releaseItemsStrict(ctx, order.ID, order.Items); err != nil {
+		return err
+	}
+	if err := s.repository.RestoreCartItems(ctx, order.UserID, order.Items, s.now().UTC()); err != nil {
 		return err
 	}
 	_, err := s.repository.UpdateOrderState(
@@ -288,7 +289,8 @@ func (s *Service) CreateOrder(ctx context.Context, userID, idempotencyKey string
 			return nil, domain.ErrInvalidInput
 		}
 		order.Items = append(order.Items, domain.Item{
-			ID: uuid.NewString(), BookID: book.ID, SellerID: sellerID, Title: book.Title,
+			ID: uuid.NewString(), CartItemID: cartItem.ID, CartUpdatedAt: cartItem.UpdatedAt,
+			BookID: book.ID, SellerID: sellerID, Title: book.Title,
 			UnitPriceCents: book.PriceCents, Quantity: cartItem.Quantity, SubtotalCents: subtotal,
 		})
 		order.TotalCents += subtotal
@@ -336,7 +338,7 @@ func (s *Service) reserveOrder(ctx context.Context, order *domain.Order) (*domai
 		s.releaseItems(ctx, order.ID, reserved)
 		return nil, err
 	}
-	if err := s.repository.ClearCart(ctx, order.UserID); err != nil {
+	if err := s.repository.ClearOrderedCartItems(ctx, order.UserID, order.Items); err != nil {
 		// Cart cleanup is retryable and must not invalidate an otherwise valid order.
 		return updated, nil //nolint:nilerr // Stock is reserved and the order is already durable.
 	}
@@ -392,15 +394,17 @@ func (s *Service) CancelOrder(ctx context.Context, userID, id string) (*domain.O
 	if order.Status != domain.StatusPending && order.Status != domain.StatusStockReserved {
 		return nil, domain.ErrOrderState
 	}
-	if order.Status == domain.StatusStockReserved {
-		if err := s.releaseItemsStrict(ctx, order.ID, order.Items); err != nil {
-			return nil, err
-		}
-	}
-	return s.repository.UpdateOrderState(
-		ctx, userID, id, []string{domain.StatusPending, domain.StatusStockReserved},
-		domain.StatusCancelled, "", "cancelled by customer", s.now().UTC(),
+	claimed, err := s.repository.UpdateOrderState(
+		ctx, userID, id, []string{order.Status}, domain.StatusCompensationPending,
+		"", "cancelled by customer", s.now().UTC(),
 	)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.reconcileCompensation(ctx, claimed); err != nil {
+		return nil, err
+	}
+	return s.repository.FindOrder(ctx, userID, id)
 }
 
 func (s *Service) PayOrder(
@@ -422,10 +426,17 @@ func (s *Service) PayOrder(
 		return nil, domain.ErrOrderState
 	}
 	if order.Status == domain.StatusStockReserved {
-		updated, stateErr := s.repository.UpdateOrderState(
-			ctx, userID, order.ID, []string{domain.StatusStockReserved},
-			domain.StatusPaymentPending, "", "", s.now().UTC(),
-		)
+		updated, stateErr := s.repository.BeginPayment(ctx, userID, order.ID, s.now().UTC())
+		if errors.Is(stateErr, domain.ErrReservationExpired) {
+			claimed, claimErr := s.repository.UpdateOrderState(
+				ctx, userID, order.ID, []string{domain.StatusStockReserved},
+				domain.StatusCompensationPending, "", "stock reservation expired", s.now().UTC(),
+			)
+			if claimErr == nil {
+				claimErr = s.reconcileCompensation(ctx, claimed)
+			}
+			return nil, errors.Join(domain.ErrReservationExpired, claimErr)
+		}
 		if stateErr != nil {
 			return nil, stateErr
 		}
@@ -450,11 +461,12 @@ func (s *Service) PayOrder(
 			if releaseErr := s.releaseItemsStrict(ctx, order.ID, order.Items); releaseErr != nil {
 				return nil, errors.Join(err, releaseErr)
 			}
-			_, _ = s.repository.UpdateOrderState(
+			_, stateErr := s.repository.UpdateOrderState(
 				ctx, userID, order.ID, []string{domain.StatusPaymentPending},
 				domain.StatusCancelled, "", "payment declined", s.now().UTC(),
 			)
-			return nil, err
+			restoreErr := s.repository.RestoreCartItems(ctx, order.UserID, order.Items, s.now().UTC())
+			return nil, errors.Join(err, stateErr, restoreErr)
 		}
 		// The remote result may be unknown after a timeout. Reconcile by order ID
 		// before performing a compensation that could release paid inventory.
@@ -495,15 +507,19 @@ func (s *Service) compensatePaidOrder(
 		refundErr = domain.ErrRefundPending
 	}
 	releaseErr := s.releaseItemsStrict(ctx, order.ID, order.Items)
+	var restoreErr error
+	if releaseErr == nil {
+		restoreErr = s.repository.RestoreCartItems(ctx, order.UserID, order.Items, s.now().UTC())
+	}
 	status := domain.StatusCancelled
-	if refundErr != nil || releaseErr != nil {
+	if refundErr != nil || releaseErr != nil || restoreErr != nil {
 		status = domain.StatusCompensationPending
 	}
 	_, stateErr := s.repository.UpdateOrderState(
 		ctx, order.UserID, order.ID, []string{domain.StatusPaymentPending},
 		status, payment.ID, safeReason(cause), s.now().UTC(),
 	)
-	return errors.Join(cause, refundErr, releaseErr, stateErr)
+	return errors.Join(cause, refundErr, releaseErr, restoreErr, stateErr)
 }
 
 func (s *Service) releaseItems(ctx context.Context, orderID string, items []domain.Item) {

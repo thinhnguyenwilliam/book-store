@@ -10,19 +10,21 @@ import (
 )
 
 type Config struct {
-	Gateway      GatewayConfig      `mapstructure:"gateway"`
-	GRPC         GRPCConfig         `mapstructure:"grpc"`
-	Postgres     PostgresConfig     `mapstructure:"postgres"`
-	Auth         AuthConfig         `mapstructure:"auth"`
-	Payment      PaymentConfig      `mapstructure:"payment"`
-	Notification NotificationConfig `mapstructure:"notification"`
-	Chat         ChatConfig         `mapstructure:"chat"`
-	Commerce     CommerceConfig     `mapstructure:"commerce"`
-	Redis        RedisConfig        `mapstructure:"redis"`
-	RabbitMQ     RabbitMQConfig     `mapstructure:"rabbitmq"`
-	Outbox       OutboxConfig       `mapstructure:"outbox"`
-	Shutdown     ShutdownConfig     `mapstructure:"shutdown"`
-	Logging      logger.Config      `mapstructure:"logging"`
+	Gateway       GatewayConfig       `mapstructure:"gateway"`
+	GRPC          GRPCConfig          `mapstructure:"grpc"`
+	Postgres      PostgresConfig      `mapstructure:"postgres"`
+	Auth          AuthConfig          `mapstructure:"auth"`
+	Payment       PaymentConfig       `mapstructure:"payment"`
+	Notification  NotificationConfig  `mapstructure:"notification"`
+	Chat          ChatConfig          `mapstructure:"chat"`
+	Commerce      CommerceConfig      `mapstructure:"commerce"`
+	Redis         RedisConfig         `mapstructure:"redis"`
+	RabbitMQ      RabbitMQConfig      `mapstructure:"rabbitmq"`
+	Kafka         KafkaConfig         `mapstructure:"kafka"`
+	Elasticsearch ElasticsearchConfig `mapstructure:"elasticsearch"`
+	Outbox        OutboxConfig        `mapstructure:"outbox"`
+	Shutdown      ShutdownConfig      `mapstructure:"shutdown"`
+	Logging       logger.Config       `mapstructure:"logging"`
 }
 
 type GatewayConfig struct {
@@ -53,6 +55,8 @@ type GRPCConfig struct {
 	NotificationAddress       string `mapstructure:"notification_address"`
 	CommentAddress            string `mapstructure:"comment_address"`
 	ChatAddress               string `mapstructure:"chat_address"`
+	AnalyticsAddress          string `mapstructure:"analytics_address"`
+	SearchAddress             string `mapstructure:"search_address"`
 	AuthListenAddress         string `mapstructure:"auth_listen_address"`
 	UserListenAddress         string `mapstructure:"user_listen_address"`
 	BookListenAddress         string `mapstructure:"book_listen_address"`
@@ -61,6 +65,8 @@ type GRPCConfig struct {
 	NotificationListenAddress string `mapstructure:"notification_listen_address"`
 	CommentListenAddress      string `mapstructure:"comment_listen_address"`
 	ChatListenAddress         string `mapstructure:"chat_listen_address"`
+	AnalyticsListenAddress    string `mapstructure:"analytics_listen_address"`
+	SearchListenAddress       string `mapstructure:"search_listen_address"`
 	CallTimeout               string `mapstructure:"call_timeout"`
 }
 
@@ -192,6 +198,34 @@ type RabbitMQConfig struct {
 	Prefetch                     int    `mapstructure:"prefetch"`
 }
 
+type KafkaConfig struct {
+	Enabled                bool     `mapstructure:"enabled"`
+	Brokers                []string `mapstructure:"brokers"`
+	ClientID               string   `mapstructure:"client_id"`
+	OrderEventsTopic       string   `mapstructure:"order_events_topic"`
+	OrderEventsDLQTopic    string   `mapstructure:"order_events_dlq_topic"`
+	AnalyticsConsumerGroup string   `mapstructure:"analytics_consumer_group"`
+	CustomerActivityTopic  string   `mapstructure:"customer_activity_topic"`
+	CustomerActivityDLQ    string   `mapstructure:"customer_activity_dlq_topic"`
+	ActivityConsumerGroup  string   `mapstructure:"activity_consumer_group"`
+	ActivityBufferSize     int      `mapstructure:"activity_buffer_size"`
+	CatalogEventsTopic     string   `mapstructure:"catalog_events_topic"`
+	CatalogEventsDLQTopic  string   `mapstructure:"catalog_events_dlq_topic"`
+	SearchConsumerGroup    string   `mapstructure:"search_consumer_group"`
+	ConsumerMaxRetries     int      `mapstructure:"consumer_max_retries"`
+	ConsumerRetryBackoff   string   `mapstructure:"consumer_retry_backoff"`
+}
+
+type ElasticsearchConfig struct {
+	Enabled          bool     `mapstructure:"enabled"`
+	Addresses        []string `mapstructure:"addresses"`
+	Username         string   `mapstructure:"username"`
+	Password         string   `mapstructure:"password"`
+	IndexAlias       string   `mapstructure:"index_alias"`
+	RequestTimeout   string   `mapstructure:"request_timeout"`
+	BootstrapReindex bool     `mapstructure:"bootstrap_reindex"`
+}
+
 type OutboxConfig struct {
 	PollInterval string `mapstructure:"outbox_poll_interval"`
 }
@@ -250,6 +284,8 @@ func (c Config) validate() error {
 		"grpc.notification_address":                 c.GRPC.NotificationAddress,
 		"grpc.comment_address":                      c.GRPC.CommentAddress,
 		"grpc.chat_address":                         c.GRPC.ChatAddress,
+		"grpc.analytics_address":                    c.GRPC.AnalyticsAddress,
+		"grpc.search_address":                       c.GRPC.SearchAddress,
 		"grpc.auth_listen_address":                  c.GRPC.AuthListenAddress,
 		"grpc.user_listen_address":                  c.GRPC.UserListenAddress,
 		"grpc.book_listen_address":                  c.GRPC.BookListenAddress,
@@ -258,6 +294,8 @@ func (c Config) validate() error {
 		"grpc.notification_listen_address":          c.GRPC.NotificationListenAddress,
 		"grpc.comment_listen_address":               c.GRPC.CommentListenAddress,
 		"grpc.chat_listen_address":                  c.GRPC.ChatListenAddress,
+		"grpc.analytics_listen_address":             c.GRPC.AnalyticsListenAddress,
+		"grpc.search_listen_address":                c.GRPC.SearchListenAddress,
 		"grpc.call_timeout":                         c.GRPC.CallTimeout,
 		"postgres.url":                              c.Postgres.URL,
 		"postgres.connection_max_lifetime":          c.Postgres.ConnectionMaxLifetime,
@@ -475,6 +513,56 @@ func (c Config) validate() error {
 	}
 	if c.RabbitMQ.Prefetch < 1 {
 		return fmt.Errorf("rabbitmq.prefetch must be greater than zero")
+	}
+	if c.Kafka.Enabled {
+		if len(c.Kafka.Brokers) == 0 {
+			return fmt.Errorf("kafka.brokers must contain at least one broker when Kafka is enabled")
+		}
+		for key, value := range map[string]string{
+			"kafka.client_id":                   c.Kafka.ClientID,
+			"kafka.order_events_topic":          c.Kafka.OrderEventsTopic,
+			"kafka.order_events_dlq_topic":      c.Kafka.OrderEventsDLQTopic,
+			"kafka.analytics_consumer_group":    c.Kafka.AnalyticsConsumerGroup,
+			"kafka.customer_activity_topic":     c.Kafka.CustomerActivityTopic,
+			"kafka.customer_activity_dlq_topic": c.Kafka.CustomerActivityDLQ,
+			"kafka.activity_consumer_group":     c.Kafka.ActivityConsumerGroup,
+			"kafka.catalog_events_topic":        c.Kafka.CatalogEventsTopic,
+			"kafka.catalog_events_dlq_topic":    c.Kafka.CatalogEventsDLQTopic,
+			"kafka.search_consumer_group":       c.Kafka.SearchConsumerGroup,
+			"kafka.consumer_retry_backoff":      c.Kafka.ConsumerRetryBackoff,
+		} {
+			if strings.TrimSpace(value) == "" {
+				return fmt.Errorf("%s is required when Kafka is enabled", key)
+			}
+		}
+		if duration, err := time.ParseDuration(c.Kafka.ConsumerRetryBackoff); err != nil || duration <= 0 {
+			return fmt.Errorf("kafka.consumer_retry_backoff must be a positive duration")
+		}
+		if c.Kafka.ConsumerMaxRetries < 0 || c.Kafka.ConsumerMaxRetries > 20 {
+			return fmt.Errorf("kafka.consumer_max_retries must be between 0 and 20")
+		}
+		if c.Kafka.ActivityBufferSize < 1 || c.Kafka.ActivityBufferSize > 100000 {
+			return fmt.Errorf("kafka.activity_buffer_size must be between 1 and 100000")
+		}
+	}
+	if c.Elasticsearch.Enabled {
+		if len(c.Elasticsearch.Addresses) == 0 {
+			return fmt.Errorf("elasticsearch.addresses must contain at least one address when Elasticsearch is enabled")
+		}
+		for key, value := range map[string]string{
+			"elasticsearch.index_alias":     c.Elasticsearch.IndexAlias,
+			"elasticsearch.request_timeout": c.Elasticsearch.RequestTimeout,
+		} {
+			if strings.TrimSpace(value) == "" {
+				return fmt.Errorf("%s is required when Elasticsearch is enabled", key)
+			}
+		}
+		if duration, err := time.ParseDuration(c.Elasticsearch.RequestTimeout); err != nil || duration <= 0 {
+			return fmt.Errorf("elasticsearch.request_timeout must be a positive duration")
+		}
+		if (c.Elasticsearch.Username == "") != (c.Elasticsearch.Password == "") {
+			return fmt.Errorf("elasticsearch.username and password must be configured together")
+		}
 	}
 	shutdownTimeout, err := time.ParseDuration(c.Shutdown.Timeout)
 	if err != nil || shutdownTimeout <= 0 {

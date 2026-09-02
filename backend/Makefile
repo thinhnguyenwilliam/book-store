@@ -1,11 +1,11 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help tools generate proto swagger graphql tidy fmt test vet lint lint-tool build check perf e2e-checkout e2e-checkout-local migrate \
+.PHONY: help tools generate proto swagger graphql tidy fmt test test-integration vet lint lint-tool build check perf e2e-checkout e2e-checkout-local migrate \
 	docker-config docker-build up run up-foreground down down-volumes restart ps logs \
 	dev dev-foreground dev-build dev-logs dev-ps dev-down dev-restart \
-	air-tool infra-up infra-stop infra-ps infra-logs app-stop local-prepare \
-	local-gateway local-auth local-user local-book local-order local-payment local-worker local-notification local-comment local-chat \
-	watch-gateway watch-auth watch-user watch-book watch-order watch-payment watch-worker watch-notification watch-comment watch-chat hooks-install
+	air-tool elasticsearch-pull infra-core-up infra-up infra-stop infra-ps infra-logs app-stop local-prepare \
+	local-gateway local-auth local-user local-book local-order local-payment local-worker local-notification local-comment local-chat local-analytics local-search search-reindex \
+	watch-gateway watch-auth watch-user watch-book watch-order watch-payment watch-worker watch-notification watch-comment watch-chat watch-analytics watch-search hooks-install
 
 TOOLS_DIR := $(CURDIR)/.tools
 CACHE_DIR := $(CURDIR)/.cache
@@ -21,8 +21,11 @@ DEV_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.dev.yml
 LOCAL_CONFIG := config/local.yml
 LOCAL_SECRET_CONFIG ?= config/local.secret.yml
 LOCAL_SECRET_ARG = $(if $(wildcard $(LOCAL_SECRET_CONFIG)),-secrets $(LOCAL_SECRET_CONFIG),)
-INFRA_SERVICES := postgres pgadmin redis redisinsight rabbitmq mailpit
-APP_SERVICES := gateway auth-service user-service book-service order-service payment-service worker-service notification-service comment-service chat-service
+INFRA_SERVICES := postgres pgadmin redis redisinsight rabbitmq mailpit kafka-volume-init kafka kafka-init kafka-ui elasticsearch
+INFRA_CORE_SERVICES := postgres pgadmin redis redisinsight rabbitmq mailpit kafka-volume-init kafka kafka-init kafka-ui
+APP_SERVICES := gateway auth-service user-service book-service order-service payment-service worker-service notification-service comment-service chat-service analytics-service search-service
+ELASTICSEARCH_PULL_RETRIES ?= 5
+ELASTICSEARCH_PULL_DELAY_SECONDS ?= 10
 REPO_ROOT := $(abspath $(CURDIR)/..)
 
 help: ## Hiển thị các lệnh có thể sử dụng
@@ -82,6 +85,11 @@ fmt: ## Format source Go
 
 test: ## Chạy unit tests
 	GOCACHE=$(CACHE_DIR)/go-build go test ./...
+
+test-integration: ## Chạy integration test PostgreSQL, gồm kiểm tra chống oversell
+	BOOKSTORE_TEST_DATABASE_URL='postgres://bookstore:bookstore@localhost:5432/bookstore?sslmode=disable' \
+		GOCACHE=$(CACHE_DIR)/go-build go test -tags=integration -count=1 \
+		./internal/book/adapter/postgres ./internal/order/adapter/postgres
 
 vet: ## Chạy static analysis
 	GOCACHE=$(CACHE_DIR)/go-build go vet ./...
@@ -145,7 +153,7 @@ dev-build: ## Build lại image development có Air
 	$(DEV_COMPOSE) build
 
 dev-logs: ## Theo dõi log hot reload của các Go service
-	$(DEV_COMPOSE) logs -f --tail=200 gateway auth-service user-service book-service order-service payment-service worker-service notification-service comment-service chat-service
+	$(DEV_COMPOSE) logs -f --tail=200 gateway auth-service user-service book-service order-service payment-service worker-service notification-service comment-service chat-service analytics-service search-service
 
 dev-ps: ## Xem trạng thái container development
 	$(DEV_COMPOSE) ps
@@ -157,7 +165,26 @@ dev-restart: ## Khởi động lại development stack
 	$(DEV_COMPOSE) down
 	$(DEV_COMPOSE) up -d --build
 
-infra-up: ## Chỉ chạy PostgreSQL, pgAdmin, Redis, RedisInsight và RabbitMQ
+elasticsearch-pull: ## Tải Elasticsearch với retry khi registry tạm thời không ổn định
+	@attempt=1; \
+	while [ $$attempt -le $(ELASTICSEARCH_PULL_RETRIES) ]; do \
+		echo "Pulling Elasticsearch (attempt $$attempt/$(ELASTICSEARCH_PULL_RETRIES))..."; \
+		if docker compose pull --policy missing elasticsearch; then \
+			exit 0; \
+		fi; \
+		if [ $$attempt -eq $(ELASTICSEARCH_PULL_RETRIES) ]; then \
+			echo "Elasticsearch registry is still unavailable after $(ELASTICSEARCH_PULL_RETRIES) attempts."; \
+			exit 1; \
+		fi; \
+		attempt=$$((attempt + 1)); \
+		echo "Retrying in $(ELASTICSEARCH_PULL_DELAY_SECONDS)s; downloaded layers will be reused..."; \
+		sleep $(ELASTICSEARCH_PULL_DELAY_SECONDS); \
+	done
+
+infra-core-up: ## Chạy infrastructure không gồm Elasticsearch khi registry đang lỗi
+	docker compose up -d --no-build $(INFRA_CORE_SERVICES)
+
+infra-up: elasticsearch-pull ## Chạy PostgreSQL, Redis, RabbitMQ, Kafka, Elasticsearch và các UI local
 	docker compose up -d --no-build $(INFRA_SERVICES)
 
 infra-stop: ## Dừng các container infrastructure, giữ nguyên volumes
@@ -206,6 +233,15 @@ local-comment: ## Chạy comment service trực tiếp trên máy
 local-chat: ## Chạy chat service trực tiếp trên máy
 	go run ./cmd/chat-service -config $(LOCAL_CONFIG)
 
+local-analytics: ## Chạy analytics service/Kafka consumer trực tiếp trên máy
+	go run ./cmd/analytics-service -config $(LOCAL_CONFIG)
+
+local-search: ## Chạy Search Service/Elasticsearch consumer trực tiếp trên máy
+	go run ./cmd/search-service -config $(LOCAL_CONFIG)
+
+search-reindex: ## Đồng bộ lại toàn bộ catalog PostgreSQL sang Elasticsearch local
+	go run ./cmd/search-service -config $(LOCAL_CONFIG) -reindex
+
 define watch_service
 	$(AIR) -c .air.local.toml \
 		--build.cmd "go build -buildvcs=false -o ./.air-local/$(1) ./cmd/$(1)" \
@@ -243,3 +279,9 @@ watch-comment: $(AIR) ## Chạy comment service local với Air hot reload
 
 watch-chat: $(AIR) ## Chạy chat service local với Air hot reload
 	$(call watch_service,chat-service)
+
+watch-analytics: $(AIR) ## Chạy analytics service local với Air hot reload
+	$(call watch_service,analytics-service)
+
+watch-search: $(AIR) ## Chạy search service local với Air hot reload
+	$(call watch_service,search-service)
