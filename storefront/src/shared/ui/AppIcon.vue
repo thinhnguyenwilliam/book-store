@@ -16,6 +16,7 @@ withDefaults(
       | 'menu'
       | 'minus'
       | 'plus'
+      | 'search'
       | 'sparkles'
       | 'trash'
       | 'user'
@@ -71,6 +72,10 @@ withDefaults(
     <template v-else-if="name === 'menu'"><path d="M4 7h16M4 12h16M4 17h16" /></template>
     <template v-else-if="name === 'minus'"><path d="M5 12h14" /></template>
     <template v-else-if="name === 'plus'"><path d="M12 5v14M5 12h14" /></template>
+    <template v-else-if="name === 'search'">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-4-4" />
+    </template>
     <template v-else-if="name === 'sparkles'">
       <path d="m12 3-1.4 3.6L7 8l3.6 1.4L12 13l1.4-3.6L17 8l-3.6-1.4L12 3Z" />
       <path

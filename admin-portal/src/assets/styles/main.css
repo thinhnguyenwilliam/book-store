@@ -677,6 +677,20 @@ svg {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
+.analytics-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+}
+.analytics-heading h2 {
+  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+}
+.analytics-heading small {
+  color: var(--color-muted);
+  font-size: 0.68rem;
+}
 .stat-card {
   display: flex;
   min-width: 0;

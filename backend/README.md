@@ -1,6 +1,6 @@
 # Book Store Backend
 
-Backend gồm mười process Go độc lập và một nhóm hạ tầng dùng cho local development:
+Backend gồm mười hai process Go độc lập và một nhóm hạ tầng dùng cho local development:
 
 ```text
 Storefront / Admin Portal
@@ -11,7 +11,7 @@ Storefront / Admin Portal
         /     |      \
         gRPC service mesh
    /      /      |       \        \
- Auth   User    Book    Order    Payment    Notification    Comment    Chat
+ Auth   User    Book    Order    Payment    Notification    Comment    Chat    Analytics    Search
   |         ^           |
   | outbox  | gRPC      |
   v         |           |
@@ -19,16 +19,18 @@ RabbitMQ -> Worker       |
    \         |         /
     PostgreSQL / bookstore
       |       |       |
- auth  users  catalog  orders  payments  notifications  comments  chat  <- schemas
+ auth  users  catalog  orders  payments  notifications  comments  chat  analytics <- schemas
 
-RabbitMQ xử lý domain event; Redis được giữ riêng cho cache/rate-limit.
+RabbitMQ xử lý domain event phục vụ workflow. Kafka giữ order lifecycle, customer
+activity và catalog event để analytics/replay/indexing; Redis được giữ riêng cho
+cache/rate-limit. Elasticsearch là read model tìm kiếm, không phải source of truth.
 ```
 
 Gateway là public entry point. Các service giao tiếp bằng unary gRPC; Order Service điều phối Book Service và Payment Service cho checkout Saga.
 
 ## Một database hay ba database?
 
-Local hiện chỉ chạy **một PostgreSQL container và một database `bookstore`**. Database này có tám schema:
+Local hiện chỉ chạy **một PostgreSQL container và một database `bookstore`**. Database này có chín schema:
 
 - `auth`: do auth-service sở hữu.
 - `users`: do user-service sở hữu.
@@ -38,6 +40,7 @@ Local hiện chỉ chạy **một PostgreSQL container và một database `books
 - `notifications`: do notification-service sở hữu; gồm inbox event, thông báo trong app và trạng thái gửi email.
 - `comments`: do comment-service sở hữu; chứa thread bình luận và câu trả lời.
 - `chat`: do chat-service sở hữu; chứa support conversation, member, message, read cursor và transactional outbox.
+- `analytics`: do analytics-service sở hữu; là read model dựng từ Kafka, không phải nguồn sự thật của checkout.
 
 “Service sở hữu dữ liệu” nghĩa là service khác không query hoặc sửa trực tiếp schema đó; nó phải gọi gRPC/API của service sở hữu. Điều này không bắt buộc mỗi service phải có một PostgreSQL server riêng. Khi hệ thống lớn hơn, từng schema có thể được chuyển sang database/server riêng mà không đổi domain và use case.
 
@@ -71,6 +74,17 @@ rabbitmq:
   user_profile_queue: "user.profile.create"
   account_registered_routing_key: "account.registered"
   account_deleted_routing_key: "account.deleted"
+
+kafka:
+  enabled: true
+  brokers: ["kafka:29092"] # local Go process dùng localhost:9092
+  order_events_topic: "bookstore.order-events"
+  order_events_dlq_topic: "bookstore.order-events.dlq"
+  analytics_consumer_group: "bookstore-order-analytics-v1"
+  customer_activity_topic: "bookstore.customer-activity"
+  customer_activity_dlq_topic: "bookstore.customer-activity.dlq"
+  activity_consumer_group: "bookstore-customer-activity-analytics-v1"
+  activity_buffer_size: 4096
 ```
 
 Auth local dùng access token JWT `5m` và refresh session `168h`. Gateway đặt refresh token vào cookie `HttpOnly`, `SameSite=Lax`, còn PostgreSQL chỉ lưu SHA-256 hash của token:
@@ -210,6 +224,36 @@ make graphql
 
 Pre-commit hook và CI cùng sinh lại mã gqlgen rồi kiểm tra `git diff`, vì vậy generated runtime/model không thể lệch schema.
 
+### Elasticsearch catalog search
+
+PostgreSQL `catalog.books` vẫn là nguồn dữ liệu chuẩn. Mỗi thao tác tạo, sửa, xóa
+hoặc đổi tồn kho ghi thêm event trong `catalog.outbox_events` cùng transaction:
+
+```text
+Book Service transaction
+  -> catalog.books + catalog.outbox_events
+  -> outbox dispatcher
+  -> Kafka bookstore.catalog-events (key = book_id)
+  -> Search Service
+  -> Elasticsearch alias bookstore-books
+```
+
+Search Service dùng external version từ thời điểm mutation nên event cũ/replay
+không thể ghi đè document mới hơn. Topic catalog dùng `compact,delete`; consumer
+có retry giới hạn và DLQ `bookstore.catalog-events.dlq`. Khi index được tạo lần
+đầu, service bootstrap toàn bộ sách hiện có từ Book Service. Có thể reindex chủ
+động mà không sửa PostgreSQL:
+
+```bash
+make search-reindex
+```
+
+API `GET /api/v1/books/search` hỗ trợ typo tolerance, title/author/ISBN ranking,
+highlight, filter giá/tồn kho/seller/author, bốn kiểu sort và cursor gắn với đúng
+bộ query/filter. `GET /api/v1/books/suggest` dùng `search_as_you_type` kết hợp fuzzy
+match cho autocomplete. Popularity field đã có trong mapping nhưng phase hiện tại
+chưa dùng customer activity để cá nhân hóa ranking.
+
 ## Structured log và xoay file hằng ngày
 
 Khi chạy Go/Air local, mỗi process ghi structured log ra terminal và một file riêng trong `backend/logs`:
@@ -337,7 +381,8 @@ Nếu worker không drain xong trước deadline, service trả lỗi shutdown t
 ## Chạy toàn bộ bằng Docker
 
 ```bash
-cd ~/WorkSpace/Book-store/backend
+# Chạy từ thư mục gốc Book-store
+cd backend
 make up
 ```
 
@@ -351,9 +396,9 @@ Chuẩn bị infrastructure nhưng không build/chạy container Go:
 make local-prepare
 ```
 
-Lệnh này dừng toàn bộ mười container Go rồi chỉ giữ PostgreSQL, pgAdmin, Redis, RedisInsight, RabbitMQ và Mailpit. Các Docker volume dữ liệu không bị xóa.
+Lệnh này dừng toàn bộ mười hai container Go rồi chỉ giữ PostgreSQL, pgAdmin, Redis, RedisInsight, RabbitMQ, Kafka, Kafka UI, Elasticsearch và Mailpit. Các Docker volume dữ liệu không bị xóa.
 
-Mở mười terminal trong thư mục `backend`:
+Mở mười hai terminal trong thư mục `backend`:
 
 ```bash
 # Terminal 1
@@ -384,6 +429,12 @@ make local-comment
 make local-chat
 
 # Terminal 10
+make local-analytics
+
+# Terminal 11
+make local-search
+
+# Terminal 12
 make local-gateway
 ```
 
@@ -399,6 +450,8 @@ make watch-worker
 make watch-notification
 make watch-comment
 make watch-chat
+make watch-analytics
+make watch-search
 make watch-gateway
 ```
 
@@ -406,7 +459,7 @@ Air được cài vào `.tools/air` ở lần chạy `watch-*` đầu tiên, kh�
 
 ### Air hot reload bên trong Docker
 
-Để phát triển với live reload cho toàn bộ mười Go process:
+Để phát triển với live reload cho toàn bộ mười hai Go process:
 
 ```bash
 make dev
@@ -425,6 +478,9 @@ Các địa chỉ:
 - RedisInsight: `http://localhost:5540`
 - RabbitMQ AMQP: `localhost:5672`
 - RabbitMQ Management: `http://localhost:15672`
+- Kafka bootstrap: `localhost:9092`
+- Kafka UI (read-only): `http://localhost:8085`
+- Elasticsearch: `http://localhost:9200`
 - Mailpit inbox: `http://localhost:8025`
 
 Đăng nhập pgAdmin:
@@ -492,6 +548,13 @@ Danh sách sách là public:
 curl 'http://localhost:8080/api/v1/books?limit=20'
 ```
 
+Tìm kiếm typo-tolerant, autocomplete và filter cũng là public:
+
+```bash
+curl 'http://localhost:8080/api/v1/books/search?q=Clean%20Archtecture&in_stock=true&sort=relevance'
+curl 'http://localhost:8080/api/v1/books/suggest?q=clea&limit=8'
+```
+
 Endpoint ghi sách yêu cầu role `admin`. Để gán role khi phát triển local:
 
 ```bash
@@ -536,6 +599,8 @@ make local-order
 make local-payment
 make local-worker
 make local-notification
+make local-search
+make search-reindex
 make local-gateway
 make watch-auth
 make watch-user
@@ -544,6 +609,7 @@ make watch-order
 make watch-payment
 make watch-worker
 make watch-notification
+make watch-search
 make watch-gateway
 ```
 
@@ -582,6 +648,8 @@ Phần truy cập PostgreSQL bật prepared-statement cache, bỏ default transa
 - `GET /api/v1/users/me`
 - `PUT /api/v1/users/me`
 - `GET /api/v1/books?limit=20&cursor=<opaque-cursor>`
+- `GET /api/v1/books/search?q=<query>&limit=20&cursor=<opaque-cursor>`
+- `GET /api/v1/books/suggest?q=<prefix>&limit=8`
 - `GET /api/v1/books/:id`
 - `POST /api/v1/admin/books`
 - `PUT /api/v1/admin/books/:id`
@@ -615,6 +683,7 @@ Phần truy cập PostgreSQL bật prepared-statement cache, bỏ default transa
 - `PUT /api/v1/comments/:id`
 - `DELETE /api/v1/comments/:id`
 - `PUT /api/v1/admin/comments/:id/status`
+- `GET /api/v1/admin/analytics/orders?from=2026-09-01&to=2026-09-30`
 - `POST /api/v1/chat/conversations/support`
 - `GET /api/v1/chat/conversations?limit=20&cursor=<opaque-cursor>`
 - `GET /api/v1/chat/conversations/:id/messages?limit=30&cursor=<opaque-cursor>`
@@ -690,6 +759,15 @@ pending -> stock_reserved -> payment_pending -> confirmed
 
 Client phải giữ nguyên `Idempotency-Key` khi retry cùng thao tác. Payment bị timeout được tra lại bằng `order_id` trước khi compensation, tránh trường hợp thanh toán đã thành công nhưng response bị mất. Order Service có reconciler chạy nền: hoàn tất payment bị mất response, hủy reservation hết hạn và retry trạng thái `compensation_pending`. Trong microservice không có rollback ACID xuyên database; refund và release stock là các transaction bù trừ có lịch sử riêng.
 
+Book Service khóa row sách bằng `SELECT ... FOR UPDATE`, kiểm tra tồn kho rồi giảm stock và tạo reservation trong cùng transaction PostgreSQL. Reservation `released` không được coi là retry thành công. Order phải atomically chuyển từ `stock_reserved` sang `payment_pending` trước khi gọi Payment Service; expiry/cancel cũng claim order sang `compensation_pending` trước khi release nên không thể vừa thanh toán vừa nhả cùng reservation. Khi order thất bại, cart snapshot được khôi phục idempotent; khi thành công chỉ đúng cart item snapshot đã đặt mới bị xóa, item được sửa/thêm đồng thời vẫn được giữ.
+
+Kiểm tra consistency local:
+
+```bash
+make test-integration   # 20 request tranh 5 stock; đúng 5 thành công, stock không âm
+make e2e-checkout-local # cart -> order -> wallet payment -> ledger -> committed reservation
+```
+
 Để chạy flow local, dùng tuần tự các request trong [api.http](api.http): tạo wallet, admin fund wallet, thêm sách vào cart, tạo order rồi thanh toán. Book có `seller_id`; nếu bỏ trống thì doanh thu được gán cho platform wallet.
 
 ## Notification Service phase 1
@@ -719,6 +797,67 @@ Storefront/Admin chỉ gọi `Notification.requestPermission()` sau khi người
 Book Service cache `GetBook` và từng trang `ListBooks`; Order Service cache `ListCart` theo user. PostgreSQL luôn là source of truth. Mọi thao tác tạo/sửa/xóa sách, reserve/release stock và thay đổi cart đều tăng cache version, nên request tiếp theo dùng key mới thay vì đọc dữ liệu cũ. Key cũ tự hết hạn theo TTL và không cần `SCAN`/xóa hàng loạt trên request path.
 
 Cache dùng TTL jitter, `singleflight` trong process và Redis distributed lock giữa các replica để giảm cache stampede. Redis có timeout ngắn; cache miss hoặc Redis lỗi sẽ fallback PostgreSQL, không làm API ghi hay checkout thất bại. Docker Compose chờ Redis healthy trước khi khởi động Book/Order Service.
+
+## Kafka order event stream
+
+Order Service ghi `orders.orders` và `orders.outbox_events` trong cùng transaction.
+Outbox dispatcher publish sang `bookstore.order-events`; message key luôn là
+`order_id`, vì vậy mọi lifecycle event của cùng một order ở cùng partition và giữ
+thứ tự. Outbox có `sequence_number` tăng đơn điệu và chỉ cho phép event đầu tiên
+chưa publish của mỗi aggregate được claim, nên nhiều replica hoặc retry cũng không
+đẩy event sau vượt event trước. Kafka ngừng hoạt động không rollback checkout: event nằm lại trong outbox
+và được retry khi broker hoạt động trở lại.
+
+Analytics Service dùng consumer group `bookstore-order-analytics-v1`, ghi inbox
+idempotent rồi cập nhật `analytics.order_lifecycle`. Sau retry hữu hạn, record lỗi
+được chuyển sang `bookstore.order-events.dlq`; offset chỉ commit sau khi xử lý hoặc
+DLQ thành công. API admin `/api/v1/admin/analytics/orders` trả số đơn tạo/xác nhận/
+hủy, tỷ lệ payment thành công, lỗi reserve stock, thời gian xác nhận trung bình và
+thống kê theo ngày. Đây là dữ liệu eventual consistency, không dùng để quyết định
+stock hoặc payment.
+
+Topic được tạo tường minh bởi `kafka-init` với 6 partition; auto-create bị tắt.
+Kafka UI chạy read-only tại `http://localhost:8085`, cluster hiển thị là
+`bookstore-local`. Có thể dùng UI để xem broker, topic, partition, message và
+consumer group mà không vô tình tạo hoặc xóa dữ liệu Kafka.
+Để replay toàn bộ read model, dùng một consumer group version mới hoặc reset offset
+sau khi đã xóa/rebuild read model trong maintenance window. Mỗi consumer mới cho
+Audit, Fraud Detection hay Data Warehouse phải có group ID riêng để chúng đều nhận
+đủ event, không dùng chung group với Analytics.
+
+## Kafka customer activity và recommendation
+
+Gateway nhận activity tại `POST /api/v1/customer-activity` rồi đưa vào bounded
+buffer, vì vậy Kafka chậm không được phép làm chậm hành động của khách hàng. Event
+anonymous dùng UUID ổn định trong `localStorage` làm `anonymous_id`, UUID trong
+`sessionStorage` làm `session_id`; nếu access token hợp lệ thì Gateway tự gắn
+`user_id`. Client chỉ được gửi `book.viewed`, `book.searched`,
+`book.added_to_cart`, `book.removed_from_cart` và `checkout.started`.
+
+`comment.created` được Gateway phát sau khi Comment Service trả thành công.
+`order.confirmed` là event authoritative: Order Service ghi một outbox activity
+riêng trong cùng database transaction với trạng thái order. Dispatcher của activity
+độc lập với `orders.outbox_events`, nên lỗi topic hành vi không chặn order lifecycle.
+
+Topic `bookstore.customer-activity` có 12 partition, dùng `actor_id` làm message
+key để giữ thứ tự hành vi của cùng khách/session. Analytics Service consume bằng
+group `bookstore-customer-activity-analytics-v1`, ghi inbox idempotent và raw event
+vào schema `analytics`. Record sai contract sau retry được chuyển sang
+`bookstore.customer-activity.dlq`.
+Topic activity giữ event 90 ngày; DLQ giữ 30 ngày. PostgreSQL raw activity hiện
+chưa tự xóa để tránh mất dữ liệu ngoài ý muốn; trước production cần đặt retention
+job phù hợp với consent và chính sách dữ liệu của hệ thống.
+
+Các read API:
+
+- `GET /api/v1/recommendations/trending`: xếp hạng theo view, add-to-cart và comment.
+- `GET /api/v1/books/:id/related`: co-occurrence theo actor trong 30 ngày mặc định.
+- `GET /api/v1/admin/analytics/customer-activity`: event count, funnel conversion,
+  cart abandonment và top books; yêu cầu role `admin`.
+
+Các API trên là eventual consistency và không tham gia quyết định stock/payment.
+Search query được giới hạn 200 ký tự; production nên bổ sung consent, retention và
+quy trình xóa dữ liệu theo chính sách quyền riêng tư trước khi dùng cho marketing.
 
 Không lưu access token hoặc refresh token thô trong Redis. Access token hiện là JWT stateless; refresh token được hash và rotate/revoke bằng transaction PostgreSQL để chống replay. Nếu sau này cần revoke access token tức thời, nên thêm denylist theo `jti` với TTL bằng thời gian sống còn lại của token, không cache token plaintext.
 

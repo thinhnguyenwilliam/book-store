@@ -1,6 +1,6 @@
 # Book Store
 
-Book Store gồm backend Golang theo hướng microservice, Clean Architecture và DDD cùng storefront và admin portal Vue 3 + TypeScript. Gateway public dùng Echo/HTTP, các service nội bộ giao tiếp bằng gRPC, dữ liệu lưu trong PostgreSQL qua GORM và domain event được xử lý bằng transactional outbox + RabbitMQ.
+Book Store gồm backend Golang theo hướng microservice, Clean Architecture và DDD cùng storefront và admin portal Vue 3 + TypeScript. Gateway public dùng Echo/HTTP, các service nội bộ giao tiếp bằng gRPC, dữ liệu lưu trong PostgreSQL qua GORM; RabbitMQ xử lý workflow còn Kafka cấp event stream cho analytics và Elasticsearch search index.
 
 Repository gồm `backend/`, `storefront/` và `admin-portal/`.
 
@@ -26,7 +26,7 @@ RabbitMQ -> Worker       |
     auth    users   catalog
 ```
 
-Redis được giữ riêng cho cache/rate-limit. RabbitMQ chịu trách nhiệm truyền domain event.
+Redis được giữ riêng cho cache/rate-limit. PostgreSQL là source of truth; Elasticsearch phục vụ typo-tolerant book search, autocomplete, filter và ranking, được đồng bộ qua catalog outbox + Kafka.
 
 Auth dùng access token JWT ngắn hạn `5m` và refresh token opaque `168h`. Storefront chỉ giữ access token trong memory; refresh token được Gateway đặt trong cookie `HttpOnly` và rotate qua PostgreSQL mỗi lần làm mới phiên.
 
@@ -100,7 +100,7 @@ Nếu máy không có `make`, dùng trực tiếp:
 docker compose up -d --build
 ```
 
-Lần chạy đầu Docker cần tải image và build năm Go service nên có thể mất vài phút.
+Lần chạy đầu Docker cần tải image Elasticsearch/Kafka và build các Go service nên có thể mất vài phút.
 
 Kiểm tra container:
 
@@ -122,20 +122,20 @@ Kết quả mong đợi:
 
 ## Chạy Go service trực tiếp trên máy
 
-Chỉ khởi động PostgreSQL, pgAdmin, Redis, RedisInsight và RabbitMQ bằng Docker; năm service Go trong Docker sẽ được dừng để giải phóng port:
+Chỉ khởi động infrastructure bằng Docker; các service Go trong Docker sẽ được dừng để giải phóng port:
 
 ```bash
 cd backend
 make local-prepare
 ```
 
-Sau đó mở năm terminal và chạy từng service:
+Sau đó mở terminal riêng cho từng service cần phát triển. Với tìm kiếm sách, tối thiểu chạy:
 
 ```bash
 make local-auth
 make local-user
 make local-book
-make local-worker
+make local-search
 make local-gateway
 ```
 
@@ -150,7 +150,7 @@ cd backend
 make dev
 ```
 
-Theo dõi log reload của năm Go service:
+Theo dõi log reload của các Go service:
 
 ```bash
 make dev-logs
@@ -213,6 +213,9 @@ Mở <http://localhost:5174>. Tài khoản phải có role `admin`; xem lệnh c
 - RedisInsight: <http://localhost:5540>
 - RabbitMQ AMQP: `localhost:5672`
 - RabbitMQ Management: <http://localhost:15672>
+- Kafka: `localhost:9092`
+- Kafka UI: <http://localhost:8085>
+- Elasticsearch: <http://localhost:9200>
 
 Thông tin đăng nhập local:
 

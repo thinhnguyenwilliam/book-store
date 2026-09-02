@@ -13,6 +13,7 @@ import (
 	"time"
 
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
+	kafkaadapter "github.com/thinhnguyenwilliam/book-store/backend/internal/messaging/kafka"
 	rabbitmqadapter "github.com/thinhnguyenwilliam/book-store/backend/internal/messaging/rabbitmq"
 	orderevents "github.com/thinhnguyenwilliam/book-store/backend/internal/order/adapter/events"
 	ordergrpcclient "github.com/thinhnguyenwilliam/book-store/backend/internal/order/adapter/grpcclient"
@@ -25,6 +26,7 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcserver"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/lifecycle"
 	appLogger "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/logger"
+	platformoutbox "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/outbox"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/rediscache"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -74,6 +76,10 @@ func run(cfg config.Config) error {
 		return err
 	}
 	paymentReconcileGrace, err := time.ParseDuration(cfg.Commerce.PaymentReconcileGrace)
+	if err != nil {
+		return err
+	}
+	pollInterval, err := time.ParseDuration(cfg.Outbox.PollInterval)
 	if err != nil {
 		return err
 	}
@@ -127,6 +133,36 @@ func run(cfg config.Config) error {
 		}
 	}
 	handler := ordergrpc.NewHandler(service)
+	var orderEventDispatcher *platformoutbox.Dispatcher
+	var activityEventDispatcher *platformoutbox.Dispatcher
+	if cfg.Kafka.Enabled {
+		orderPublisher, publisherErr := kafkaadapter.NewPublisher(
+			cfg.Kafka.Brokers, cfg.Kafka.ClientID+"-order", cfg.Kafka.OrderEventsTopic,
+		)
+		if publisherErr != nil {
+			return publisherErr
+		}
+		defer orderPublisher.Close()
+		activityPublisher, activityPublisherErr := kafkaadapter.NewPublisher(
+			cfg.Kafka.Brokers, cfg.Kafka.ClientID+"-order-activity", cfg.Kafka.CustomerActivityTopic,
+		)
+		if activityPublisherErr != nil {
+			return activityPublisherErr
+		}
+		defer activityPublisher.Close()
+		orderEventDispatcher, err = platformoutbox.NewDispatcher(
+			db, orderPublisher, "orders.outbox_events", pollInterval,
+		)
+		if err != nil {
+			return err
+		}
+		activityEventDispatcher, err = platformoutbox.NewDispatcher(
+			db, activityPublisher, "orders.customer_activity_outbox_events", pollInterval,
+		)
+		if err != nil {
+			return err
+		}
+	}
 
 	serverCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -155,6 +191,20 @@ func run(cfg config.Config) error {
 			slog.Error("payment event consumer stopped", "error", err)
 		}
 	}()
+	if orderEventDispatcher != nil {
+		reconcileWorkers.Add(1)
+		go func() {
+			defer reconcileWorkers.Done()
+			orderEventDispatcher.Run(reconcileCtx)
+		}()
+	}
+	if activityEventDispatcher != nil {
+		reconcileWorkers.Add(1)
+		go func() {
+			defer reconcileWorkers.Done()
+			activityEventDispatcher.Run(reconcileCtx)
+		}()
+	}
 
 	serverErr := grpcserver.Run(serverCtx, cfg.GRPC.OrderListenAddress, shutdownTimeout, func(server *grpc.Server) {
 		bookstorev1.RegisterOrderServiceServer(server, handler)

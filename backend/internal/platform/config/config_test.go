@@ -35,6 +35,8 @@ grpc:
   notification_address: "notification:50056"
   comment_address: "comment:50057"
   chat_address: "chat:50058"
+  analytics_address: "analytics:50059"
+  search_address: "search:50060"
   auth_listen_address: ":50051"
   user_listen_address: ":50052"
   book_listen_address: ":50053"
@@ -43,6 +45,8 @@ grpc:
   notification_listen_address: ":50056"
   comment_listen_address: ":50057"
   chat_listen_address: ":50058"
+  analytics_listen_address: ":50059"
+  search_listen_address: ":50060"
   call_timeout: "1500ms"
 postgres:
   url: "postgres://bookstore:bookstore@postgres:5432/bookstore"

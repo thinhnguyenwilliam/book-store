@@ -5,6 +5,8 @@ import (
 
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/order/domain"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type BookClient struct {
@@ -44,5 +46,10 @@ func (c *BookClient) CommitStock(ctx context.Context, orderID, bookID string) er
 
 func (c *BookClient) ReleaseStock(ctx context.Context, orderID, bookID string) error {
 	_, err := c.client.ReleaseStock(ctx, &bookstorev1.ReleaseStockRequest{OrderId: orderID, BookId: bookID})
+	// Compensation is at-least-once. A missing reservation means there is
+	// nothing left to release and is therefore an idempotent success.
+	if status.Code(err) == codes.NotFound {
+		return nil
+	}
 	return err
 }

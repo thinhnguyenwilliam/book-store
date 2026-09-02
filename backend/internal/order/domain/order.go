@@ -11,6 +11,7 @@ var (
 	ErrCartEmpty           = errors.New("cart is empty")
 	ErrOrderNotFound       = errors.New("order not found")
 	ErrOrderState          = errors.New("invalid order state")
+	ErrReservationExpired  = errors.New("stock reservation expired")
 	ErrIdempotencyConflict = errors.New("idempotency key conflict")
 	ErrPaymentDeclined     = errors.New("payment declined")
 	ErrPaymentNotFound     = errors.New("payment not found")
@@ -37,6 +38,8 @@ type CartItem struct {
 
 type Item struct {
 	ID             string
+	CartItemID     string
+	CartUpdatedAt  time.Time
 	BookID         string
 	SellerID       string
 	Title          string

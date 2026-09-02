@@ -17,7 +17,9 @@ import (
 	echoSwagger "github.com/swaggo/echo-swagger"
 	_ "github.com/thinhnguyenwilliam/book-store/backend/docs"
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
+	gatewayactivity "github.com/thinhnguyenwilliam/book-store/backend/internal/gateway/activity"
 	gatewayhttp "github.com/thinhnguyenwilliam/book-store/backend/internal/gateway/http"
+	kafkaadapter "github.com/thinhnguyenwilliam/book-store/backend/internal/messaging/kafka"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/config"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcclient"
 	appLogger "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/logger"
@@ -209,6 +211,31 @@ func run(cfg config.Config) error {
 		return err
 	}
 	defer func() { _ = chatConnection.Close() }()
+
+	analyticsConnection, err := grpc.NewClient(
+		cfg.GRPC.AnalyticsAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(
+			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout), grpcclient.UnaryLoggingInterceptor,
+		),
+		grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor),
+	)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = analyticsConnection.Close() }()
+	searchConnection, err := grpc.NewClient(
+		cfg.GRPC.SearchAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(
+			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout), grpcclient.UnaryLoggingInterceptor,
+		),
+		grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor),
+	)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = searchConnection.Close() }()
 	chatClient := bookstorev1.NewChatServiceClient(chatConnection)
 	realtimeStartupCtx, cancelRealtimeStartup := context.WithTimeout(context.Background(), 5*time.Second)
 	realtime, err := gatewayhttp.NewChatRealtime(realtimeStartupCtx, gatewayhttp.ChatRealtimeConfig{
@@ -253,6 +280,29 @@ func run(cfg config.Config) error {
 	)
 	if err != nil {
 		return err
+	}
+	handler.SetAnalyticsClient(bookstorev1.NewAnalyticsServiceClient(analyticsConnection))
+	handler.SetSearchClient(bookstorev1.NewSearchServiceClient(searchConnection))
+	if cfg.Kafka.Enabled {
+		activityPublisher, publisherErr := kafkaadapter.NewPublisher(
+			cfg.Kafka.Brokers, cfg.Kafka.ClientID+"-gateway-activity", cfg.Kafka.CustomerActivityTopic,
+		)
+		if publisherErr != nil {
+			return publisherErr
+		}
+		defer activityPublisher.Close()
+		activityTracker, trackerErr := gatewayactivity.NewTracker(activityPublisher, cfg.Kafka.ActivityBufferSize)
+		if trackerErr != nil {
+			return trackerErr
+		}
+		defer func() {
+			closeCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+			defer cancel()
+			if closeErr := activityTracker.Close(closeCtx); closeErr != nil {
+				slog.Warn("close customer activity tracker", "error", closeErr)
+			}
+		}()
+		handler.SetActivityRecorder(activityTracker)
 	}
 
 	e := echo.New()

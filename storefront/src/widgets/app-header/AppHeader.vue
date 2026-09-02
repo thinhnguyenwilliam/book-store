@@ -24,9 +24,11 @@ watch(
     window.clearInterval(refreshTimer)
     if (!authenticated) {
       inbox.clear()
+      cart.switchToGuest()
       notificationsOpen.value = false
       return
     }
+    await cart.syncAuthenticated().catch(() => undefined)
     await inbox.refresh().catch(() => undefined)
     refreshTimer = window.setInterval(() => void inbox.refresh().catch(() => undefined), 30_000)
   },

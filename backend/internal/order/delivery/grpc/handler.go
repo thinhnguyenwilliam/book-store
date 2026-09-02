@@ -201,7 +201,8 @@ func mapError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrCartItemNotFound), errors.Is(err, domain.ErrOrderNotFound):
 		return status.Error(codes.NotFound, err.Error())
-	case errors.Is(err, domain.ErrOrderState), errors.Is(err, domain.ErrPaymentDeclined):
+	case errors.Is(err, domain.ErrOrderState), errors.Is(err, domain.ErrReservationExpired),
+		errors.Is(err, domain.ErrPaymentDeclined):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrIdempotencyConflict):
 		return status.Error(codes.AlreadyExists, err.Error())

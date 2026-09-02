@@ -101,6 +101,24 @@ type BookListResponse struct {
 	Pagination CursorPagination `json:"pagination"`
 }
 
+type BookSearchHitResponse struct {
+	Book       BookResponse      `json:"book"`
+	Score      float64           `json:"score"`
+	Highlights map[string]string `json:"highlights,omitempty"`
+}
+
+type BookSearchResponse struct {
+	Data       []BookSearchHitResponse `json:"data"`
+	Pagination CursorPagination        `json:"pagination"`
+	Total      int64                   `json:"total"`
+	TookMS     int64                   `json:"took_ms"`
+}
+
+type BookSuggestionResponse struct {
+	Data   []BookSearchHitResponse `json:"data"`
+	TookMS int64                   `json:"took_ms"`
+}
+
 type AddCartItemRequest struct {
 	BookID   string `json:"bookId" format:"uuid"`
 	Quantity int32  `json:"quantity" minimum:"1" maximum:"100"`
@@ -195,6 +213,70 @@ type WalletResponse struct {
 	Currency     string `json:"currency"`
 	CreatedAt    string `json:"created_at" format:"date-time"`
 	UpdatedAt    string `json:"updated_at" format:"date-time"`
+}
+
+type DailyOrderMetricResponse struct {
+	Date      string `json:"date" example:"2026-09-01"`
+	Created   int64  `json:"created"`
+	Confirmed int64  `json:"confirmed"`
+	Cancelled int64  `json:"cancelled"`
+}
+
+type OrderAnalyticsResponse struct {
+	From                       string                     `json:"from" format:"date-time"`
+	To                         string                     `json:"to" format:"date-time"`
+	TotalOrders                int64                      `json:"total_orders"`
+	ConfirmedOrders            int64                      `json:"confirmed_orders"`
+	CancelledOrders            int64                      `json:"cancelled_orders"`
+	PaymentAttempts            int64                      `json:"payment_attempts"`
+	PaymentSucceeded           int64                      `json:"payment_succeeded"`
+	PaymentFailed              int64                      `json:"payment_failed"`
+	StockReservationFailed     int64                      `json:"stock_reservation_failed"`
+	PaymentSuccessRate         float64                    `json:"payment_success_rate"`
+	AverageConfirmationSeconds float64                    `json:"average_confirmation_seconds"`
+	Daily                      []DailyOrderMetricResponse `json:"daily"`
+	LastEventAt                string                     `json:"last_event_at,omitempty" format:"date-time"`
+}
+
+type EventCountResponse struct {
+	EventType string `json:"event_type"`
+	Count     int64  `json:"count"`
+}
+
+type BookActivityMetricResponse struct {
+	BookID   string  `json:"book_id" format:"uuid"`
+	Views    int64   `json:"views"`
+	CartAdds int64   `json:"cart_adds"`
+	Comments int64   `json:"comments"`
+	Score    float64 `json:"score"`
+}
+
+type CustomerActivityAnalyticsResponse struct {
+	From                string                       `json:"from" format:"date-time"`
+	To                  string                       `json:"to" format:"date-time"`
+	TotalEvents         int64                        `json:"total_events"`
+	UniqueActors        int64                        `json:"unique_actors"`
+	AbandonedCarts      int64                        `json:"abandoned_carts"`
+	ViewToCartRate      float64                      `json:"view_to_cart_rate"`
+	CartToCheckoutRate  float64                      `json:"cart_to_checkout_rate"`
+	CheckoutToOrderRate float64                      `json:"checkout_to_order_rate"`
+	EventCounts         []EventCountResponse         `json:"event_counts"`
+	TopBooks            []BookActivityMetricResponse `json:"top_books"`
+	LastEventAt         string                       `json:"last_event_at,omitempty" format:"date-time"`
+}
+
+type BookActivityListResponse struct {
+	Data []BookActivityMetricResponse `json:"data"`
+}
+
+type RelatedBookResponse struct {
+	BookID       string  `json:"book_id" format:"uuid"`
+	SharedActors int64   `json:"shared_actors"`
+	Score        float64 `json:"score"`
+}
+
+type RelatedBookListResponse struct {
+	Data []RelatedBookResponse `json:"data"`
 }
 
 // CustomerListResponse is returned by the admin customer listing endpoint.

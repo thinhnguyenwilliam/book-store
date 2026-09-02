@@ -28,6 +28,8 @@ grpc:
   notification_address: "localhost:50056"
   comment_address: "localhost:50057"
   chat_address: "localhost:50058"
+  analytics_address: "localhost:50059"
+  search_address: "localhost:50060"
   auth_listen_address: ":50051"
   user_listen_address: ":50052"
   book_listen_address: ":50053"
@@ -36,6 +38,8 @@ grpc:
   notification_listen_address: ":50056"
   comment_listen_address: ":50057"
   chat_listen_address: ":50058"
+  analytics_listen_address: ":50059"
+  search_listen_address: ":50060"
   call_timeout: "1500ms"
 
 postgres:
@@ -148,6 +152,34 @@ rabbitmq:
   consumer_name: "bookstore-user-profile-worker-local"
   consumer_concurrency: 10
   prefetch: 20
+
+kafka:
+  enabled: true
+  brokers:
+    - "localhost:9092"
+  client_id: "bookstore-local"
+  order_events_topic: "bookstore.order-events"
+  order_events_dlq_topic: "bookstore.order-events.dlq"
+  analytics_consumer_group: "bookstore-order-analytics-v1"
+  customer_activity_topic: "bookstore.customer-activity"
+  customer_activity_dlq_topic: "bookstore.customer-activity.dlq"
+  activity_consumer_group: "bookstore-customer-activity-analytics-v1"
+  activity_buffer_size: 4096
+  catalog_events_topic: "bookstore.catalog-events"
+  catalog_events_dlq_topic: "bookstore.catalog-events.dlq"
+  search_consumer_group: "bookstore-catalog-search-v1"
+  consumer_max_retries: 3
+  consumer_retry_backoff: "1s"
+
+elasticsearch:
+  enabled: true
+  addresses:
+    - "http://localhost:9200"
+  username: ""
+  password: ""
+  index_alias: "bookstore-books"
+  request_timeout: "2s"
+  bootstrap_reindex: true
 
 outbox:
   outbox_poll_interval: "2s"

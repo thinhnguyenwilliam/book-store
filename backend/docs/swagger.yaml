@@ -30,6 +30,27 @@ definitions:
         format: uuid
         type: string
     type: object
+  http.BookActivityListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/http.BookActivityMetricResponse'
+        type: array
+    type: object
+  http.BookActivityMetricResponse:
+    properties:
+      book_id:
+        format: uuid
+        type: string
+      cart_adds:
+        type: integer
+      comments:
+        type: integer
+      score:
+        type: number
+      views:
+        type: integer
+    type: object
   http.BookListResponse:
     properties:
       data:
@@ -89,6 +110,39 @@ definitions:
       updated_at:
         format: date-time
         type: string
+    type: object
+  http.BookSearchHitResponse:
+    properties:
+      book:
+        $ref: '#/definitions/http.BookResponse'
+      highlights:
+        additionalProperties:
+          type: string
+        type: object
+      score:
+        type: number
+    type: object
+  http.BookSearchResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/http.BookSearchHitResponse'
+        type: array
+      pagination:
+        $ref: '#/definitions/http.CursorPagination'
+      took_ms:
+        type: integer
+      total:
+        type: integer
+    type: object
+  http.BookSuggestionResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/http.BookSearchHitResponse'
+        type: array
+      took_ms:
+        type: integer
     type: object
   http.CartItemResponse:
     properties:
@@ -266,6 +320,74 @@ definitions:
       next_cursor:
         type: string
     type: object
+  http.CustomerActivityAcceptedResponse:
+    properties:
+      event_id:
+        format: uuid
+        type: string
+      status:
+        example: accepted
+        type: string
+    type: object
+  http.CustomerActivityAnalyticsResponse:
+    properties:
+      abandoned_carts:
+        type: integer
+      cart_to_checkout_rate:
+        type: number
+      checkout_to_order_rate:
+        type: number
+      event_counts:
+        items:
+          $ref: '#/definitions/http.EventCountResponse'
+        type: array
+      from:
+        format: date-time
+        type: string
+      last_event_at:
+        format: date-time
+        type: string
+      to:
+        format: date-time
+        type: string
+      top_books:
+        items:
+          $ref: '#/definitions/http.BookActivityMetricResponse'
+        type: array
+      total_events:
+        type: integer
+      unique_actors:
+        type: integer
+      view_to_cart_rate:
+        type: number
+    type: object
+  http.CustomerActivityRequest:
+    properties:
+      anonymous_id:
+        format: uuid
+        type: string
+      book_id:
+        format: uuid
+        type: string
+      event_type:
+        enum:
+        - book.viewed
+        - book.searched
+        - book.added_to_cart
+        - book.removed_from_cart
+        - checkout.started
+        type: string
+      quantity:
+        maximum: 100
+        minimum: 1
+        type: integer
+      query:
+        maxLength: 200
+        type: string
+      session_id:
+        format: uuid
+        type: string
+    type: object
   http.CustomerListResponse:
     properties:
       data:
@@ -274,6 +396,18 @@ definitions:
         type: array
       pagination:
         $ref: '#/definitions/http.CursorPagination'
+    type: object
+  http.DailyOrderMetricResponse:
+    properties:
+      cancelled:
+        type: integer
+      confirmed:
+        type: integer
+      created:
+        type: integer
+      date:
+        example: "2026-09-01"
+        type: string
     type: object
   http.DeletionAcceptedResponse:
     properties:
@@ -299,6 +433,13 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/http.ErrorDetail'
+    type: object
+  http.EventCountResponse:
+    properties:
+      count:
+        type: integer
+      event_type:
+        type: string
     type: object
   http.FacebookLoginRequest:
     properties:
@@ -369,6 +510,40 @@ definitions:
         type: string
       type:
         type: string
+    type: object
+  http.OrderAnalyticsResponse:
+    properties:
+      average_confirmation_seconds:
+        type: number
+      cancelled_orders:
+        type: integer
+      confirmed_orders:
+        type: integer
+      daily:
+        items:
+          $ref: '#/definitions/http.DailyOrderMetricResponse'
+        type: array
+      from:
+        format: date-time
+        type: string
+      last_event_at:
+        format: date-time
+        type: string
+      payment_attempts:
+        type: integer
+      payment_failed:
+        type: integer
+      payment_succeeded:
+        type: integer
+      payment_success_rate:
+        type: number
+      stock_reservation_failed:
+        type: integer
+      to:
+        format: date-time
+        type: string
+      total_orders:
+        type: integer
     type: object
   http.OrderItemResponse:
     properties:
@@ -526,6 +701,23 @@ definitions:
         example: password123
         type: string
     type: object
+  http.RelatedBookListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/http.RelatedBookResponse'
+        type: array
+    type: object
+  http.RelatedBookResponse:
+    properties:
+      book_id:
+        format: uuid
+        type: string
+      score:
+        type: number
+      shared_actors:
+        type: integer
+    type: object
   http.UnreadCountResponse:
     properties:
       count:
@@ -605,6 +797,92 @@ info:
   title: Book Store API
   version: "1.0"
 paths:
+  /api/v1/admin/analytics/customer-activity:
+    get:
+      description: Returns Kafka-backed event counts, conversion funnel, cart abandonment
+        and trending books. Data is eventually consistent.
+      parameters:
+      - description: Inclusive start
+        in: query
+        name: from
+        type: string
+      - description: Inclusive calendar end, or exclusive RFC3339 end
+        in: query
+        name: to
+        type: string
+      - default: 10
+        description: Number of top books
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.CustomerActivityAnalyticsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get customer behavior analytics
+      tags:
+      - Admin Analytics
+  /api/v1/admin/analytics/orders:
+    get:
+      description: Returns the Kafka-backed order read model. Dates accept RFC3339
+        or YYYY-MM-DD; an omitted range defaults to the last 30 days. Data is eventually
+        consistent.
+      parameters:
+      - description: Inclusive start
+        in: query
+        name: from
+        type: string
+      - description: Inclusive calendar end, or exclusive RFC3339 end
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.OrderAnalyticsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get order lifecycle analytics
+      tags:
+      - Admin Analytics
   /api/v1/admin/books:
     post:
       consumes:
@@ -1336,6 +1614,150 @@ paths:
       summary: Comment on a book or reply to a comment
       tags:
       - Comments
+  /api/v1/books/{id}/related:
+    get:
+      description: Finds books viewed, carted or commented on by actors who also interacted
+        with the requested book.
+      parameters:
+      - description: Book ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Inclusive start
+        in: query
+        name: from
+        type: string
+      - description: Inclusive calendar end, or exclusive RFC3339 end
+        in: query
+        name: to
+        type: string
+      - default: 10
+        description: Result size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.RelatedBookListResponse'
+      summary: Get behaviorally related book IDs
+      tags:
+      - Recommendations
+  /api/v1/books/search:
+    get:
+      description: Full-text catalog search with typo tolerance, autocomplete-aware
+        relevance, filters and cursor pagination.
+      parameters:
+      - description: Title, author or ISBN
+        in: query
+        maxLength: 200
+        name: q
+        type: string
+      - default: 20
+        description: Items per request
+        in: query
+        maximum: 50
+        minimum: 1
+        name: limit
+        type: integer
+      - description: Opaque cursor returned by the previous request
+        in: query
+        name: cursor
+        type: string
+      - description: Minimum price in cents
+        in: query
+        minimum: 0
+        name: min_price_cents
+        type: integer
+      - description: Maximum price in cents
+        in: query
+        minimum: 0
+        name: max_price_cents
+        type: integer
+      - description: Filter by stock availability
+        in: query
+        name: in_stock
+        type: boolean
+      - description: Seller UUID
+        in: query
+        name: seller_id
+        type: string
+      - description: Exact author filter
+        in: query
+        name: author
+        type: string
+      - default: relevance
+        description: Sort mode
+        enum:
+        - relevance
+        - newest
+        - price_asc
+        - price_desc
+        in: query
+        name: sort
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.BookSearchResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Search books
+      tags:
+      - Books
+  /api/v1/books/suggest:
+    get:
+      description: Returns typo-tolerant title and author suggestions for an as-you-type
+        query.
+      parameters:
+      - description: At least two characters
+        in: query
+        maxLength: 120
+        minLength: 2
+        name: q
+        required: true
+        type: string
+      - default: 8
+        description: Maximum suggestions
+        in: query
+        maximum: 10
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.BookSuggestionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Autocomplete books
+      tags:
+      - Books
   /api/v1/cart/items:
     get:
       produces:
@@ -1759,6 +2181,43 @@ paths:
       summary: List replies in a comment thread
       tags:
       - Comments
+  /api/v1/customer-activity:
+    post:
+      consumes:
+      - application/json
+      description: Queues a non-critical browser activity event for Kafka. Authorization
+        is optional; anonymous clients must provide stable anonymous_id and session_id
+        UUIDs. Authoritative order/comment events are generated server-side and cannot
+        be submitted here.
+      parameters:
+      - description: Customer activity
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.CustomerActivityRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/http.CustomerActivityAcceptedResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Track storefront customer activity
+      tags:
+      - Customer Activity
   /api/v1/notifications:
     get:
       parameters:
@@ -2072,6 +2531,36 @@ paths:
       summary: Receive signed VNPAY IPN notifications
       tags:
       - Payment Webhooks
+  /api/v1/recommendations/trending:
+    get:
+      description: Ranks books from recent view, add-to-cart and comment activity.
+        The default range is the last 30 days.
+      parameters:
+      - description: Inclusive start
+        in: query
+        name: from
+        type: string
+      - description: Inclusive calendar end, or exclusive RFC3339 end
+        in: query
+        name: to
+        type: string
+      - default: 10
+        description: Result size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.BookActivityListResponse'
+      summary: Get trending book IDs
+      tags:
+      - Recommendations
   /api/v1/users/me:
     get:
       description: Returns the profile associated with the bearer token.

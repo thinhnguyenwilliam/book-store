@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package bookstore.v1;
+
+option go_package = "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1;bookstorev1";
+
+import "bookstore/v1/book.proto";
+
+service SearchService {
+  rpc SearchBooks(SearchBooksRequest) returns (SearchBooksResponse);
+  rpc SuggestBooks(SuggestBooksRequest) returns (SuggestBooksResponse);
+}
+
+message SearchBooksRequest {
+  string query = 1;
+  int32 limit = 2;
+  string cursor = 3;
+  int64 min_price_cents = 4;
+  int64 max_price_cents = 5;
+  optional bool in_stock = 6;
+  string seller_id = 7;
+  string author = 8;
+  string sort = 9;
+}
+
+message SearchBookHit {
+  Book book = 1;
+  double score = 2;
+  map<string, string> highlights = 3;
+}
+
+message SearchBooksResponse {
+  repeated SearchBookHit hits = 1;
+  string next_cursor = 2;
+  bool has_more = 3;
+  int64 total = 4;
+  int64 took_ms = 5;
+}
+
+message SuggestBooksRequest {
+  string query = 1;
+  int32 limit = 2;
+}
+
+message SuggestBooksResponse {
+  repeated SearchBookHit hits = 1;
+  int64 took_ms = 2;
+}

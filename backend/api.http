@@ -11,6 +11,8 @@
 @paymentKey = payment-reader-http-001
 @pushDeviceId = 33333333-3333-4333-8333-333333333333
 @fcmRegistrationToken = paste-fcm-registration-token-from-browser-here
+@anonymousId = 44444444-4444-4444-8444-444444444444
+@activitySessionId = 55555555-5555-4555-8555-555555555555
 
 ### 1. Gateway health check
 GET {{baseUrl}}/healthz
@@ -128,6 +130,24 @@ Accept: application/json
 ### 6.1. List next book page - run after request 6
 # Chi chay request nay khi response 6 co has_more=true va next_cursor.
 GET {{baseUrl}}/api/v1/books?limit={{bookPageLimit}}&cursor={{firstBookPage.response.body.$.pagination.next_cursor}}
+Accept: application/json
+
+### 6.2. Typo-tolerant book search
+# "Archtecture" co tinh viet sai de kiem tra fuzziness=AUTO.
+# @name firstSearchPage
+GET {{baseUrl}}/api/v1/books/search?q=Clean%20Archtecture&limit=2&in_stock=true&sort=relevance
+Accept: application/json
+
+### 6.3. Next search page - run only when 6.2 has has_more=true
+GET {{baseUrl}}/api/v1/books/search?q=Clean%20Archtecture&limit=2&in_stock=true&sort=relevance&cursor={{firstSearchPage.response.body.$.pagination.next_cursor}}
+Accept: application/json
+
+### 6.4. Autocomplete books
+GET {{baseUrl}}/api/v1/books/suggest?q=clea&limit=8
+Accept: application/json
+
+### 6.5. Filter and sort indexed books
+GET {{baseUrl}}/api/v1/books/search?min_price_cents=1000&max_price_cents=5000&in_stock=true&sort=price_asc&limit=20
 Accept: application/json
 
 ### Admin setup
@@ -315,6 +335,12 @@ Authorization: Bearer {{login.response.body.$.access_token}}
 ### 14. Swagger JSON
 GET {{baseUrl}}/swagger/doc.json
 Accept: application/json
+
+### 14.1. Kafka-backed order analytics - admin only
+# Data eventually consistent; run after creating/paying/cancelling orders and wait for consumer.
+GET {{baseUrl}}/api/v1/admin/analytics/orders?from=2026-09-01&to=2026-09-30
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
 
 ### 15. List my notifications
 # @name firstNotificationPage
@@ -511,3 +537,42 @@ Authorization: Bearer {{login.response.body.$.access_token}}
     "id": "{{createOrder.response.body.$.id}}"
   }
 }
+
+### 19. Track anonymous book view
+POST {{baseUrl}}/api/v1/customer-activity
+Content-Type: application/json
+Accept: application/json
+
+{
+  "event_type": "book.viewed",
+  "anonymous_id": "{{anonymousId}}",
+  "session_id": "{{activitySessionId}}",
+  "book_id": "{{createBook.response.body.$.id}}"
+}
+
+### 19.1. Track authenticated add-to-cart
+POST {{baseUrl}}/api/v1/customer-activity
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+{
+  "event_type": "book.added_to_cart",
+  "anonymous_id": "{{anonymousId}}",
+  "session_id": "{{activitySessionId}}",
+  "book_id": "{{createBook.response.body.$.id}}",
+  "quantity": 1
+}
+
+### 19.2. Trending books - eventual consistency
+GET {{baseUrl}}/api/v1/recommendations/trending?limit=10
+Accept: application/json
+
+### 19.3. Related books - eventual consistency
+GET {{baseUrl}}/api/v1/books/{{createBook.response.body.$.id}}/related?limit=10
+Accept: application/json
+
+### 19.4. Customer activity analytics - admin only
+GET {{baseUrl}}/api/v1/admin/analytics/customer-activity?limit=10
+Accept: application/json
+Authorization: Bearer {{login.response.body.$.access_token}}

@@ -5,16 +5,49 @@ import {
   getAdminDashboard,
   type DashboardSnapshot,
 } from '@/features/dashboard/api/dashboard.graphql'
+import {
+  getCustomerActivityAnalytics,
+  getOrderAnalytics,
+  type CustomerActivityAnalytics,
+  type OrderAnalytics,
+} from '@/features/dashboard/api/analytics.api'
 import { ApiError } from '@/shared/api/http-client'
 import { formatDateTime, formatPrice } from '@/shared/lib/format'
 import AppIcon from '@/shared/ui/AppIcon.vue'
 
 const snapshot = ref<DashboardSnapshot>()
+const orderAnalytics = ref<OrderAnalytics>()
+const customerActivity = ref<CustomerActivityAnalytics>()
 const loading = ref(true)
 const error = ref('')
+const analyticsError = ref('')
+const activityError = ref('')
 const controller = new AbortController()
 
 onMounted(async () => {
+  const analyticsPromise = getOrderAnalytics(controller.signal).then((response) => {
+    orderAnalytics.value = response
+  })
+  const activityPromise = getCustomerActivityAnalytics(controller.signal)
+    .then((response) => {
+      customerActivity.value = response
+    })
+    .catch((requestError: unknown) => {
+      if (!controller.signal.aborted) {
+        activityError.value =
+          requestError instanceof ApiError
+            ? requestError.message
+            : 'Không thể tải hành vi khách hàng.'
+      }
+    })
+    .catch((requestError: unknown) => {
+      if (!controller.signal.aborted) {
+        analyticsError.value =
+          requestError instanceof ApiError
+            ? requestError.message
+            : 'Không thể tải báo cáo đơn hàng.'
+      }
+    })
   try {
     snapshot.value = await getAdminDashboard(controller.signal)
   } catch (requestError) {
@@ -23,6 +56,7 @@ onMounted(async () => {
         requestError instanceof ApiError ? requestError.message : 'Không thể tải dashboard.'
     }
   } finally {
+    await Promise.all([analyticsPromise, activityPromise])
     loading.value = false
   }
 })
@@ -83,6 +117,100 @@ onBeforeUnmount(() => controller.abort())
     </section>
 
     <p v-if="error" class="inline-error">{{ error }}</p>
+
+    <section class="page-stack" aria-label="Báo cáo đơn hàng từ Kafka">
+      <header class="analytics-heading">
+        <div>
+          <p class="eyebrow">Kafka · 30 ngày gần nhất</p>
+          <h2>Vòng đời đơn hàng</h2>
+        </div>
+        <small v-if="orderAnalytics?.last_event_at">
+          Event mới nhất {{ formatDateTime(orderAnalytics.last_event_at) }}
+        </small>
+      </header>
+      <div class="stats-grid">
+        <article class="stat-card">
+          <span class="stat-card__icon stat-card__icon--blue"><AppIcon name="package" /></span>
+          <div>
+            <p>Đơn đã tạo</p>
+            <strong>{{ orderAnalytics?.total_orders ?? 0 }}</strong>
+            <small>{{ orderAnalytics?.confirmed_orders ?? 0 }} đã xác nhận</small>
+          </div>
+        </article>
+        <article class="stat-card">
+          <span class="stat-card__icon stat-card__icon--green"><AppIcon name="check" /></span>
+          <div>
+            <p>Payment thành công</p>
+            <strong>{{ (orderAnalytics?.payment_success_rate ?? 0).toFixed(1) }}%</strong>
+            <small>{{ orderAnalytics?.payment_succeeded ?? 0 }} giao dịch</small>
+          </div>
+        </article>
+        <article class="stat-card">
+          <span class="stat-card__icon stat-card__icon--red"><AppIcon name="alert" /></span>
+          <div>
+            <p>Đơn bị hủy</p>
+            <strong>{{ orderAnalytics?.cancelled_orders ?? 0 }}</strong>
+            <small>{{ orderAnalytics?.stock_reservation_failed ?? 0 }} lỗi giữ kho</small>
+          </div>
+        </article>
+        <article class="stat-card">
+          <span class="stat-card__icon stat-card__icon--gold"><AppIcon name="value" /></span>
+          <div>
+            <p>Thời gian xác nhận TB</p>
+            <strong>{{ Math.round(orderAnalytics?.average_confirmation_seconds ?? 0) }}s</strong>
+            <small>Từ created đến confirmed</small>
+          </div>
+        </article>
+      </div>
+      <p v-if="analyticsError" class="inline-error">{{ analyticsError }}</p>
+    </section>
+
+    <section class="page-stack" aria-label="Hành vi khách hàng từ Kafka">
+      <header class="analytics-heading">
+        <div>
+          <p class="eyebrow">Customer activity · 30 ngày gần nhất</p>
+          <h2>Conversion funnel</h2>
+        </div>
+        <small v-if="customerActivity?.last_event_at">
+          Event mới nhất {{ formatDateTime(customerActivity.last_event_at) }}
+        </small>
+      </header>
+      <div class="stats-grid">
+        <article class="stat-card">
+          <span class="stat-card__icon stat-card__icon--blue"><AppIcon name="user" /></span>
+          <div>
+            <p>Khách hoạt động</p>
+            <strong>{{ customerActivity?.unique_actors ?? 0 }}</strong>
+            <small>{{ customerActivity?.total_events ?? 0 }} sự kiện</small>
+          </div>
+        </article>
+        <article class="stat-card">
+          <span class="stat-card__icon stat-card__icon--green"><AppIcon name="check" /></span>
+          <div>
+            <p>View → cart</p>
+            <strong>{{ (customerActivity?.view_to_cart_rate ?? 0).toFixed(1) }}%</strong>
+            <small>Mức quan tâm thành ý định mua</small>
+          </div>
+        </article>
+        <article class="stat-card">
+          <span class="stat-card__icon stat-card__icon--gold"><AppIcon name="value" /></span>
+          <div>
+            <p>Cart → checkout</p>
+            <strong>{{ (customerActivity?.cart_to_checkout_rate ?? 0).toFixed(1) }}%</strong>
+            <small>{{ customerActivity?.abandoned_carts ?? 0 }} giỏ bị bỏ quên</small>
+          </div>
+        </article>
+        <article class="stat-card">
+          <span class="stat-card__icon stat-card__icon--red"><AppIcon name="package" /></span>
+          <div>
+            <p>Checkout → order</p>
+            <strong>{{ (customerActivity?.checkout_to_order_rate ?? 0).toFixed(1) }}%</strong>
+            <small>Đơn hàng đã xác nhận</small>
+          </div>
+        </article>
+      </div>
+      <p v-if="activityError" class="inline-error">{{ activityError }}</p>
+    </section>
 
     <section class="dashboard-grid">
       <article class="panel">

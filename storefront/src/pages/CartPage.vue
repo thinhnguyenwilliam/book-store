@@ -1,18 +1,97 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
 import { useCartStore } from '@/features/cart/model/cart.store'
+import { useAuthStore } from '@/features/auth/model/auth.store'
+import {
+  trackBookRemovedFromCart,
+  trackCheckoutStarted,
+} from '@/features/analytics/lib/customer-activity'
+import { createOrder, payOrder } from '@/features/orders/api/checkout.api'
+import {
+  clearCheckoutAttempt,
+  getCheckoutAttempt,
+  saveCheckoutOrder,
+} from '@/features/orders/lib/checkout-attempt'
 import BookCover from '@/features/books/ui/BookCover.vue'
 import { useNotificationStore } from '@/features/notifications/model/notification.store'
 import { formatPrice } from '@/shared/lib/format'
 import AppIcon from '@/shared/ui/AppIcon.vue'
+import { ApiError } from '@/shared/api/http-client'
+import { env } from '@/shared/config/env'
 
 const cart = useCartStore()
+const auth = useAuthStore()
 const notifications = useNotificationStore()
+const route = useRoute()
+const router = useRouter()
+const provider = ref<'wallet' | 'vnpay'>('wallet')
+const processing = ref(false)
+const checkoutError = ref('')
 
-function checkout(): void {
-  notifications.show(
-    'Backend checkout chưa được triển khai. Giỏ hàng của bạn vẫn được giữ lại.',
-    'info',
-  )
+onMounted(() => {
+  if (auth.isAuthenticated) void cart.syncAuthenticated().catch(() => undefined)
+})
+
+async function checkout(): Promise<void> {
+  if (!auth.isAuthenticated) {
+    await router.push({ name: 'login', query: { redirect: route.fullPath } })
+    return
+  }
+  if (processing.value || cart.isEmpty) return
+  trackCheckoutStarted()
+  processing.value = true
+  checkoutError.value = ''
+  try {
+    await cart.syncAuthenticated()
+    let attempt = getCheckoutAttempt()
+    const order = await createOrder(attempt.orderKey)
+    attempt = saveCheckoutOrder(attempt, order.id)
+    const payment = await payOrder(order.id, provider.value, attempt.paymentKey)
+    if (payment.status === 'pending' && payment.checkout_url) {
+      window.location.assign(payment.checkout_url)
+      return
+    }
+    if (payment.status !== 'succeeded') {
+      throw new Error('Thanh toán chưa được xác nhận.')
+    }
+    clearCheckoutAttempt()
+    await cart.syncAuthenticated(true)
+    notifications.show('Đơn hàng đã được thanh toán thành công.', 'success')
+    await router.push({ name: 'order-detail', params: { id: order.id } })
+  } catch (requestError) {
+    if (requestError instanceof ApiError && [400, 409, 412].includes(requestError.status)) {
+      clearCheckoutAttempt()
+      await cart.syncAuthenticated(true).catch(() => undefined)
+    }
+    checkoutError.value =
+      requestError instanceof ApiError
+        ? requestError.message
+        : requestError instanceof Error
+          ? requestError.message
+          : 'Không thể hoàn tất checkout. Vui lòng thử lại.'
+  } finally {
+    processing.value = false
+  }
+}
+
+async function setQuantity(bookID: string, current: number, next: number): Promise<void> {
+  if (next <= 0) trackBookRemovedFromCart(bookID, current)
+  try {
+    await cart.setQuantity(bookID, next, auth.isAuthenticated)
+  } catch {
+    notifications.show('Không thể cập nhật số lượng.', 'error')
+  }
+}
+
+async function remove(bookID: string, quantity: number): Promise<void> {
+  trackBookRemovedFromCart(bookID, quantity)
+  try {
+    await cart.remove(bookID, auth.isAuthenticated)
+  } catch {
+    notifications.show('Không thể xóa sách khỏi giỏ.', 'error')
+  }
 }
 </script>
 
@@ -53,7 +132,7 @@ function checkout(): void {
             <button
               type="button"
               aria-label="Giảm số lượng"
-              @click="cart.setQuantity(item.book.id, item.quantity - 1)"
+              @click="setQuantity(item.book.id, item.quantity, item.quantity - 1)"
             >
               <AppIcon name="minus" :size="15" />
             </button>
@@ -62,7 +141,7 @@ function checkout(): void {
               type="button"
               aria-label="Tăng số lượng"
               :disabled="item.quantity >= item.book.stock"
-              @click="cart.setQuantity(item.book.id, item.quantity + 1)"
+              @click="setQuantity(item.book.id, item.quantity, item.quantity + 1)"
             >
               <AppIcon name="plus" :size="15" />
             </button>
@@ -74,7 +153,7 @@ function checkout(): void {
             class="remove-button"
             type="button"
             aria-label="Xóa khỏi giỏ"
-            @click="cart.remove(item.book.id)"
+            @click="remove(item.book.id, item.quantity)"
           >
             <AppIcon name="trash" :size="18" />
           </button>
@@ -98,10 +177,23 @@ function checkout(): void {
             <dd>{{ formatPrice(cart.subtotalCents) }}</dd>
           </div>
         </dl>
-        <button class="button button--accent" type="button" @click="checkout">
-          Tiến hành đặt hàng
+        <fieldset class="payment-provider" :disabled="processing">
+          <legend>Phương thức thanh toán</legend>
+          <label><input v-model="provider" type="radio" value="wallet" /> Ví Book Store</label>
+          <label v-if="env.vnpayEnabled"
+            ><input v-model="provider" type="radio" value="vnpay" /> VNPAY</label
+          >
+        </fieldset>
+        <p v-if="checkoutError" class="form-error" role="alert">{{ checkoutError }}</p>
+        <button
+          class="button button--accent"
+          type="button"
+          :disabled="processing || cart.loading"
+          @click="checkout"
+        >
+          {{ processing ? 'Đang giữ hàng và thanh toán…' : 'Tiến hành đặt hàng' }}
         </button>
-        <small>Thanh toán chưa khả dụng vì backend hiện chưa có Order Service.</small>
+        <small>Hàng được giữ tối đa 15 phút. Giá và tồn kho sẽ được backend xác nhận lại.</small>
       </aside>
     </div>
   </section>
@@ -255,6 +347,23 @@ function checkout(): void {
   padding-top: 20px;
   border-top: 1px solid rgb(255 255 255 / 18%);
   font-size: 1rem !important;
+}
+.payment-provider {
+  display: grid;
+  gap: 9px;
+  margin: 22px 0;
+  padding: 0;
+  border: 0;
+}
+.payment-provider legend {
+  margin-bottom: 10px;
+  font-weight: 800;
+}
+.payment-provider label {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  color: var(--color-muted);
 }
 .order-summary__total dd {
   font-family: var(--font-display);

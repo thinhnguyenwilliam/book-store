@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useCartStore } from '@/features/cart/model/cart.store'
+import { useAuthStore } from '@/features/auth/model/auth.store'
+import { trackBookAddedToCart } from '@/features/analytics/lib/customer-activity'
 import { useNotificationStore } from '@/features/notifications/model/notification.store'
 import { formatPrice } from '@/shared/lib/format'
 import AppIcon from '@/shared/ui/AppIcon.vue'
@@ -9,11 +11,17 @@ import BookCover from './BookCover.vue'
 
 const props = defineProps<{ book: Book }>()
 const cart = useCartStore()
+const auth = useAuthStore()
 const notifications = useNotificationStore()
 
-function addToCart(): void {
-  cart.add(props.book)
-  notifications.show(`Đã thêm “${props.book.title}” vào giỏ.`, 'success')
+async function addToCart(): Promise<void> {
+  try {
+    await cart.add(props.book, auth.isAuthenticated)
+    trackBookAddedToCart(props.book.id)
+    notifications.show(`Đã thêm “${props.book.title}” vào giỏ.`, 'success')
+  } catch {
+    notifications.show('Không thể cập nhật giỏ hàng. Vui lòng thử lại.', 'error')
+  }
 }
 </script>
 

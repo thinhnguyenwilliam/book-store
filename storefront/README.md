@@ -1,6 +1,6 @@
 # Mộc Thư Storefront
 
-Storefront Vue 3 + TypeScript dành cho Book Store. Ứng dụng dùng Axios gọi Echo API Gateway, hỗ trợ đăng ký/đăng nhập, hồ sơ, danh sách sách bằng cursor pagination, chi tiết sách và giỏ hàng lưu cục bộ.
+Storefront Vue 3 + TypeScript dành cho Book Store. Ứng dụng dùng Axios gọi Echo API Gateway, hỗ trợ đăng ký/đăng nhập, hồ sơ, tìm kiếm sách Elasticsearch, chi tiết sách, giỏ hàng, checkout và thông báo.
 
 ## Chạy local
 
@@ -20,6 +20,7 @@ Mở <http://localhost:5173>. Vite tự hot reload khi thay đổi source.
 ```dotenv
 VITE_API_BASE_URL=http://localhost:8080
 VITE_API_TIMEOUT_MS=10000
+VITE_VNPAY_ENABLED=false
 VITE_GOOGLE_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
 VITE_FACEBOOK_APP_ID=your-meta-app-id
 VITE_FACEBOOK_GRAPH_VERSION=v25.0
@@ -66,6 +67,8 @@ src/
 └── widgets/      header và footer
 ```
 
-Giỏ hàng hiện lưu bằng `localStorage`; checkout chưa gọi API vì backend chưa có Order Service.
+Trang `/sach` dùng autocomplete debounce `250ms`, hủy request cũ bằng `AbortController`, hỗ trợ typo tolerance, lọc giá/tồn kho, ranking và cursor pagination. Chỉ query từ hai ký tự mới gọi suggest; thao tác tìm kiếm hợp lệ đồng thời phát event `book.searched` theo cơ chế best effort để analytics không chặn hành trình mua hàng.
+
+Giỏ hàng guest được giữ trong `localStorage`. Sau khi đăng nhập, storefront merge theo số lượng lớn nhất vào server cart rồi xóa bản local; từ thời điểm đó Cart API là nguồn dữ liệu chính. Checkout giữ riêng order/payment idempotency key trong `sessionStorage` để refresh hoặc timeout có thể retry an toàn. Wallet payment thành công chuyển thẳng tới chi tiết order; VNPAY chỉ hiện khi `VITE_VNPAY_ENABLED=true` và redirect tới URL do backend trả về. Trang kết quả luôn đọc lại trạng thái Payment Service, không tin query callback của trình duyệt.
 
 Access token chỉ nằm trong memory của tab, không ghi vào `localStorage` hoặc `sessionStorage`. Refresh token nằm trong cookie `HttpOnly` nên JavaScript không thể đọc; Axios bật `withCredentials` và response interceptor chỉ thực hiện một refresh request đồng thời khi access token hết hạn. Backend rotate refresh token sau mỗi lần dùng và revoke khi logout.

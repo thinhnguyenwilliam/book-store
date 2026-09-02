@@ -1,12 +1,98 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import { trackBookSearched } from '@/features/analytics/lib/customer-activity'
+import {
+  suggestBooks,
+  type BookSearchSort,
+  type SearchBooksParams,
+} from '@/features/books/api/books.api'
 import { useBooksStore } from '@/features/books/model/books.store'
+import type { BookSearchHit } from '@/features/books/model/types'
 import BookCard from '@/features/books/ui/BookCard.vue'
 import AppIcon from '@/shared/ui/AppIcon.vue'
 
 const booksStore = useBooksStore()
+const query = ref('')
+const minPrice = ref<number>()
+const maxPrice = ref<number>()
+const stock = ref<'all' | 'in' | 'out'>('all')
+const sort = ref<BookSearchSort>('relevance')
+const suggestions = ref<BookSearchHit[]>([])
+const suggestionsOpen = ref(false)
+const suggesting = ref(false)
+let suggestionTimer: number | undefined
+let suggestionRequest: AbortController | undefined
+
+const resultLabel = computed(() => {
+  if (booksStore.searchTotal !== undefined) {
+    return `${booksStore.searchTotal} kết quả trong ${booksStore.searchTookMS ?? 0} ms`
+  }
+  return `${booksStore.books.length} tựa sách đã tải`
+})
+
 onMounted(() => booksStore.fetchInitial())
+onBeforeUnmount(() => {
+  window.clearTimeout(suggestionTimer)
+  suggestionRequest?.abort()
+})
+
+watch(query, (value) => {
+  window.clearTimeout(suggestionTimer)
+  suggestionRequest?.abort()
+  const normalized = value.trim()
+  if (normalized.length < 2) {
+    suggestions.value = []
+    suggestionsOpen.value = false
+    return
+  }
+  suggestionTimer = window.setTimeout(async () => {
+    suggestionRequest = new AbortController()
+    suggesting.value = true
+    try {
+      const response = await suggestBooks(normalized, suggestionRequest.signal)
+      suggestions.value = response.data
+      suggestionsOpen.value = true
+    } catch {
+      if (!suggestionRequest.signal.aborted) suggestions.value = []
+    } finally {
+      suggesting.value = false
+    }
+  }, 250)
+})
+
+function searchParams(): Omit<SearchBooksParams, 'cursor' | 'limit' | 'signal'> {
+  const normalizedQuery = query.value.trim()
+  return {
+    ...(normalizedQuery ? { query: normalizedQuery } : {}),
+    ...(minPrice.value !== undefined ? { minPriceCents: minPrice.value } : {}),
+    ...(maxPrice.value !== undefined ? { maxPriceCents: maxPrice.value } : {}),
+    ...(stock.value !== 'all' ? { inStock: stock.value === 'in' } : {}),
+    sort: sort.value,
+  }
+}
+
+async function submitSearch(): Promise<void> {
+  suggestionsOpen.value = false
+  if (query.value.trim().length >= 2) trackBookSearched(query.value)
+  await booksStore.fetchSearch(searchParams())
+}
+
+async function chooseSuggestion(hit: BookSearchHit): Promise<void> {
+  query.value = hit.book.title
+  await submitSearch()
+}
+
+async function clearSearch(): Promise<void> {
+  query.value = ''
+  minPrice.value = undefined
+  maxPrice.value = undefined
+  stock.value = 'all'
+  sort.value = 'relevance'
+  suggestions.value = []
+  suggestionsOpen.value = false
+  await booksStore.fetchInitial(true)
+}
 </script>
 
 <template>
@@ -14,7 +100,74 @@ onMounted(() => booksStore.fetchInitial())
     <div class="shell page-hero__inner">
       <p class="eyebrow">Tủ sách Mộc Thư</p>
       <h1>Tìm cuốn sách<br />dành cho lúc này.</h1>
-      <p>Mỗi cuốn sách là một cánh cửa. Bạn chỉ cần chọn cánh cửa muốn mở.</p>
+      <p>Tìm theo tên, tác giả hoặc ISBN — kể cả khi bạn gõ thiếu một vài ký tự.</p>
+
+      <form class="book-search" role="search" @submit.prevent="submitSearch">
+        <div class="book-search__query">
+          <AppIcon name="search" :size="22" />
+          <input
+            v-model="query"
+            type="search"
+            maxlength="200"
+            autocomplete="off"
+            placeholder="Ví dụ: Clean Archtecture…"
+            aria-label="Tìm kiếm sách"
+            aria-autocomplete="list"
+            :aria-expanded="suggestionsOpen"
+            @focus="suggestionsOpen = suggestions.length > 0"
+            @keydown.esc="suggestionsOpen = false"
+          />
+          <span v-if="suggesting" class="book-search__spinner" aria-label="Đang gợi ý" />
+          <button type="submit">Tìm sách</button>
+
+          <div v-if="suggestionsOpen" class="suggestions" role="listbox">
+            <button
+              v-for="hit in suggestions"
+              :key="hit.book.id"
+              type="button"
+              role="option"
+              @mousedown.prevent="chooseSuggestion(hit)"
+            >
+              <span
+                ><strong>{{ hit.book.title }}</strong
+                ><small>{{ hit.book.author }}</small></span
+              >
+              <small>{{ hit.book.isbn }}</small>
+            </button>
+            <p v-if="!suggestions.length && !suggesting">Không có gợi ý phù hợp.</p>
+          </div>
+        </div>
+
+        <div class="book-search__filters">
+          <label
+            ><span>Giá từ</span
+            ><input v-model.number="minPrice" type="number" min="0" placeholder="0"
+          /></label>
+          <label
+            ><span>Giá đến</span
+            ><input v-model.number="maxPrice" type="number" min="0" placeholder="Không giới hạn"
+          /></label>
+          <label>
+            <span>Tồn kho</span>
+            <select v-model="stock">
+              <option value="all">Tất cả</option>
+              <option value="in">Còn hàng</option>
+              <option value="out">Hết hàng</option>
+            </select>
+          </label>
+          <label>
+            <span>Sắp xếp</span>
+            <select v-model="sort">
+              <option value="relevance">Liên quan nhất</option>
+              <option value="newest">Mới nhất</option>
+              <option value="price_asc">Giá tăng dần</option>
+              <option value="price_desc">Giá giảm dần</option>
+            </select>
+          </label>
+          <button class="book-search__apply" type="submit">Áp dụng</button>
+          <button class="book-search__clear" type="button" @click="clearSearch">Xóa lọc</button>
+        </div>
+      </form>
     </div>
   </section>
 
@@ -22,10 +175,10 @@ onMounted(() => booksStore.fetchInitial())
     <div class="shell">
       <div class="catalog__bar">
         <div>
-          <span>{{ booksStore.books.length }} tựa sách đã tải</span>
-          <small> Sắp xếp theo sách mới nhất</small>
+          <span>{{ resultLabel }}</span>
+          <small>{{ booksStore.activeSearch ? ' Elasticsearch ranking' : ' Sách mới nhất' }}</small>
         </div>
-        <span class="catalog__live"><i /> Dữ liệu trực tiếp từ Book Service</span>
+        <span class="catalog__live"><i /> Search index đồng bộ từ Book Service</span>
       </div>
 
       <div v-if="booksStore.loading" class="catalog-grid" aria-label="Đang tải sách">
@@ -33,16 +186,17 @@ onMounted(() => booksStore.fetchInitial())
       </div>
       <div v-else-if="booksStore.isEmpty && booksStore.error" class="state-card">
         <AppIcon name="book" :size="34" />
-        <h2>Chưa thể mở tủ sách</h2>
+        <h2>Chưa thể tìm trong tủ sách</h2>
         <p>{{ booksStore.error }}</p>
-        <button class="button button--primary" type="button" @click="booksStore.fetchInitial(true)">
-          Thử lại
-        </button>
+        <button class="button button--primary" type="button" @click="submitSearch">Thử lại</button>
       </div>
       <div v-else-if="booksStore.isEmpty" class="state-card">
-        <AppIcon name="book" :size="34" />
-        <h2>Tủ sách đang trống</h2>
-        <p>Những cuốn sách đầu tiên đang trên đường đến kệ.</p>
+        <AppIcon name="search" :size="34" />
+        <h2>Không tìm thấy sách</h2>
+        <p>Thử bớt bộ lọc hoặc dùng một cách viết khác.</p>
+        <button class="button button--outline" type="button" @click="clearSearch">
+          Xóa tìm kiếm
+        </button>
       </div>
       <template v-else>
         <div class="catalog-grid">
@@ -73,11 +227,12 @@ onMounted(() => booksStore.fetchInitial())
 }
 .page-hero__inner {
   position: relative;
-  padding-top: 86px;
-  padding-bottom: 72px;
+  padding-top: 70px;
+  padding-bottom: 52px;
 }
 .page-hero__inner::after {
   position: absolute;
+  z-index: 0;
   right: 5%;
   bottom: 0;
   width: 180px;
@@ -87,9 +242,13 @@ onMounted(() => booksStore.fetchInitial())
   content: '';
   opacity: 0.75;
 }
-.page-hero h1 {
+.page-hero h1,
+.page-hero p,
+.book-search {
   position: relative;
   z-index: 1;
+}
+.page-hero h1 {
   max-width: 700px;
   margin: 14px 0 18px;
   font-family: var(--font-display);
@@ -98,13 +257,142 @@ onMounted(() => booksStore.fetchInitial())
   letter-spacing: -0.05em;
   line-height: 0.94;
 }
-.page-hero p:last-child {
-  position: relative;
-  z-index: 1;
-  max-width: 500px;
+.page-hero > div > p:not(.eyebrow) {
+  max-width: 560px;
   margin: 0;
   color: var(--color-muted);
   line-height: 1.7;
+}
+.book-search {
+  max-width: 980px;
+  margin-top: 34px;
+  padding: 12px;
+  border: 1px solid rgb(27 61 52 / 13%);
+  border-radius: 20px;
+  background: rgb(249 247 241 / 94%);
+  box-shadow: 0 20px 50px rgb(27 61 52 / 10%);
+}
+.book-search__query {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 6px 6px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 13px;
+  background: white;
+}
+.book-search__query > svg {
+  color: var(--color-brand);
+}
+.book-search__query input {
+  min-width: 0;
+  padding: 11px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+}
+.book-search__query > button,
+.book-search__apply {
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 10px;
+  color: white;
+  background: var(--color-brand);
+  font-weight: 750;
+  cursor: pointer;
+}
+.book-search__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-line);
+  border-top-color: var(--color-brand);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+.suggestions {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: 13px;
+  background: white;
+  box-shadow: 0 18px 36px rgb(20 48 40 / 16%);
+}
+.suggestions button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--color-line);
+  color: var(--color-ink);
+  background: white;
+  text-align: left;
+  cursor: pointer;
+}
+.suggestions button:hover {
+  background: #f1f4eb;
+}
+.suggestions strong,
+.suggestions small {
+  display: block;
+}
+.suggestions small {
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-size: 0.72rem;
+}
+.suggestions > p {
+  margin: 0;
+  padding: 18px;
+  color: var(--color-muted);
+}
+.book-search__filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(110px, 1fr)) auto auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px 4px 2px;
+}
+.book-search__filters label span {
+  display: block;
+  margin: 0 0 5px 2px;
+  color: var(--color-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.book-search__filters input,
+.book-search__filters select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 9px;
+  outline: none;
+  background: white;
+}
+.book-search__filters input:focus,
+.book-search__filters select:focus {
+  border-color: var(--color-brand);
+}
+.book-search__apply {
+  display: none;
+}
+.book-search__clear {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  color: var(--color-muted);
+  background: transparent;
+  cursor: pointer;
 }
 .catalog__bar {
   display: flex;
@@ -192,6 +480,11 @@ onMounted(() => booksStore.fetchInitial())
   margin: 0 0 24px;
   color: var(--color-muted);
 }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 @keyframes shimmer {
   to {
     background-position: -300% 0;
@@ -200,6 +493,12 @@ onMounted(() => booksStore.fetchInitial())
 @media (max-width: 980px) {
   .catalog-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+  .book-search__filters {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .book-search__apply {
+    display: block;
   }
 }
 @media (max-width: 720px) {
@@ -214,10 +513,19 @@ onMounted(() => booksStore.fetchInitial())
   .page-hero__inner::after {
     width: 100px;
   }
+  .book-search__query {
+    grid-template-columns: auto 1fr auto;
+  }
+  .book-search__query > button {
+    grid-column: 1 / -1;
+  }
 }
 @media (max-width: 430px) {
   .catalog__bar small {
     display: none;
+  }
+  .book-search__filters {
+    grid-template-columns: 1fr;
   }
 }
 </style>

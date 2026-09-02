@@ -15,6 +15,7 @@ const batchSize = 50
 type event struct {
 	ID          string    `gorm:"column:id"`
 	EventType   string    `gorm:"column:event_type"`
+	AggregateID string    `gorm:"column:aggregate_id"`
 	TraceID     string    `gorm:"column:trace_id"`
 	Payload     []byte    `gorm:"column:payload"`
 	Attempts    int       `gorm:"column:attempts"`
@@ -28,7 +29,7 @@ type Dispatcher struct {
 }
 
 type Publisher interface {
-	Publish(ctx context.Context, eventID, eventType string, payload []byte) error
+	Publish(ctx context.Context, eventID, eventType, aggregateID string, payload []byte) error
 }
 
 func NewDispatcher(db *gorm.DB, publisher Publisher, interval time.Duration) *Dispatcher {
@@ -66,7 +67,7 @@ func (d *Dispatcher) dispatch(ctx context.Context) {
 		// database bookkeeping to finish even when process shutdown starts.
 		publishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		publishCtx = apptrace.ContextWithID(publishCtx, event.TraceID)
-		err := d.publisher.Publish(publishCtx, event.ID, event.EventType, event.Payload)
+		err := d.publisher.Publish(publishCtx, event.ID, event.EventType, event.AggregateID, event.Payload)
 		if err != nil {
 			d.releaseWithError(publishCtx, event, err)
 			cancel()
@@ -87,12 +88,20 @@ func (d *Dispatcher) claim(ctx context.Context) ([]event, error) {
 	claimed := make([]event, 0, batchSize)
 	err := d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		const query = `
-			SELECT id, event_type, trace_id, payload, attempts, available_at
-			FROM auth.outbox_events
-			WHERE published_at IS NULL
-			  AND available_at <= NOW()
-			  AND (processing_at IS NULL OR processing_at < NOW() - INTERVAL '1 minute')
-			ORDER BY created_at
+			SELECT candidate.id, candidate.event_type, candidate.aggregate_id, candidate.trace_id,
+			       candidate.payload, candidate.attempts, candidate.available_at
+			FROM auth.outbox_events AS candidate
+			WHERE candidate.published_at IS NULL
+			  AND candidate.available_at <= NOW()
+			  AND (candidate.processing_at IS NULL OR candidate.processing_at < NOW() - INTERVAL '1 minute')
+			  AND NOT EXISTS (
+			      SELECT 1
+			      FROM auth.outbox_events AS predecessor
+			      WHERE predecessor.aggregate_id = candidate.aggregate_id
+			        AND predecessor.published_at IS NULL
+			        AND predecessor.sequence_number < candidate.sequence_number
+			  )
+			ORDER BY candidate.sequence_number
 			FOR UPDATE SKIP LOCKED
 			LIMIT ?`
 		if err := tx.Raw(query, batchSize).Scan(&claimed).Error; err != nil {

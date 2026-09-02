@@ -38,6 +38,22 @@ func (r *repositoryStub) ClearCart(context.Context, string) error {
 	r.cart = nil
 	return nil
 }
+func (r *repositoryStub) ClearOrderedCartItems(context.Context, string, []domain.Item) error {
+	r.clearCount++
+	r.cart = nil
+	return nil
+}
+func (r *repositoryStub) RestoreCartItems(_ context.Context, _ string, items []domain.Item, _ time.Time) error {
+	if len(r.cart) == 0 {
+		r.cart = make([]*domain.CartItem, 0, len(items))
+		for _, item := range items {
+			r.cart = append(r.cart, &domain.CartItem{
+				ID: item.CartItemID, BookID: item.BookID, Quantity: item.Quantity,
+			})
+		}
+	}
+	return nil
+}
 func (r *repositoryStub) CreateOrder(_ context.Context, order *domain.Order) error {
 	r.order = order
 	return nil
@@ -73,6 +89,20 @@ func (r *repositoryStub) UpdateOrderState(
 		r.order.PaymentID = paymentID
 	}
 	r.order.FailureReason = failureReason
+	r.order.UpdatedAt = now
+	return r.order, nil
+}
+func (r *repositoryStub) BeginPayment(_ context.Context, _, _ string, now time.Time) (*domain.Order, error) {
+	if r.order == nil {
+		return nil, domain.ErrOrderNotFound
+	}
+	if !r.order.ReservationExpiresAt.After(now) {
+		return nil, domain.ErrReservationExpired
+	}
+	if r.order.Status != domain.StatusStockReserved && r.order.Status != domain.StatusPaymentPending {
+		return nil, domain.ErrOrderState
+	}
+	r.order.Status = domain.StatusPaymentPending
 	r.order.UpdatedAt = now
 	return r.order, nil
 }
@@ -268,6 +298,31 @@ func TestPayOrderDeclineReleasesStock(t *testing.T) {
 	}
 	if repository.order.Status != domain.StatusCancelled {
 		t.Fatalf("order status = %q, want cancelled", repository.order.Status)
+	}
+}
+
+func TestPayOrderRejectsExpiredReservationAndReleasesStock(t *testing.T) {
+	service, repository, books, payments, userID := newCheckoutFixture()
+	order, err := service.CreateOrder(context.Background(), userID, "order-expired")
+	if err != nil {
+		t.Fatalf("CreateOrder() error = %v", err)
+	}
+	repository.order.ReservationExpiresAt = time.Now().UTC().Add(-time.Second)
+
+	_, err = service.PayOrder(
+		context.Background(), userID, order.ID, "payment-expired", domain.PaymentOptions{},
+	)
+	if !errors.Is(err, domain.ErrReservationExpired) {
+		t.Fatalf("PayOrder() error = %v, want reservation expired", err)
+	}
+	if payments.createCall != 0 {
+		t.Fatalf("payment calls = %d, want 0", payments.createCall)
+	}
+	if books.releaseCount != 1 || repository.order.Status != domain.StatusCancelled {
+		t.Fatalf(
+			"expired compensation: releases=%d status=%s",
+			books.releaseCount, repository.order.Status,
+		)
 	}
 }
 

@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -13,10 +16,13 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/book/adapter/postgres"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/book/application"
 	bookgrpc "github.com/thinhnguyenwilliam/book-store/backend/internal/book/delivery/grpc"
+	kafkaadapter "github.com/thinhnguyenwilliam/book-store/backend/internal/messaging/kafka"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/config"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/database"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcserver"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/lifecycle"
 	appLogger "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/logger"
+	platformoutbox "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/outbox"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/rediscache"
 	"google.golang.org/grpc"
 )
@@ -57,6 +63,10 @@ func run(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
+	pollInterval, err := time.ParseDuration(cfg.Outbox.PollInterval)
+	if err != nil {
+		return err
+	}
 
 	startupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -90,12 +100,44 @@ func run(cfg config.Config) error {
 		}
 	}
 	handler := bookgrpc.NewHandler(service)
+	var catalogDispatcher *platformoutbox.Dispatcher
+	if cfg.Kafka.Enabled {
+		publisher, publisherErr := kafkaadapter.NewPublisher(
+			cfg.Kafka.Brokers, cfg.Kafka.ClientID+"-catalog", cfg.Kafka.CatalogEventsTopic,
+		)
+		if publisherErr != nil {
+			return publisherErr
+		}
+		defer publisher.Close()
+		catalogDispatcher, err = platformoutbox.NewDispatcher(
+			db, publisher, "catalog.outbox_events", pollInterval,
+		)
+		if err != nil {
+			return err
+		}
+	}
 
 	serverCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	return grpcserver.Run(serverCtx, cfg.GRPC.BookListenAddress, shutdownTimeout, func(server *grpc.Server) {
+	backgroundCtx, stopBackground := context.WithCancel(serverCtx)
+	workers := &sync.WaitGroup{}
+	if catalogDispatcher != nil {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			catalogDispatcher.Run(backgroundCtx)
+		}()
+	}
+	serverErr := grpcserver.Run(serverCtx, cfg.GRPC.BookListenAddress, shutdownTimeout, func(server *grpc.Server) {
 		bookstorev1.RegisterBookServiceServer(server, handler)
 	})
+	stopBackground()
+	waitCtx, cancelWait := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancelWait()
+	if err := lifecycle.WaitGroup(waitCtx, workers); err != nil {
+		return errors.Join(serverErr, fmt.Errorf("wait for catalog outbox shutdown: %w", err))
+	}
+	return serverErr
 }
 
 func bookCacheConfig(cfg config.Config) (rediscache.Config, time.Duration, time.Duration, error) {

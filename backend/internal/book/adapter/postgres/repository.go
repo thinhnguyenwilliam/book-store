@@ -2,12 +2,16 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/book/application"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/book/domain"
+	catalogevent "github.com/thinhnguyenwilliam/book-store/backend/internal/events/catalog"
+	apptrace "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/trace"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -40,13 +44,28 @@ type stockReservationModel struct {
 	UpdatedAt      time.Time `gorm:"not null"`
 }
 
+type catalogOutboxModel struct {
+	ID          string    `gorm:"type:uuid;primaryKey"`
+	AggregateID string    `gorm:"type:uuid;not null"`
+	EventType   string    `gorm:"not null"`
+	TraceID     string    `gorm:"not null"`
+	Payload     []byte    `gorm:"type:jsonb;not null"`
+	AvailableAt time.Time `gorm:"not null"`
+	CreatedAt   time.Time `gorm:"not null"`
+}
+
 func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
 func (r *Repository) Create(ctx context.Context, book *domain.Book) error {
-	record := toModel(book)
-	err := r.db.WithContext(ctx).Table("catalog.books").Create(&record).Error
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		record := toModel(book)
+		if err := tx.Table("catalog.books").Create(&record).Error; err != nil {
+			return err
+		}
+		return writeCatalogEvent(ctx, tx, catalogevent.EventBookUpserted, book, book.UpdatedAt)
+	})
 	return mapWriteError(err)
 }
 
@@ -87,25 +106,26 @@ func (r *Repository) List(ctx context.Context, limit int32, cursor *application.
 }
 
 func (r *Repository) Update(ctx context.Context, book *domain.Book) error {
-	result := r.db.WithContext(ctx).
-		Table("catalog.books").
-		Where("id = ?", book.ID).
-		Updates(map[string]any{
-			"title":       book.Title,
-			"author":      book.Author,
-			"isbn":        book.ISBN,
-			"price_cents": book.PriceCents,
-			"stock":       book.Stock,
-			"seller_id":   nullableUUID(book.SellerID),
-			"updated_at":  book.UpdatedAt,
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Table("catalog.books").Where("id = ?", book.ID).Updates(map[string]any{
+			"title": book.Title, "author": book.Author, "isbn": book.ISBN,
+			"price_cents": book.PriceCents, "stock": book.Stock,
+			"seller_id": nullableUUID(book.SellerID), "updated_at": book.UpdatedAt,
 		})
-	if err := mapWriteError(result.Error); err != nil {
-		return err
-	}
-	if result.RowsAffected == 0 {
-		return domain.ErrNotFound
-	}
-	return nil
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return domain.ErrNotFound
+		}
+		var current bookModel
+		if err := tx.Table("catalog.books").Where("id = ?", book.ID).First(&current).Error; err != nil {
+			return err
+		}
+		*book = *toDomain(current)
+		return writeCatalogEvent(ctx, tx, catalogevent.EventBookUpserted, book, book.UpdatedAt)
+	})
+	return mapWriteError(err)
 }
 
 func (r *Repository) ReserveStock(
@@ -119,6 +139,9 @@ func (r *Repository) ReserveStock(
 			First(&result)
 		if query.Error == nil {
 			if result.Quantity != reservation.Quantity {
+				return domain.ErrReservationState
+			}
+			if result.Status == "released" {
 				return domain.ErrReservationState
 			}
 			return nil
@@ -143,6 +166,9 @@ func (r *Repository) ReserveStock(
 			if result.Quantity != reservation.Quantity {
 				return domain.ErrReservationState
 			}
+			if result.Status == "released" {
+				return domain.ErrReservationState
+			}
 			return nil
 		}
 		if !errors.Is(query.Error, gorm.ErrRecordNotFound) {
@@ -152,7 +178,14 @@ func (r *Repository) ReserveStock(
 			return domain.ErrInsufficientStock
 		}
 		if err := tx.Table("catalog.books").Where("id = ?", reservation.BookID).
-			Update("stock", gorm.Expr("stock - ?", reservation.Quantity)).Error; err != nil {
+			Updates(map[string]any{
+				"stock": gorm.Expr("stock - ?", reservation.Quantity), "updated_at": reservation.UpdatedAt,
+			}).Error; err != nil {
+			return err
+		}
+		book.Stock -= reservation.Quantity
+		book.UpdatedAt = reservation.UpdatedAt
+		if err := writeCatalogEvent(ctx, tx, catalogevent.EventBookUpserted, toDomain(book), reservation.UpdatedAt); err != nil {
 			return err
 		}
 		result = stockReservationRecord(reservation)
@@ -205,8 +238,16 @@ func (r *Repository) transitionReservation(
 			return domain.ErrReservationState
 		}
 		if restoreStock {
-			if err := tx.Table("catalog.books").Where("id = ?", bookID).
-				Update("stock", gorm.Expr("stock + ?", record.Quantity)).Error; err != nil {
+			if err := tx.Table("catalog.books").Where("id = ?", bookID).Updates(map[string]any{
+				"stock": gorm.Expr("stock + ?", record.Quantity), "updated_at": now,
+			}).Error; err != nil {
+				return err
+			}
+			var book bookModel
+			if err := tx.Table("catalog.books").Where("id = ?", bookID).First(&book).Error; err != nil {
+				return err
+			}
+			if err := writeCatalogEvent(ctx, tx, catalogevent.EventBookUpserted, toDomain(book), now); err != nil {
 				return err
 			}
 		}
@@ -222,18 +263,59 @@ func (r *Repository) transitionReservation(
 }
 
 func (r *Repository) Delete(ctx context.Context, id string) error {
-	result := r.db.WithContext(ctx).
-		Table("catalog.books").
-		Where("id = ?", id).
-		Delete(&bookModel{})
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrForeignKeyViolated) {
-			return domain.ErrBookInUse
+	now := time.Now().UTC()
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Table("catalog.books").Where("id = ?", id).Delete(&bookModel{})
+		if result.Error != nil {
+			return result.Error
 		}
-		return fmt.Errorf("delete book: %w", result.Error)
+		if result.RowsAffected == 0 {
+			return domain.ErrNotFound
+		}
+		return writeCatalogEvent(ctx, tx, catalogevent.EventBookDeleted, &domain.Book{ID: id}, now)
+	})
+	if errors.Is(err, gorm.ErrForeignKeyViolated) {
+		return domain.ErrBookInUse
 	}
-	if result.RowsAffected == 0 {
-		return domain.ErrNotFound
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return err
+		}
+		return fmt.Errorf("delete book: %w", err)
+	}
+	return nil
+}
+
+func writeCatalogEvent(
+	ctx context.Context,
+	tx *gorm.DB,
+	eventType string,
+	book *domain.Book,
+	occurredAt time.Time,
+) error {
+	eventID := uuid.NewString()
+	event := catalogevent.Event{
+		EventID: eventID, EventType: eventType, SchemaVersion: catalogevent.SchemaVersion,
+		BookID: book.ID, Version: occurredAt.UTC().UnixNano(), OccurredAt: occurredAt.UTC(),
+		TraceID: apptrace.IDFromContext(ctx),
+	}
+	if eventType == catalogevent.EventBookUpserted {
+		event.Book = &catalogevent.Book{
+			ID: book.ID, Title: book.Title, Author: book.Author, ISBN: book.ISBN,
+			PriceCents: book.PriceCents, Stock: book.Stock, SellerID: book.SellerID,
+			CreatedAt: book.CreatedAt.UTC(), UpdatedAt: book.UpdatedAt.UTC(),
+		}
+	}
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal catalog integration event: %w", err)
+	}
+	model := catalogOutboxModel{
+		ID: eventID, AggregateID: book.ID, EventType: eventType, TraceID: event.TraceID,
+		Payload: payload, AvailableAt: occurredAt.UTC(), CreatedAt: occurredAt.UTC(),
+	}
+	if err := tx.Table("catalog.outbox_events").Create(&model).Error; err != nil {
+		return fmt.Errorf("create catalog outbox event: %w", err)
 	}
 	return nil
 }

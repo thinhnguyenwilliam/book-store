@@ -63,3 +63,13 @@ services:
     <<: *air-service
     environment:
       SERVICE: chat-service
+
+  analytics-service:
+    <<: *air-service
+    environment:
+      SERVICE: analytics-service
+
+  search-service:
+    <<: *air-service
+    environment:
+      SERVICE: search-service

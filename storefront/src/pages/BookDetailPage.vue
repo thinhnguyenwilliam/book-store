@@ -3,11 +3,13 @@ import { onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { getBookDetail } from '@/features/books/api/book-detail.graphql'
+import { trackBookAddedToCart, trackBookViewed } from '@/features/analytics/lib/customer-activity'
 import type { Book } from '@/features/books/model/types'
 import BookCover from '@/features/books/ui/BookCover.vue'
 import CommentThread from '@/features/comments/ui/CommentThread.vue'
 import type { Comment } from '@/features/comments/model/types'
 import { useCartStore } from '@/features/cart/model/cart.store'
+import { useAuthStore } from '@/features/auth/model/auth.store'
 import { useNotificationStore } from '@/features/notifications/model/notification.store'
 import { ApiError } from '@/shared/api/http-client'
 import { formatPrice } from '@/shared/lib/format'
@@ -15,6 +17,7 @@ import AppIcon from '@/shared/ui/AppIcon.vue'
 
 const route = useRoute()
 const cart = useCartStore()
+const auth = useAuthStore()
 const notifications = useNotificationStore()
 const book = ref<Book>()
 const initialComments = ref<Comment[]>([])
@@ -31,6 +34,7 @@ async function loadBook(id: string): Promise<void> {
     const detail = await getBookDetail(id, controller.signal)
     book.value = detail.book
     initialComments.value = detail.comments
+    trackBookViewed(detail.book.id)
   } catch (requestError) {
     if (controller.signal.aborted) return
     error.value =
@@ -40,10 +44,15 @@ async function loadBook(id: string): Promise<void> {
   }
 }
 
-function addToCart(): void {
+async function addToCart(): Promise<void> {
   if (!book.value) return
-  cart.add(book.value)
-  notifications.show(`Đã thêm “${book.value.title}” vào giỏ.`, 'success')
+  try {
+    await cart.add(book.value, auth.isAuthenticated)
+    trackBookAddedToCart(book.value.id)
+    notifications.show(`Đã thêm “${book.value.title}” vào giỏ.`, 'success')
+  } catch {
+    notifications.show('Không thể cập nhật giỏ hàng. Vui lòng thử lại.', 'error')
+  }
 }
 
 watch(

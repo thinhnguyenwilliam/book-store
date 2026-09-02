@@ -39,6 +39,27 @@ func (h *Handler) Authenticate(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
+// OptionalAuthenticate attributes public telemetry to a user when a bearer
+// token is present, while still allowing anonymous storefront sessions.
+func (h *Handler) OptionalAuthenticate(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		header := c.Request().Header.Get(echo.HeaderAuthorization)
+		if strings.TrimSpace(header) == "" {
+			return next(c)
+		}
+		parts := strings.Fields(header)
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+			return c.JSON(http.StatusUnauthorized, errorBody("missing or invalid bearer token"))
+		}
+		claims, err := h.auth.VerifyToken(grpcContext(c), &bookstorev1.VerifyTokenRequest{AccessToken: parts[1]})
+		if err != nil {
+			return errorResponse(c, err)
+		}
+		c.Set(principalContextKey, Principal{UserID: claims.GetUserId(), Email: claims.GetEmail(), Roles: claims.GetRoles()})
+		return next(c)
+	}
+}
+
 func RequireRole(requiredRole string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
