@@ -14,6 +14,7 @@ import (
 	commentpostgres "github.com/thinhnguyenwilliam/book-store/backend/internal/comment/adapter/postgres"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/comment/application"
 	commentgrpc "github.com/thinhnguyenwilliam/book-store/backend/internal/comment/delivery/grpc"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/authorization"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/config"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/database"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcclient"
@@ -54,6 +55,11 @@ func execute() int {
 }
 
 func run(cfg config.Config) error {
+	guard, closeGuard, guardErr := authorization.Remote(cfg.GRPC.AuthAddress)
+	if guardErr != nil {
+		return guardErr
+	}
+	defer closeGuard()
 	shutdownTimeout, err := time.ParseDuration(cfg.Shutdown.Timeout)
 	if err != nil {
 		return err
@@ -83,7 +89,7 @@ func run(cfg config.Config) error {
 	handler := commentgrpc.NewHandler(service)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	return grpcserver.Run(ctx, cfg.GRPC.CommentListenAddress, shutdownTimeout, func(server *grpc.Server) { bookstorev1.RegisterCommentServiceServer(server, handler) })
+	return grpcserver.Run(ctx, cfg.GRPC.CommentListenAddress, shutdownTimeout, func(server *grpc.Server) { bookstorev1.RegisterCommentServiceServer(server, handler) }, guard)
 }
 
 func newClient(address string, timeout time.Duration) (*grpc.ClientConn, error) {

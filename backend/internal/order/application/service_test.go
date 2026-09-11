@@ -301,6 +301,50 @@ func TestPayOrderDeclineReleasesStock(t *testing.T) {
 	}
 }
 
+func TestPayOrderWalletFailuresCancelAndRelease(t *testing.T) {
+	for _, cause := range []error{domain.ErrWalletNotFound, domain.ErrInsufficientFunds} {
+		t.Run(cause.Error(), func(t *testing.T) {
+			service, repository, books, payments, userID := newCheckoutFixture()
+			order, err := service.CreateOrder(context.Background(), userID, "wallet-failure")
+			if err != nil {
+				t.Fatal(err)
+			}
+			payments.createErr = errors.Join(domain.ErrPaymentDeclined, cause)
+			_, err = service.PayOrder(context.Background(), userID, order.ID, "same-key", domain.PaymentOptions{})
+			if !errors.Is(err, cause) || errors.Is(err, domain.ErrPaymentUnknown) {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if repository.order.Status != domain.StatusCancelled || books.releaseCount != 1 || books.commitCount != 0 {
+				t.Fatal("definitive decline did not safely cancel and release")
+			}
+		})
+	}
+}
+
+func TestPayOrderUnknownPreservesOriginalCauseAndStock(t *testing.T) {
+	service, repository, books, payments, userID := newCheckoutFixture()
+	order, err := service.CreateOrder(context.Background(), userID, "unknown-result")
+	if err != nil {
+		t.Fatal(err)
+	}
+	payments.createErr = context.DeadlineExceeded
+	_, err = service.PayOrder(context.Background(), userID, order.ID, "same-key", domain.PaymentOptions{})
+	if !errors.Is(err, domain.ErrPaymentUnknown) || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("lost original error: %v", err)
+	}
+	if repository.order.Status != domain.StatusPaymentPending || books.releaseCount != 0 {
+		t.Fatal("unknown payment must not release inventory")
+	}
+	payments.createErr = nil
+	payments.payment = &domain.Payment{ID: uuid.NewString(), Status: "succeeded"}
+	if _, err := service.PayOrder(context.Background(), userID, order.ID, "same-key", domain.PaymentOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if repository.order.Status != domain.StatusConfirmed {
+		t.Fatal("retry did not confirm order")
+	}
+}
+
 func TestPayOrderRejectsExpiredReservationAndReleasesStock(t *testing.T) {
 	service, repository, books, payments, userID := newCheckoutFixture()
 	order, err := service.CreateOrder(context.Background(), userID, "order-expired")

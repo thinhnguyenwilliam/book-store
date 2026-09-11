@@ -15,6 +15,7 @@ import (
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/facebookidentity"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/googleidentity"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/oauthidentity"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/outbox"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/postgres"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/adapter/security"
@@ -22,6 +23,7 @@ import (
 	authgrpc "github.com/thinhnguyenwilliam/book-store/backend/internal/auth/delivery/grpc"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/auth/domain"
 	rabbitmqadapter "github.com/thinhnguyenwilliam/book-store/backend/internal/messaging/rabbitmq"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/authorization"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/config"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/database"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcserver"
@@ -110,6 +112,15 @@ func run(cfg config.Config) error {
 		),
 	}
 	service := application.NewService(repository, hasher, accessTokens, refreshTokens, identityVerifiers, refreshTTL)
+	service.SetOAuthProviders(repository, map[string]application.OAuthProvider{
+		domain.IdentityProviderDiscord: oauthidentity.New(domain.IdentityProviderDiscord, oauthidentity.Config{
+			ClientID: cfg.Auth.Discord.ClientID, ClientSecret: cfg.Auth.Discord.ClientSecret, RedirectURIs: cfg.Auth.Discord.RedirectURIs,
+		}),
+		domain.IdentityProviderTwitter: oauthidentity.New(domain.IdentityProviderTwitter, oauthidentity.Config{
+			ClientID: cfg.Auth.Twitter.ClientID, ClientSecret: cfg.Auth.Twitter.ClientSecret, RedirectURIs: cfg.Auth.Twitter.RedirectURIs,
+		}),
+	})
+	service.SetAuthorizationRepository(repository)
 	handler := authgrpc.NewHandler(service)
 
 	publisher := rabbitmqadapter.NewPublisher(rabbitmqadapter.Config{
@@ -135,7 +146,13 @@ func run(cfg config.Config) error {
 
 	serverErr := grpcserver.Run(serverCtx, cfg.GRPC.AuthListenAddress, shutdownTimeout, func(server *grpc.Server) {
 		bookstorev1.RegisterAuthServiceServer(server, handler)
-	})
+	}, authorization.Interceptor(func(ctx context.Context, token string) (string, []string, error) {
+		claims, verifyErr := handler.VerifyToken(ctx, &bookstorev1.VerifyTokenRequest{AccessToken: token})
+		if verifyErr != nil {
+			return "", nil, verifyErr
+		}
+		return claims.GetUserId(), claims.GetPermissions(), nil
+	}))
 	slog.Info("outbox dispatcher graceful shutdown started", "timeout", shutdownTimeout)
 	stopDispatcher()
 

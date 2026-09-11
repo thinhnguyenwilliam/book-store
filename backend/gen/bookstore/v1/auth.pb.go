@@ -81,6 +81,202 @@ func (x *RegisterRequest) GetDisplayName() string {
 	return ""
 }
 
+type StartOAuthRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Provider      string                 `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
+	RedirectUri   string                 `protobuf:"bytes,2,opt,name=redirect_uri,json=redirectUri,proto3" json:"redirect_uri,omitempty"`
+	CreateAccount bool                   `protobuf:"varint,3,opt,name=create_account,json=createAccount,proto3" json:"create_account,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartOAuthRequest) Reset() {
+	*x = StartOAuthRequest{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartOAuthRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartOAuthRequest) ProtoMessage() {}
+
+func (x *StartOAuthRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartOAuthRequest.ProtoReflect.Descriptor instead.
+func (*StartOAuthRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *StartOAuthRequest) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *StartOAuthRequest) GetRedirectUri() string {
+	if x != nil {
+		return x.RedirectUri
+	}
+	return ""
+}
+
+func (x *StartOAuthRequest) GetCreateAccount() bool {
+	if x != nil {
+		return x.CreateAccount
+	}
+	return false
+}
+
+type StartOAuthResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	State            string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
+	AuthorizationUrl string                 `protobuf:"bytes,2,opt,name=authorization_url,json=authorizationUrl,proto3" json:"authorization_url,omitempty"`
+	ExpiresIn        int64                  `protobuf:"varint,3,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *StartOAuthResponse) Reset() {
+	*x = StartOAuthResponse{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartOAuthResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartOAuthResponse) ProtoMessage() {}
+
+func (x *StartOAuthResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartOAuthResponse.ProtoReflect.Descriptor instead.
+func (*StartOAuthResponse) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *StartOAuthResponse) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *StartOAuthResponse) GetAuthorizationUrl() string {
+	if x != nil {
+		return x.AuthorizationUrl
+	}
+	return ""
+}
+
+func (x *StartOAuthResponse) GetExpiresIn() int64 {
+	if x != nil {
+		return x.ExpiresIn
+	}
+	return 0
+}
+
+type FinishOAuthRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Provider      string                 `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
+	RedirectUri   string                 `protobuf:"bytes,2,opt,name=redirect_uri,json=redirectUri,proto3" json:"redirect_uri,omitempty"`
+	CreateAccount bool                   `protobuf:"varint,3,opt,name=create_account,json=createAccount,proto3" json:"create_account,omitempty"`
+	State         string                 `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
+	Code          string                 `protobuf:"bytes,5,opt,name=code,proto3" json:"code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FinishOAuthRequest) Reset() {
+	*x = FinishOAuthRequest{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FinishOAuthRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FinishOAuthRequest) ProtoMessage() {}
+
+func (x *FinishOAuthRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FinishOAuthRequest.ProtoReflect.Descriptor instead.
+func (*FinishOAuthRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *FinishOAuthRequest) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *FinishOAuthRequest) GetRedirectUri() string {
+	if x != nil {
+		return x.RedirectUri
+	}
+	return ""
+}
+
+func (x *FinishOAuthRequest) GetCreateAccount() bool {
+	if x != nil {
+		return x.CreateAccount
+	}
+	return false
+}
+
+func (x *FinishOAuthRequest) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *FinishOAuthRequest) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
 type LoginRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
@@ -91,7 +287,7 @@ type LoginRequest struct {
 
 func (x *LoginRequest) Reset() {
 	*x = LoginRequest{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[1]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -103,7 +299,7 @@ func (x *LoginRequest) String() string {
 func (*LoginRequest) ProtoMessage() {}
 
 func (x *LoginRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[1]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -116,7 +312,7 @@ func (x *LoginRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoginRequest.ProtoReflect.Descriptor instead.
 func (*LoginRequest) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{1}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *LoginRequest) GetEmail() string {
@@ -144,7 +340,7 @@ type GoogleLoginRequest struct {
 
 func (x *GoogleLoginRequest) Reset() {
 	*x = GoogleLoginRequest{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[2]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -156,7 +352,7 @@ func (x *GoogleLoginRequest) String() string {
 func (*GoogleLoginRequest) ProtoMessage() {}
 
 func (x *GoogleLoginRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[2]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -169,7 +365,7 @@ func (x *GoogleLoginRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GoogleLoginRequest.ProtoReflect.Descriptor instead.
 func (*GoogleLoginRequest) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{2}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GoogleLoginRequest) GetCredential() string {
@@ -203,7 +399,7 @@ type FacebookLoginRequest struct {
 
 func (x *FacebookLoginRequest) Reset() {
 	*x = FacebookLoginRequest{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[3]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -215,7 +411,7 @@ func (x *FacebookLoginRequest) String() string {
 func (*FacebookLoginRequest) ProtoMessage() {}
 
 func (x *FacebookLoginRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[3]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -228,7 +424,7 @@ func (x *FacebookLoginRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FacebookLoginRequest.ProtoReflect.Descriptor instead.
 func (*FacebookLoginRequest) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{3}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *FacebookLoginRequest) GetAccessToken() string {
@@ -258,7 +454,7 @@ type AuthResponse struct {
 
 func (x *AuthResponse) Reset() {
 	*x = AuthResponse{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[4]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -270,7 +466,7 @@ func (x *AuthResponse) String() string {
 func (*AuthResponse) ProtoMessage() {}
 
 func (x *AuthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[4]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -283,7 +479,7 @@ func (x *AuthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthResponse.ProtoReflect.Descriptor instead.
 func (*AuthResponse) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{4}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *AuthResponse) GetAccessToken() string {
@@ -330,7 +526,7 @@ type RefreshRequest struct {
 
 func (x *RefreshRequest) Reset() {
 	*x = RefreshRequest{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[5]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -342,7 +538,7 @@ func (x *RefreshRequest) String() string {
 func (*RefreshRequest) ProtoMessage() {}
 
 func (x *RefreshRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[5]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -355,7 +551,7 @@ func (x *RefreshRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshRequest.ProtoReflect.Descriptor instead.
 func (*RefreshRequest) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{5}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *RefreshRequest) GetRefreshToken() string {
@@ -374,7 +570,7 @@ type LogoutRequest struct {
 
 func (x *LogoutRequest) Reset() {
 	*x = LogoutRequest{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[6]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -386,7 +582,7 @@ func (x *LogoutRequest) String() string {
 func (*LogoutRequest) ProtoMessage() {}
 
 func (x *LogoutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[6]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -399,7 +595,7 @@ func (x *LogoutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogoutRequest.ProtoReflect.Descriptor instead.
 func (*LogoutRequest) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{6}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *LogoutRequest) GetRefreshToken() string {
@@ -417,7 +613,7 @@ type LogoutResponse struct {
 
 func (x *LogoutResponse) Reset() {
 	*x = LogoutResponse{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[7]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -429,7 +625,7 @@ func (x *LogoutResponse) String() string {
 func (*LogoutResponse) ProtoMessage() {}
 
 func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[7]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -442,7 +638,7 @@ func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogoutResponse.ProtoReflect.Descriptor instead.
 func (*LogoutResponse) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{7}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{10}
 }
 
 type DeleteAccountRequest struct {
@@ -454,7 +650,7 @@ type DeleteAccountRequest struct {
 
 func (x *DeleteAccountRequest) Reset() {
 	*x = DeleteAccountRequest{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[8]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -466,7 +662,7 @@ func (x *DeleteAccountRequest) String() string {
 func (*DeleteAccountRequest) ProtoMessage() {}
 
 func (x *DeleteAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[8]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -479,7 +675,7 @@ func (x *DeleteAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAccountRequest.ProtoReflect.Descriptor instead.
 func (*DeleteAccountRequest) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{8}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DeleteAccountRequest) GetId() string {
@@ -497,7 +693,7 @@ type DeleteAccountResponse struct {
 
 func (x *DeleteAccountResponse) Reset() {
 	*x = DeleteAccountResponse{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[9]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -509,7 +705,7 @@ func (x *DeleteAccountResponse) String() string {
 func (*DeleteAccountResponse) ProtoMessage() {}
 
 func (x *DeleteAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[9]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -522,7 +718,7 @@ func (x *DeleteAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAccountResponse.ProtoReflect.Descriptor instead.
 func (*DeleteAccountResponse) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{9}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{12}
 }
 
 type VerifyTokenRequest struct {
@@ -534,7 +730,7 @@ type VerifyTokenRequest struct {
 
 func (x *VerifyTokenRequest) Reset() {
 	*x = VerifyTokenRequest{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[10]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -546,7 +742,7 @@ func (x *VerifyTokenRequest) String() string {
 func (*VerifyTokenRequest) ProtoMessage() {}
 
 func (x *VerifyTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[10]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -559,7 +755,7 @@ func (x *VerifyTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyTokenRequest.ProtoReflect.Descriptor instead.
 func (*VerifyTokenRequest) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{10}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *VerifyTokenRequest) GetAccessToken() string {
@@ -571,6 +767,7 @@ func (x *VerifyTokenRequest) GetAccessToken() string {
 
 type VerifyTokenResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Permissions   []string               `protobuf:"bytes,4,rep,name=permissions,proto3" json:"permissions,omitempty"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
 	Roles         []string               `protobuf:"bytes,3,rep,name=roles,proto3" json:"roles,omitempty"`
@@ -580,7 +777,7 @@ type VerifyTokenResponse struct {
 
 func (x *VerifyTokenResponse) Reset() {
 	*x = VerifyTokenResponse{}
-	mi := &file_bookstore_v1_auth_proto_msgTypes[11]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -592,7 +789,7 @@ func (x *VerifyTokenResponse) String() string {
 func (*VerifyTokenResponse) ProtoMessage() {}
 
 func (x *VerifyTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_bookstore_v1_auth_proto_msgTypes[11]
+	mi := &file_bookstore_v1_auth_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -605,7 +802,14 @@ func (x *VerifyTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyTokenResponse.ProtoReflect.Descriptor instead.
 func (*VerifyTokenResponse) Descriptor() ([]byte, []int) {
-	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{11}
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *VerifyTokenResponse) GetPermissions() []string {
+	if x != nil {
+		return x.Permissions
+	}
+	return nil
 }
 
 func (x *VerifyTokenResponse) GetUserId() string {
@@ -629,6 +833,762 @@ func (x *VerifyTokenResponse) GetRoles() []string {
 	return nil
 }
 
+type AuthorizationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthorizationRequest) Reset() {
+	*x = AuthorizationRequest{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthorizationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthorizationRequest) ProtoMessage() {}
+
+func (x *AuthorizationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthorizationRequest.ProtoReflect.Descriptor instead.
+func (*AuthorizationRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *AuthorizationRequest) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+type AuthorizationEmpty struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthorizationEmpty) Reset() {
+	*x = AuthorizationEmpty{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthorizationEmpty) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthorizationEmpty) ProtoMessage() {}
+
+func (x *AuthorizationEmpty) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthorizationEmpty.ProtoReflect.Descriptor instead.
+func (*AuthorizationEmpty) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{16}
+}
+
+type GetAccessRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	AccountId     string                 `protobuf:"bytes,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAccessRequest) Reset() {
+	*x = GetAccessRequest{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAccessRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAccessRequest) ProtoMessage() {}
+
+func (x *GetAccessRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAccessRequest.ProtoReflect.Descriptor instead.
+func (*GetAccessRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *GetAccessRequest) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (x *GetAccessRequest) GetAccountId() string {
+	if x != nil {
+		return x.AccountId
+	}
+	return ""
+}
+
+type AccessResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccountId     string                 `protobuf:"bytes,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	Roles         []string               `protobuf:"bytes,2,rep,name=roles,proto3" json:"roles,omitempty"`
+	Permissions   []string               `protobuf:"bytes,3,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AccessResponse) Reset() {
+	*x = AccessResponse{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AccessResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AccessResponse) ProtoMessage() {}
+
+func (x *AccessResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AccessResponse.ProtoReflect.Descriptor instead.
+func (*AccessResponse) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *AccessResponse) GetAccountId() string {
+	if x != nil {
+		return x.AccountId
+	}
+	return ""
+}
+
+func (x *AccessResponse) GetRoles() []string {
+	if x != nil {
+		return x.Roles
+	}
+	return nil
+}
+
+func (x *AccessResponse) GetPermissions() []string {
+	if x != nil {
+		return x.Permissions
+	}
+	return nil
+}
+
+type Permission struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Group         string                 `protobuf:"bytes,4,opt,name=group,proto3" json:"group,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Permission) Reset() {
+	*x = Permission{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Permission) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Permission) ProtoMessage() {}
+
+func (x *Permission) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Permission.ProtoReflect.Descriptor instead.
+func (*Permission) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *Permission) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *Permission) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Permission) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *Permission) GetGroup() string {
+	if x != nil {
+		return x.Group
+	}
+	return ""
+}
+
+type Role struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	System        bool                   `protobuf:"varint,4,opt,name=system,proto3" json:"system,omitempty"`
+	Permissions   []string               `protobuf:"bytes,5,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Role) Reset() {
+	*x = Role{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Role) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Role) ProtoMessage() {}
+
+func (x *Role) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Role.ProtoReflect.Descriptor instead.
+func (*Role) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *Role) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *Role) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Role) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *Role) GetSystem() bool {
+	if x != nil {
+		return x.System
+	}
+	return false
+}
+
+func (x *Role) GetPermissions() []string {
+	if x != nil {
+		return x.Permissions
+	}
+	return nil
+}
+
+type AuthorizationCatalogResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Roles         []*Role                `protobuf:"bytes,1,rep,name=roles,proto3" json:"roles,omitempty"`
+	Permissions   []*Permission          `protobuf:"bytes,2,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthorizationCatalogResponse) Reset() {
+	*x = AuthorizationCatalogResponse{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthorizationCatalogResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthorizationCatalogResponse) ProtoMessage() {}
+
+func (x *AuthorizationCatalogResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthorizationCatalogResponse.ProtoReflect.Descriptor instead.
+func (*AuthorizationCatalogResponse) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *AuthorizationCatalogResponse) GetRoles() []*Role {
+	if x != nil {
+		return x.Roles
+	}
+	return nil
+}
+
+func (x *AuthorizationCatalogResponse) GetPermissions() []*Permission {
+	if x != nil {
+		return x.Permissions
+	}
+	return nil
+}
+
+type SaveRoleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	Role          *Role                  `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
+	Create        bool                   `protobuf:"varint,3,opt,name=create,proto3" json:"create,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveRoleRequest) Reset() {
+	*x = SaveRoleRequest{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveRoleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveRoleRequest) ProtoMessage() {}
+
+func (x *SaveRoleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveRoleRequest.ProtoReflect.Descriptor instead.
+func (*SaveRoleRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *SaveRoleRequest) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (x *SaveRoleRequest) GetRole() *Role {
+	if x != nil {
+		return x.Role
+	}
+	return nil
+}
+
+func (x *SaveRoleRequest) GetCreate() bool {
+	if x != nil {
+		return x.Create
+	}
+	return false
+}
+
+type DeleteRoleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	Code          string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteRoleRequest) Reset() {
+	*x = DeleteRoleRequest{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteRoleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteRoleRequest) ProtoMessage() {}
+
+func (x *DeleteRoleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteRoleRequest.ProtoReflect.Descriptor instead.
+func (*DeleteRoleRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *DeleteRoleRequest) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (x *DeleteRoleRequest) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+type AssignRolesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	AccountId     string                 `protobuf:"bytes,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	Roles         []string               `protobuf:"bytes,3,rep,name=roles,proto3" json:"roles,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AssignRolesRequest) Reset() {
+	*x = AssignRolesRequest{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssignRolesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssignRolesRequest) ProtoMessage() {}
+
+func (x *AssignRolesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssignRolesRequest.ProtoReflect.Descriptor instead.
+func (*AssignRolesRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *AssignRolesRequest) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (x *AssignRolesRequest) GetAccountId() string {
+	if x != nil {
+		return x.AccountId
+	}
+	return ""
+}
+
+func (x *AssignRolesRequest) GetRoles() []string {
+	if x != nil {
+		return x.Roles
+	}
+	return nil
+}
+
+type AuthorizationAuditRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	BeforeId      int64                  `protobuf:"varint,2,opt,name=before_id,json=beforeId,proto3" json:"before_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthorizationAuditRequest) Reset() {
+	*x = AuthorizationAuditRequest{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthorizationAuditRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthorizationAuditRequest) ProtoMessage() {}
+
+func (x *AuthorizationAuditRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthorizationAuditRequest.ProtoReflect.Descriptor instead.
+func (*AuthorizationAuditRequest) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *AuthorizationAuditRequest) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (x *AuthorizationAuditRequest) GetBeforeId() int64 {
+	if x != nil {
+		return x.BeforeId
+	}
+	return 0
+}
+
+type AuthorizationAudit struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	ActorId       string                 `protobuf:"bytes,2,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	Action        string                 `protobuf:"bytes,3,opt,name=action,proto3" json:"action,omitempty"`
+	Target        string                 `protobuf:"bytes,4,opt,name=target,proto3" json:"target,omitempty"`
+	Before        string                 `protobuf:"bytes,5,opt,name=before,proto3" json:"before,omitempty"`
+	After         string                 `protobuf:"bytes,6,opt,name=after,proto3" json:"after,omitempty"`
+	TraceId       string                 `protobuf:"bytes,7,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthorizationAudit) Reset() {
+	*x = AuthorizationAudit{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthorizationAudit) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthorizationAudit) ProtoMessage() {}
+
+func (x *AuthorizationAudit) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthorizationAudit.ProtoReflect.Descriptor instead.
+func (*AuthorizationAudit) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *AuthorizationAudit) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *AuthorizationAudit) GetActorId() string {
+	if x != nil {
+		return x.ActorId
+	}
+	return ""
+}
+
+func (x *AuthorizationAudit) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *AuthorizationAudit) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
+func (x *AuthorizationAudit) GetBefore() string {
+	if x != nil {
+		return x.Before
+	}
+	return ""
+}
+
+func (x *AuthorizationAudit) GetAfter() string {
+	if x != nil {
+		return x.After
+	}
+	return ""
+}
+
+func (x *AuthorizationAudit) GetTraceId() string {
+	if x != nil {
+		return x.TraceId
+	}
+	return ""
+}
+
+func (x *AuthorizationAudit) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+type AuthorizationAuditResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entries       []*AuthorizationAudit  `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthorizationAuditResponse) Reset() {
+	*x = AuthorizationAuditResponse{}
+	mi := &file_bookstore_v1_auth_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthorizationAuditResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthorizationAuditResponse) ProtoMessage() {}
+
+func (x *AuthorizationAuditResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_bookstore_v1_auth_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthorizationAuditResponse.ProtoReflect.Descriptor instead.
+func (*AuthorizationAuditResponse) Descriptor() ([]byte, []int) {
+	return file_bookstore_v1_auth_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *AuthorizationAuditResponse) GetEntries() []*AuthorizationAudit {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
 var File_bookstore_v1_auth_proto protoreflect.FileDescriptor
 
 const file_bookstore_v1_auth_proto_rawDesc = "" +
@@ -637,7 +1597,22 @@ const file_bookstore_v1_auth_proto_rawDesc = "" +
 	"\x0fRegisterRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12!\n" +
-	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\"@\n" +
+	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\"y\n" +
+	"\x11StartOAuthRequest\x12\x1a\n" +
+	"\bprovider\x18\x01 \x01(\tR\bprovider\x12!\n" +
+	"\fredirect_uri\x18\x02 \x01(\tR\vredirectUri\x12%\n" +
+	"\x0ecreate_account\x18\x03 \x01(\bR\rcreateAccount\"v\n" +
+	"\x12StartOAuthResponse\x12\x14\n" +
+	"\x05state\x18\x01 \x01(\tR\x05state\x12+\n" +
+	"\x11authorization_url\x18\x02 \x01(\tR\x10authorizationUrl\x12\x1d\n" +
+	"\n" +
+	"expires_in\x18\x03 \x01(\x03R\texpiresIn\"\xa4\x01\n" +
+	"\x12FinishOAuthRequest\x12\x1a\n" +
+	"\bprovider\x18\x01 \x01(\tR\bprovider\x12!\n" +
+	"\fredirect_uri\x18\x02 \x01(\tR\vredirectUri\x12%\n" +
+	"\x0ecreate_account\x18\x03 \x01(\bR\rcreateAccount\x12\x14\n" +
+	"\x05state\x18\x04 \x01(\tR\x05state\x12\x12\n" +
+	"\x04code\x18\x05 \x01(\tR\x04code\"@\n" +
 	"\fLoginRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\"q\n" +
@@ -666,16 +1641,82 @@ const file_bookstore_v1_auth_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x17\n" +
 	"\x15DeleteAccountResponse\"7\n" +
 	"\x12VerifyTokenRequest\x12!\n" +
-	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\"Z\n" +
-	"\x13VerifyTokenResponse\x12\x17\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\"|\n" +
+	"\x13VerifyTokenResponse\x12 \n" +
+	"\vpermissions\x18\x04 \x03(\tR\vpermissions\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x14\n" +
-	"\x05roles\x18\x03 \x03(\tR\x05roles2\xf3\x04\n" +
-	"\vAuthService\x12E\n" +
+	"\x05roles\x18\x03 \x03(\tR\x05roles\"9\n" +
+	"\x14AuthorizationRequest\x12!\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\"\x14\n" +
+	"\x12AuthorizationEmpty\"T\n" +
+	"\x10GetAccessRequest\x12!\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\x02 \x01(\tR\taccountId\"g\n" +
+	"\x0eAccessResponse\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\x01 \x01(\tR\taccountId\x12\x14\n" +
+	"\x05roles\x18\x02 \x03(\tR\x05roles\x12 \n" +
+	"\vpermissions\x18\x03 \x03(\tR\vpermissions\"l\n" +
+	"\n" +
+	"Permission\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x14\n" +
+	"\x05group\x18\x04 \x01(\tR\x05group\"\x8a\x01\n" +
+	"\x04Role\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x16\n" +
+	"\x06system\x18\x04 \x01(\bR\x06system\x12 \n" +
+	"\vpermissions\x18\x05 \x03(\tR\vpermissions\"\x84\x01\n" +
+	"\x1cAuthorizationCatalogResponse\x12(\n" +
+	"\x05roles\x18\x01 \x03(\v2\x12.bookstore.v1.RoleR\x05roles\x12:\n" +
+	"\vpermissions\x18\x02 \x03(\v2\x18.bookstore.v1.PermissionR\vpermissions\"t\n" +
+	"\x0fSaveRoleRequest\x12!\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12&\n" +
+	"\x04role\x18\x02 \x01(\v2\x12.bookstore.v1.RoleR\x04role\x12\x16\n" +
+	"\x06create\x18\x03 \x01(\bR\x06create\"J\n" +
+	"\x11DeleteRoleRequest\x12!\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12\x12\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\"l\n" +
+	"\x12AssignRolesRequest\x12!\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\x02 \x01(\tR\taccountId\x12\x14\n" +
+	"\x05roles\x18\x03 \x03(\tR\x05roles\"[\n" +
+	"\x19AuthorizationAuditRequest\x12!\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12\x1b\n" +
+	"\tbefore_id\x18\x02 \x01(\x03R\bbeforeId\"\xd7\x01\n" +
+	"\x12AuthorizationAudit\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x19\n" +
+	"\bactor_id\x18\x02 \x01(\tR\aactorId\x12\x16\n" +
+	"\x06action\x18\x03 \x01(\tR\x06action\x12\x16\n" +
+	"\x06target\x18\x04 \x01(\tR\x06target\x12\x16\n" +
+	"\x06before\x18\x05 \x01(\tR\x06before\x12\x14\n" +
+	"\x05after\x18\x06 \x01(\tR\x05after\x12\x19\n" +
+	"\btrace_id\x18\a \x01(\tR\atraceId\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\b \x01(\tR\tcreatedAt\"X\n" +
+	"\x1aAuthorizationAuditResponse\x12:\n" +
+	"\aentries\x18\x01 \x03(\v2 .bookstore.v1.AuthorizationAuditR\aentries2\xa5\n" +
+	"\n" +
+	"\vAuthService\x12I\n" +
+	"\tGetAccess\x12\x1e.bookstore.v1.GetAccessRequest\x1a\x1c.bookstore.v1.AccessResponse\x12i\n" +
+	"\x17GetAuthorizationCatalog\x12\".bookstore.v1.AuthorizationRequest\x1a*.bookstore.v1.AuthorizationCatalogResponse\x12K\n" +
+	"\bSaveRole\x12\x1d.bookstore.v1.SaveRoleRequest\x1a .bookstore.v1.AuthorizationEmpty\x12O\n" +
+	"\n" +
+	"DeleteRole\x12\x1f.bookstore.v1.DeleteRoleRequest\x1a .bookstore.v1.AuthorizationEmpty\x12Q\n" +
+	"\vAssignRoles\x12 .bookstore.v1.AssignRolesRequest\x1a .bookstore.v1.AuthorizationEmpty\x12k\n" +
+	"\x16ListAuthorizationAudit\x12'.bookstore.v1.AuthorizationAuditRequest\x1a(.bookstore.v1.AuthorizationAuditResponse\x12E\n" +
 	"\bRegister\x12\x1d.bookstore.v1.RegisterRequest\x1a\x1a.bookstore.v1.AuthResponse\x12?\n" +
 	"\x05Login\x12\x1a.bookstore.v1.LoginRequest\x1a\x1a.bookstore.v1.AuthResponse\x12O\n" +
 	"\x0fLoginWithGoogle\x12 .bookstore.v1.GoogleLoginRequest\x1a\x1a.bookstore.v1.AuthResponse\x12S\n" +
-	"\x11LoginWithFacebook\x12\".bookstore.v1.FacebookLoginRequest\x1a\x1a.bookstore.v1.AuthResponse\x12C\n" +
+	"\x11LoginWithFacebook\x12\".bookstore.v1.FacebookLoginRequest\x1a\x1a.bookstore.v1.AuthResponse\x12O\n" +
+	"\n" +
+	"StartOAuth\x12\x1f.bookstore.v1.StartOAuthRequest\x1a .bookstore.v1.StartOAuthResponse\x12K\n" +
+	"\vFinishOAuth\x12 .bookstore.v1.FinishOAuthRequest\x1a\x1a.bookstore.v1.AuthResponse\x12C\n" +
 	"\aRefresh\x12\x1c.bookstore.v1.RefreshRequest\x1a\x1a.bookstore.v1.AuthResponse\x12C\n" +
 	"\x06Logout\x12\x1b.bookstore.v1.LogoutRequest\x1a\x1c.bookstore.v1.LogoutResponse\x12X\n" +
 	"\rDeleteAccount\x12\".bookstore.v1.DeleteAccountRequest\x1a#.bookstore.v1.DeleteAccountResponse\x12R\n" +
@@ -693,43 +1734,79 @@ func file_bookstore_v1_auth_proto_rawDescGZIP() []byte {
 	return file_bookstore_v1_auth_proto_rawDescData
 }
 
-var file_bookstore_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_bookstore_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_bookstore_v1_auth_proto_goTypes = []any{
-	(*RegisterRequest)(nil),       // 0: bookstore.v1.RegisterRequest
-	(*LoginRequest)(nil),          // 1: bookstore.v1.LoginRequest
-	(*GoogleLoginRequest)(nil),    // 2: bookstore.v1.GoogleLoginRequest
-	(*FacebookLoginRequest)(nil),  // 3: bookstore.v1.FacebookLoginRequest
-	(*AuthResponse)(nil),          // 4: bookstore.v1.AuthResponse
-	(*RefreshRequest)(nil),        // 5: bookstore.v1.RefreshRequest
-	(*LogoutRequest)(nil),         // 6: bookstore.v1.LogoutRequest
-	(*LogoutResponse)(nil),        // 7: bookstore.v1.LogoutResponse
-	(*DeleteAccountRequest)(nil),  // 8: bookstore.v1.DeleteAccountRequest
-	(*DeleteAccountResponse)(nil), // 9: bookstore.v1.DeleteAccountResponse
-	(*VerifyTokenRequest)(nil),    // 10: bookstore.v1.VerifyTokenRequest
-	(*VerifyTokenResponse)(nil),   // 11: bookstore.v1.VerifyTokenResponse
+	(*RegisterRequest)(nil),              // 0: bookstore.v1.RegisterRequest
+	(*StartOAuthRequest)(nil),            // 1: bookstore.v1.StartOAuthRequest
+	(*StartOAuthResponse)(nil),           // 2: bookstore.v1.StartOAuthResponse
+	(*FinishOAuthRequest)(nil),           // 3: bookstore.v1.FinishOAuthRequest
+	(*LoginRequest)(nil),                 // 4: bookstore.v1.LoginRequest
+	(*GoogleLoginRequest)(nil),           // 5: bookstore.v1.GoogleLoginRequest
+	(*FacebookLoginRequest)(nil),         // 6: bookstore.v1.FacebookLoginRequest
+	(*AuthResponse)(nil),                 // 7: bookstore.v1.AuthResponse
+	(*RefreshRequest)(nil),               // 8: bookstore.v1.RefreshRequest
+	(*LogoutRequest)(nil),                // 9: bookstore.v1.LogoutRequest
+	(*LogoutResponse)(nil),               // 10: bookstore.v1.LogoutResponse
+	(*DeleteAccountRequest)(nil),         // 11: bookstore.v1.DeleteAccountRequest
+	(*DeleteAccountResponse)(nil),        // 12: bookstore.v1.DeleteAccountResponse
+	(*VerifyTokenRequest)(nil),           // 13: bookstore.v1.VerifyTokenRequest
+	(*VerifyTokenResponse)(nil),          // 14: bookstore.v1.VerifyTokenResponse
+	(*AuthorizationRequest)(nil),         // 15: bookstore.v1.AuthorizationRequest
+	(*AuthorizationEmpty)(nil),           // 16: bookstore.v1.AuthorizationEmpty
+	(*GetAccessRequest)(nil),             // 17: bookstore.v1.GetAccessRequest
+	(*AccessResponse)(nil),               // 18: bookstore.v1.AccessResponse
+	(*Permission)(nil),                   // 19: bookstore.v1.Permission
+	(*Role)(nil),                         // 20: bookstore.v1.Role
+	(*AuthorizationCatalogResponse)(nil), // 21: bookstore.v1.AuthorizationCatalogResponse
+	(*SaveRoleRequest)(nil),              // 22: bookstore.v1.SaveRoleRequest
+	(*DeleteRoleRequest)(nil),            // 23: bookstore.v1.DeleteRoleRequest
+	(*AssignRolesRequest)(nil),           // 24: bookstore.v1.AssignRolesRequest
+	(*AuthorizationAuditRequest)(nil),    // 25: bookstore.v1.AuthorizationAuditRequest
+	(*AuthorizationAudit)(nil),           // 26: bookstore.v1.AuthorizationAudit
+	(*AuthorizationAuditResponse)(nil),   // 27: bookstore.v1.AuthorizationAuditResponse
 }
 var file_bookstore_v1_auth_proto_depIdxs = []int32{
-	0,  // 0: bookstore.v1.AuthService.Register:input_type -> bookstore.v1.RegisterRequest
-	1,  // 1: bookstore.v1.AuthService.Login:input_type -> bookstore.v1.LoginRequest
-	2,  // 2: bookstore.v1.AuthService.LoginWithGoogle:input_type -> bookstore.v1.GoogleLoginRequest
-	3,  // 3: bookstore.v1.AuthService.LoginWithFacebook:input_type -> bookstore.v1.FacebookLoginRequest
-	5,  // 4: bookstore.v1.AuthService.Refresh:input_type -> bookstore.v1.RefreshRequest
-	6,  // 5: bookstore.v1.AuthService.Logout:input_type -> bookstore.v1.LogoutRequest
-	8,  // 6: bookstore.v1.AuthService.DeleteAccount:input_type -> bookstore.v1.DeleteAccountRequest
-	10, // 7: bookstore.v1.AuthService.VerifyToken:input_type -> bookstore.v1.VerifyTokenRequest
-	4,  // 8: bookstore.v1.AuthService.Register:output_type -> bookstore.v1.AuthResponse
-	4,  // 9: bookstore.v1.AuthService.Login:output_type -> bookstore.v1.AuthResponse
-	4,  // 10: bookstore.v1.AuthService.LoginWithGoogle:output_type -> bookstore.v1.AuthResponse
-	4,  // 11: bookstore.v1.AuthService.LoginWithFacebook:output_type -> bookstore.v1.AuthResponse
-	4,  // 12: bookstore.v1.AuthService.Refresh:output_type -> bookstore.v1.AuthResponse
-	7,  // 13: bookstore.v1.AuthService.Logout:output_type -> bookstore.v1.LogoutResponse
-	9,  // 14: bookstore.v1.AuthService.DeleteAccount:output_type -> bookstore.v1.DeleteAccountResponse
-	11, // 15: bookstore.v1.AuthService.VerifyToken:output_type -> bookstore.v1.VerifyTokenResponse
-	8,  // [8:16] is the sub-list for method output_type
-	0,  // [0:8] is the sub-list for method input_type
-	0,  // [0:0] is the sub-list for extension type_name
-	0,  // [0:0] is the sub-list for extension extendee
-	0,  // [0:0] is the sub-list for field type_name
+	20, // 0: bookstore.v1.AuthorizationCatalogResponse.roles:type_name -> bookstore.v1.Role
+	19, // 1: bookstore.v1.AuthorizationCatalogResponse.permissions:type_name -> bookstore.v1.Permission
+	20, // 2: bookstore.v1.SaveRoleRequest.role:type_name -> bookstore.v1.Role
+	26, // 3: bookstore.v1.AuthorizationAuditResponse.entries:type_name -> bookstore.v1.AuthorizationAudit
+	17, // 4: bookstore.v1.AuthService.GetAccess:input_type -> bookstore.v1.GetAccessRequest
+	15, // 5: bookstore.v1.AuthService.GetAuthorizationCatalog:input_type -> bookstore.v1.AuthorizationRequest
+	22, // 6: bookstore.v1.AuthService.SaveRole:input_type -> bookstore.v1.SaveRoleRequest
+	23, // 7: bookstore.v1.AuthService.DeleteRole:input_type -> bookstore.v1.DeleteRoleRequest
+	24, // 8: bookstore.v1.AuthService.AssignRoles:input_type -> bookstore.v1.AssignRolesRequest
+	25, // 9: bookstore.v1.AuthService.ListAuthorizationAudit:input_type -> bookstore.v1.AuthorizationAuditRequest
+	0,  // 10: bookstore.v1.AuthService.Register:input_type -> bookstore.v1.RegisterRequest
+	4,  // 11: bookstore.v1.AuthService.Login:input_type -> bookstore.v1.LoginRequest
+	5,  // 12: bookstore.v1.AuthService.LoginWithGoogle:input_type -> bookstore.v1.GoogleLoginRequest
+	6,  // 13: bookstore.v1.AuthService.LoginWithFacebook:input_type -> bookstore.v1.FacebookLoginRequest
+	1,  // 14: bookstore.v1.AuthService.StartOAuth:input_type -> bookstore.v1.StartOAuthRequest
+	3,  // 15: bookstore.v1.AuthService.FinishOAuth:input_type -> bookstore.v1.FinishOAuthRequest
+	8,  // 16: bookstore.v1.AuthService.Refresh:input_type -> bookstore.v1.RefreshRequest
+	9,  // 17: bookstore.v1.AuthService.Logout:input_type -> bookstore.v1.LogoutRequest
+	11, // 18: bookstore.v1.AuthService.DeleteAccount:input_type -> bookstore.v1.DeleteAccountRequest
+	13, // 19: bookstore.v1.AuthService.VerifyToken:input_type -> bookstore.v1.VerifyTokenRequest
+	18, // 20: bookstore.v1.AuthService.GetAccess:output_type -> bookstore.v1.AccessResponse
+	21, // 21: bookstore.v1.AuthService.GetAuthorizationCatalog:output_type -> bookstore.v1.AuthorizationCatalogResponse
+	16, // 22: bookstore.v1.AuthService.SaveRole:output_type -> bookstore.v1.AuthorizationEmpty
+	16, // 23: bookstore.v1.AuthService.DeleteRole:output_type -> bookstore.v1.AuthorizationEmpty
+	16, // 24: bookstore.v1.AuthService.AssignRoles:output_type -> bookstore.v1.AuthorizationEmpty
+	27, // 25: bookstore.v1.AuthService.ListAuthorizationAudit:output_type -> bookstore.v1.AuthorizationAuditResponse
+	7,  // 26: bookstore.v1.AuthService.Register:output_type -> bookstore.v1.AuthResponse
+	7,  // 27: bookstore.v1.AuthService.Login:output_type -> bookstore.v1.AuthResponse
+	7,  // 28: bookstore.v1.AuthService.LoginWithGoogle:output_type -> bookstore.v1.AuthResponse
+	7,  // 29: bookstore.v1.AuthService.LoginWithFacebook:output_type -> bookstore.v1.AuthResponse
+	2,  // 30: bookstore.v1.AuthService.StartOAuth:output_type -> bookstore.v1.StartOAuthResponse
+	7,  // 31: bookstore.v1.AuthService.FinishOAuth:output_type -> bookstore.v1.AuthResponse
+	7,  // 32: bookstore.v1.AuthService.Refresh:output_type -> bookstore.v1.AuthResponse
+	10, // 33: bookstore.v1.AuthService.Logout:output_type -> bookstore.v1.LogoutResponse
+	12, // 34: bookstore.v1.AuthService.DeleteAccount:output_type -> bookstore.v1.DeleteAccountResponse
+	14, // 35: bookstore.v1.AuthService.VerifyToken:output_type -> bookstore.v1.VerifyTokenResponse
+	20, // [20:36] is the sub-list for method output_type
+	4,  // [4:20] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_bookstore_v1_auth_proto_init() }
@@ -743,7 +1820,7 @@ func file_bookstore_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_bookstore_v1_auth_proto_rawDesc), len(file_bookstore_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -58,30 +58,38 @@
 
 ### `/dang-nhap` — Đăng nhập quản trị
 
-- Actor: account có role admin.
+- Actor: account có `admin.access`.
 - Password/social login không tự tạo admin.
-- Account chỉ có role customer phải bị từ chối sau khi backend xác thực.
+- Account không có `admin.access` bị từ chối sau khi backend xác thực.
+- Sau đăng nhập, portal mở trang đầu tiên mà account đủ quyền (dashboard / sách / khách hàng / chat / phân quyền).
 
 ### `/` — Dashboard
 
-- Actor: admin.
+- Actor: account có `analytics.read`, `books.read` và `customers.read`.
 - Dữ liệu chính: GraphQL `adminDashboard`.
 - Các số liệu là snapshot của cursor page đã tải, không phải global totals toàn database.
+- Thiếu một trong các permission trên thì router chuyển sang trang được phép khác.
 
 ### `/sach` — Quản lý sách
 
-- Actor: admin.
-- Mục đích: xem danh sách, tạo, cập nhật và xóa sách.
+- Actor: `books.read`; nút tạo/sửa/xóa theo `books.create|update|delete`.
 
 ### `/khach-hang` — Quản lý khách hàng
 
-- Actor: admin.
-- Mục đích: phân trang, xem, đổi display name và gửi yêu cầu xóa customer bất đồng bộ.
+- Actor: `customers.read`; sửa/xóa theo `customers.update|delete`.
+- Drawer có thể gán role khi có `roles.read` / `users.assign_roles`.
 
 ### `/tro-chuyen` — Trò chuyện hỗ trợ
 
-- Actor: admin.
-- Mục đích: xem danh sách conversation, lịch sử, unread count và trả lời realtime.
+- Actor: `chat.read`; gửi tin theo `chat.reply`.
+
+### `/phan-quyen` — Vai trò và phân quyền
+
+- Actor: `roles.read`; tạo/sửa/xóa role tùy chỉnh cần `roles.manage`; gán role cần `users.assign_roles`.
+
+### `/khong-co-quyen`
+
+- Actor: đã vào portal nhưng thiếu permission của route đích.
 
 ## Khoảng trống UI so với backend
 

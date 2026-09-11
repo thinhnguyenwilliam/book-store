@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/features/auth/model/auth.store'
+import * as authorizationApi from '@/features/authorization/api'
+import type { Role } from '@/features/authorization/api'
 import { useCustomersStore } from '@/features/customers/model/customers.store'
 import type { Customer, CustomerInput } from '@/features/customers/model/types'
 import CustomerDrawer from '@/features/customers/ui/CustomerDrawer.vue'
@@ -16,6 +18,10 @@ const notifications = useNotificationStore()
 const query = ref('')
 const selectedCustomer = ref<Customer>()
 const deletingCustomer = ref<Customer>()
+const catalogRoles = ref<Role[]>([])
+const selectedRoles = ref<string[]>([])
+const accountPermissions = ref<string[]>([])
+const assigning = ref(false)
 
 const filteredCustomers = computed(() => {
   const keyword = query.value.trim().toLocaleLowerCase('vi')
@@ -29,6 +35,22 @@ const filteredCustomers = computed(() => {
 
 onMounted(() => store.fetchInitial())
 
+watch(selectedCustomer, async (customer) => {
+  catalogRoles.value = []
+  selectedRoles.value = []
+  accountPermissions.value = []
+  if (!customer || !auth.can('roles.read')) return
+  try {
+    const catalog = await authorizationApi.catalog()
+    catalogRoles.value = catalog.roles
+    const access = await authorizationApi.accountAccess(customer.id)
+    selectedRoles.value = [...access.roles]
+    accountPermissions.value = access.permissions
+  } catch {
+    notifications.show('Không thể tải vai trò của tài khoản.', 'danger')
+  }
+})
+
 async function save(payload: CustomerInput): Promise<void> {
   if (!selectedCustomer.value) return
   try {
@@ -37,6 +59,24 @@ async function save(payload: CustomerInput): Promise<void> {
     selectedCustomer.value = undefined
   } catch {
     notifications.show(store.error || 'Không thể cập nhật khách hàng.', 'danger')
+  }
+}
+
+async function assignRoles(): Promise<void> {
+  if (!selectedCustomer.value || !window.confirm('Thay thế toàn bộ vai trò của tài khoản này?'))
+    return
+  assigning.value = true
+  try {
+    const id = selectedCustomer.value.id
+    await authorizationApi.assignRoles(id, selectedRoles.value)
+    const access = await authorizationApi.accountAccess(id)
+    selectedRoles.value = [...access.roles]
+    accountPermissions.value = access.permissions
+    notifications.show('Đã cập nhật vai trò tài khoản.')
+  } catch (error) {
+    notifications.show(error instanceof Error ? error.message : 'Không thể gán vai trò.', 'danger')
+  } finally {
+    assigning.value = false
   }
 }
 
@@ -129,8 +169,9 @@ async function confirmDelete(): Promise<void> {
                 <div class="row-actions">
                   <button
                     type="button"
-                    title="Xem và sửa hồ sơ"
+                    :title="auth.can('customers.update') ? 'Xem và sửa hồ sơ' : 'Xem hồ sơ'"
                     @click="selectedCustomer = customer"
+                    v-if="auth.can('customers.read')"
                   >
                     <AppIcon name="edit" :size="17" />
                   </button>
@@ -144,6 +185,7 @@ async function confirmDelete(): Promise<void> {
                         : 'Xoá tài khoản'
                     "
                     @click="deletingCustomer = customer"
+                    v-if="auth.can('customers.delete')"
                   >
                     <AppIcon name="trash" :size="17" />
                   </button>
@@ -177,8 +219,18 @@ async function confirmDelete(): Promise<void> {
       :open="Boolean(selectedCustomer)"
       :customer="selectedCustomer"
       :saving="store.saving"
+      :assigning="assigning"
+      :can-update="auth.can('customers.update')"
+      :can-assign="auth.can('users.assign_roles')"
+      :is-self="selectedCustomer?.id === auth.profile?.id"
+      :actor-roles="auth.roles"
+      :actor-permissions="auth.permissions"
+      :roles="catalogRoles"
+      v-model:selected-roles="selectedRoles"
+      :account-permissions="accountPermissions"
       @close="selectedCustomer = undefined"
       @save="save"
+      @assign="assignRoles"
     />
     <ConfirmDialog
       :open="Boolean(deletingCustomer)"

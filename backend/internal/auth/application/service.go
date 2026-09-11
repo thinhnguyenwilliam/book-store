@@ -21,13 +21,16 @@ type AuthResult struct {
 }
 
 type Service struct {
-	repository    AccountRepository
-	hasher        PasswordHasher
-	accessTokens  TokenManager
-	refreshTokens RefreshTokenManager
-	identities    map[string]IdentityVerifier
-	refreshTTL    time.Duration
-	now           func() time.Time
+	authorization     AuthorizationRepository
+	repository        AccountRepository
+	hasher            PasswordHasher
+	accessTokens      TokenManager
+	refreshTokens     RefreshTokenManager
+	identities        map[string]IdentityVerifier
+	oauthProviders    map[string]OAuthProvider
+	oauthTransactions OAuthTransactionStore
+	refreshTTL        time.Duration
+	now               func() time.Time
 }
 
 func NewService(
@@ -106,6 +109,10 @@ func (s *Service) loginWithIdentity(
 		}
 		return AuthResult{}, domain.ErrInvalidIdentity
 	}
+	return s.loginVerifiedIdentity(ctx, provider, verified, createAccount)
+}
+
+func (s *Service) loginVerifiedIdentity(ctx context.Context, provider string, verified VerifiedIdentity, createAccount bool) (AuthResult, error) {
 	verified.Email = domain.NormalizeEmail(verified.Email)
 	verified.DisplayName = strings.TrimSpace(verified.DisplayName)
 	if verified.Provider != provider ||
@@ -283,7 +290,15 @@ func (s *Service) VerifyToken(ctx context.Context, token string) (Claims, error)
 	if err != nil {
 		return Claims{}, err
 	}
-	return Claims{UserID: account.ID, Email: account.Email, Roles: account.Roles}, nil
+	claims = Claims{UserID: account.ID, Email: account.Email, Roles: account.Roles}
+	if s.authorization != nil {
+		access, accessErr := s.authorization.Access(ctx, account.ID)
+		if accessErr != nil {
+			return Claims{}, accessErr
+		}
+		claims.Roles, claims.Permissions = access.Roles, access.Permissions
+	}
+	return claims, nil
 }
 
 func (s *Service) issueSession(account *domain.Account, now time.Time) (AuthResult, *domain.RefreshSession, error) {

@@ -1,0 +1,38 @@
+groups:
+  - name: bookstore.infrastructure
+    rules:
+      - alert: MonitoringTargetDown
+        expr: up == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: 'Monitoring target {{ $labels.job }} is down'
+          description: 'Cannot scrape {{ $labels.instance }} for at least 2 minutes.'
+      - alert: HostHighCPU
+        expr: 100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 85
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Host CPU is above 85%'
+          description: '{{ $labels.instance }} CPU usage is {{ printf "%.1f" $value }}%.'
+      - alert: HostLowMemory
+        expr: 100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 10
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Host available memory is below 10%'
+          description: '{{ $labels.instance }} has {{ printf "%.1f" $value }}% available memory.'
+      - alert: HostDiskAlmostFull
+        expr: (100 * node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes < 15) and on(instance, device, mountpoint) (node_filesystem_readonly == 0)
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Host disk has less than 15% free space'
+          description: '{{ $labels.instance }} {{ $labels.mountpoint }} has {{ printf "%.1f" $value }}% available.'
+      - alert: AlertDeliveryFailed
+        expr: increase(alertmanager_notifications_failed_total[10m]) > 0
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Alertmanager cannot deliver notifications'
+          description: 'Check receiver credentials and connectivity for {{ $labels.integration }}. This alert is also visible locally if delivery is broken.'

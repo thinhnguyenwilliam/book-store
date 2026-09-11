@@ -24,15 +24,19 @@ Book Store cung cấp một luồng thương mại điện tử cho sách: khác
 - Mở hội thoại hỗ trợ, gửi/sửa/xóa tin nhắn của mình và đánh dấu đã đọc.
 - Xem thông báo, đánh dấu đã đọc và đăng ký thiết bị nhận FCM.
 
-### Quản trị viên (`admin`)
+### Quản trị viên
 
-- Chỉ account có role `admin` mới vào được admin portal.
-- Xem dashboard tổng hợp catalog và khách hàng.
-- Tạo, sửa, xóa sách.
-- Xem, sửa hồ sơ và yêu cầu xóa khách hàng.
-- Điều chỉnh số dư ví bằng một delta có lý do và idempotency key.
-- Ẩn/hiện hoặc xóa bình luận.
-- Xem các cuộc hội thoại hỗ trợ và tham gia trả lời.
+Vào back-office khi account có permission `admin.access`. Quyền thao tác là tổng permission của các role trong `auth.account_roles`, không còn chỉ dựa vào JWT `roles=['admin']`.
+
+Role hệ thống:
+
+- `customer` — không vào back-office.
+- `catalog_manager` — quản lý sách.
+- `support` — xem khách hàng và chat hỗ trợ.
+- `admin` — toàn bộ nghiệp vụ, trừ quản trị vai trò.
+- `super_admin` — toàn bộ, gồm tạo/sửa/xóa role tùy chỉnh và gán role.
+
+`super_admin` bootstrap: admin cũ nhất tại thời điểm migration `020_permissions.sql`. Không có public API tự cấp `admin` hoặc `super_admin`.
 
 ### Hệ thống bên ngoài
 
@@ -49,7 +53,7 @@ Book Store cung cấp một luồng thương mại điện tử cho sách: khác
 
 ## Bounded context và quyền sở hữu dữ liệu
 
-- Auth sở hữu account, identity ngoài, refresh session và auth outbox.
+- Auth sở hữu account, identity ngoài, refresh session, OAuth transaction, role/permission và auth outbox.
 - User sở hữu hồ sơ người dùng.
 - Catalog sở hữu sách và stock reservation.
 - Order sở hữu cart, order và order snapshot item.
@@ -69,6 +73,5 @@ Những mục sau chưa được xem là chức năng hoàn chỉnh trong code h
 - Tìm kiếm full-text, danh mục/genre và recommendation.
 - Admin quản lý order/payment qua màn hình chuyên biệt.
 - Đóng/mở lại support conversation bằng API public.
-- Quản lý role admin qua UI.
 - Rating sao tách biệt với nội dung bình luận.
 - Quy trình seller onboarding và rút tiền.

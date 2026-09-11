@@ -25,6 +25,15 @@ Các scenario dưới đây ưu tiên luồng có rủi ro nghiệp vụ cao. Ch
 - Then backend vẫn từ chối trước khi tạo session.
 - And response không chứa raw credential hoặc lỗi nội bộ của provider.
 
+## AC-AUTH-04 — Phân quyền không leo thang
+
+- Given actor không có `books.delete`.
+- When actor gán role chứa `books.delete` hoặc sửa role của chính mình.
+- Then API trả 403 và không đổi `account_roles`.
+- Given role tùy chỉnh không còn account nào mang.
+- When super admin xóa role đó.
+- Then role biến mất và audit ghi `role.delete`.
+
 ## AC-BOOK-01 — Cursor cuối danh sách
 
 - Given số sách không vượt limit.

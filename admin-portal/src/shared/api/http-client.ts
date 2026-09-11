@@ -44,6 +44,8 @@ export class ApiError extends Error {
 export function providerLoginErrorMessage(error: unknown, providerLabel: string): string {
   if (!(error instanceof ApiError)) return `Không thể đăng nhập ${providerLabel}.`
   switch (error.code) {
+    case 'provider_email_required':
+      return `${providerLabel} chưa cung cấp email đã xác minh. Kiểm tra email tài khoản và quyền email của ứng dụng.`
     case 'invalid_oauth_state':
       return `Phiên đăng nhập ${providerLabel} đã hết hạn. Vui lòng thử lại.`
     case 'invalid_provider_credential':

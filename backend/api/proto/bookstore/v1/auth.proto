@@ -5,10 +5,18 @@ package bookstore.v1;
 option go_package = "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1;bookstorev1";
 
 service AuthService {
+  rpc GetAccess(GetAccessRequest) returns (AccessResponse);
+  rpc GetAuthorizationCatalog(AuthorizationRequest) returns (AuthorizationCatalogResponse);
+  rpc SaveRole(SaveRoleRequest) returns (AuthorizationEmpty);
+  rpc DeleteRole(DeleteRoleRequest) returns (AuthorizationEmpty);
+  rpc AssignRoles(AssignRolesRequest) returns (AuthorizationEmpty);
+  rpc ListAuthorizationAudit(AuthorizationAuditRequest) returns (AuthorizationAuditResponse);
   rpc Register(RegisterRequest) returns (AuthResponse);
   rpc Login(LoginRequest) returns (AuthResponse);
   rpc LoginWithGoogle(GoogleLoginRequest) returns (AuthResponse);
   rpc LoginWithFacebook(FacebookLoginRequest) returns (AuthResponse);
+  rpc StartOAuth(StartOAuthRequest) returns (StartOAuthResponse);
+  rpc FinishOAuth(FinishOAuthRequest) returns (AuthResponse);
   rpc Refresh(RefreshRequest) returns (AuthResponse);
   rpc Logout(LogoutRequest) returns (LogoutResponse);
   rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
@@ -19,6 +27,26 @@ message RegisterRequest {
   string email = 1;
   string password = 2;
   string display_name = 3;
+}
+
+message StartOAuthRequest {
+ string provider = 1;
+ string redirect_uri = 2;
+ bool create_account = 3;
+}
+
+message StartOAuthResponse {
+ string state = 1;
+ string authorization_url = 2;
+ int64 expires_in = 3;
+}
+
+message FinishOAuthRequest {
+ string provider = 1;
+ string redirect_uri = 2;
+ bool create_account = 3;
+ string state = 4;
+ string code = 5;
 }
 
 message LoginRequest {
@@ -66,7 +94,22 @@ message VerifyTokenRequest {
 }
 
 message VerifyTokenResponse {
+  repeated string permissions = 4;
   string user_id = 1;
   string email = 2;
   repeated string roles = 3;
 }
+
+message AuthorizationRequest { string access_token = 1; }
+message AuthorizationEmpty {}
+message GetAccessRequest { string access_token = 1; string account_id = 2; }
+message AccessResponse { string account_id = 1; repeated string roles = 2; repeated string permissions = 3; }
+message Permission { string code = 1; string name = 2; string description = 3; string group = 4; }
+message Role { string code = 1; string name = 2; string description = 3; bool system = 4; repeated string permissions = 5; }
+message AuthorizationCatalogResponse { repeated Role roles = 1; repeated Permission permissions = 2; }
+message SaveRoleRequest { string access_token = 1; Role role = 2; bool create = 3; }
+message DeleteRoleRequest { string access_token = 1; string code = 2; }
+message AssignRolesRequest { string access_token = 1; string account_id = 2; repeated string roles = 3; }
+message AuthorizationAuditRequest { string access_token = 1; int64 before_id = 2; }
+message AuthorizationAudit { int64 id = 1; string actor_id = 2; string action = 3; string target = 4; string before = 5; string after = 6; string trace_id = 7; string created_at = 8; }
+message AuthorizationAuditResponse { repeated AuthorizationAudit entries = 1; }

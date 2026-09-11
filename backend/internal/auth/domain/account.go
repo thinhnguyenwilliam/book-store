@@ -22,6 +22,11 @@ var (
 
 const IdentityProviderGoogle = "google"
 const IdentityProviderFacebook = "facebook"
+const IdentityProviderDiscord = "discord"
+const IdentityProviderTwitter = "twitter"
+
+var ErrOAuthState = errors.New("external login state is invalid or expired")
+var ErrIdentityEmailRequired = errors.New("provider must supply a verified email")
 
 type Account struct {
 	ID           string

@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/model/auth.store'
 import AuthPanel from '@/features/auth/ui/AuthPanel.vue'
 import FacebookSignInButton from '@/features/auth/ui/FacebookSignInButton.vue'
+import OAuthSignInButton from '@/features/auth/ui/OAuthSignInButton.vue'
 import GoogleSignInButton from '@/features/auth/ui/GoogleSignInButton.vue'
 import { ApiError, providerLoginErrorMessage } from '@/shared/api/http-client'
 import { env } from '@/shared/config/env'
@@ -93,6 +94,8 @@ async function signInWithFacebook(accessToken: string, state: string): Promise<v
     </form>
     <div class="auth-divider"><span>hoặc</span></div>
     <div class="auth-social-buttons">
+      <OAuthSignInButton provider="discord" />
+      <OAuthSignInButton provider="twitter" />
       <GoogleSignInButton
         :client-id="env.googleClientId"
         :create-account="true"

@@ -470,9 +470,10 @@ func (s *Service) PayOrder(
 		}
 		// The remote result may be unknown after a timeout. Reconcile by order ID
 		// before performing a compensation that could release paid inventory.
+		createErr := err
 		payment, err = s.payments.GetPaymentByOrder(ctx, order.ID, userID)
 		if err != nil {
-			return nil, fmt.Errorf("payment result is unknown; retry with the same idempotency key: %w", err)
+			return nil, errors.Join(domain.ErrPaymentUnknown, createErr, err)
 		}
 	}
 	if payment.Status == "pending" {

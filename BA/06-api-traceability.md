@@ -1,6 +1,6 @@
 # Truy vết yêu cầu — API
 
-Base REST path là `/api/v1`. `Public` không cần access token; `Customer` cần xác thực và ownership; `Admin` cần role admin.
+Base REST path là `/api/v1`. `Public` không cần access token; `Customer` cần xác thực và ownership; endpoint `/admin/*` cần `admin.access` cộng permission cụ thể.
 
 ## Authentication
 
@@ -11,6 +11,13 @@ Base REST path là `/api/v1`. `Public` không cần access token; `Customer` c�
 - `POST /auth/facebook` — Public — `FR-AUTH-004`, `FR-AUTH-005`.
 - `POST /auth/refresh` — Refresh cookie — `FR-AUTH-006`.
 - `POST /auth/logout` — Refresh cookie — `FR-AUTH-007`.
+- `GET /auth/me/permissions` — Authenticated — `FR-AUTH-008`.
+- `GET /admin/roles` — `roles.read` — `FR-AUTH-009`.
+- `POST /admin/roles` / `PUT /admin/roles/:code` — `roles.manage` — `FR-AUTH-010`.
+- `DELETE /admin/roles/:code` — `roles.manage` — `FR-AUTH-010`.
+- `GET /admin/accounts/:id/permissions` — `roles.read` — `FR-AUTH-009`.
+- `PUT /admin/accounts/:id/roles` — `users.assign_roles` — `FR-AUTH-011`.
+- `GET /admin/authorization/audit` — `roles.read` — `FR-AUTH-009`.
 
 ## User và admin customer
 

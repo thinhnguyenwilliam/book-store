@@ -17,6 +17,7 @@ import (
 	"github.com/labstack/echo/v4"
 	redis "github.com/redis/go-redis/v9"
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
+	"google.golang.org/grpc/metadata"
 )
 
 type ChatRealtimeConfig struct {
@@ -34,6 +35,7 @@ type ChatRealtimeConfig struct {
 }
 
 type ChatRealtime struct {
+	auth           bookstorev1.AuthServiceClient
 	redis          *redis.Client
 	chat           bookstorev1.ChatServiceClient
 	namespace      string
@@ -58,10 +60,28 @@ type chatSocketClient struct {
 	send      chan []byte
 }
 
+// SetAuthClient must run before Start; live sockets revalidate on commands/events.
+func (h *ChatRealtime) SetAuthClient(client bookstorev1.AuthServiceClient) { h.auth = client }
+func (h *ChatRealtime) currentPrincipal(ctx context.Context, client *chatSocketClient) (Principal, error) {
+	if h.auth == nil {
+		return Principal{}, errors.New("authorization unavailable")
+	}
+	claims, err := h.auth.VerifyToken(ctx, &bookstorev1.VerifyTokenRequest{AccessToken: client.principal.AccessToken})
+	if err != nil {
+		return Principal{}, err
+	}
+	if claims.GetUserId() != client.principal.UserID {
+		return Principal{}, errors.New("invalid session")
+	}
+	return Principal{UserID: claims.GetUserId(), Permissions: claims.GetPermissions(), Roles: claims.GetRoles()}, nil
+}
+
 type chatTicket struct {
-	UserID string   `json:"user_id"`
-	Email  string   `json:"email"`
-	Roles  []string `json:"roles"`
+	AccessToken string
+	Permissions []string
+	UserID      string   `json:"user_id"`
+	Email       string   `json:"email"`
+	Roles       []string `json:"roles"`
 }
 
 type redisChatEvent struct {
@@ -124,7 +144,7 @@ func (h *ChatRealtime) Start(parent context.Context) error {
 				slog.Warn("discard invalid chat realtime event", "error", err)
 				continue
 			}
-			h.broadcast(event)
+			h.broadcast(ctx, event)
 		}
 	}()
 	return nil
@@ -269,7 +289,7 @@ func (h *ChatRealtime) unregister(client *chatSocketClient) {
 	}
 }
 
-func (h *ChatRealtime) broadcast(event redisChatEvent) {
+func (h *ChatRealtime) broadcast(parent context.Context, event redisChatEvent) {
 	publicPayload, err := json.Marshal(publicChatEvent{Type: event.Type, Data: event.Data})
 	if err != nil {
 		return
@@ -283,7 +303,17 @@ func (h *ChatRealtime) broadcast(event redisChatEvent) {
 	for userID, connections := range h.clients {
 		_, direct := audience[userID]
 		for client := range connections {
-			if !direct && (!event.AdminAudience || !hasRole(client.principal, "admin")) {
+			if !direct && !event.AdminAudience {
+				continue
+			}
+			ctx, cancel := context.WithTimeout(parent, h.callTimeout)
+			principal, err := h.currentPrincipal(ctx, client)
+			cancel()
+			if err != nil {
+				_ = client.conn.Close()
+				continue
+			}
+			if !direct && !hasPermission(principal, "chat.read") {
 				continue
 			}
 			select {
@@ -341,7 +371,17 @@ func (c *chatSocketClient) writePump() {
 func (h *ChatRealtime) handleCommand(client *chatSocketClient, event inboundChatEvent) {
 	ctx, cancel := context.WithTimeout(context.Background(), h.callTimeout)
 	defer cancel()
-	isAdmin := hasRole(client.principal, "admin")
+	principal, err := h.currentPrincipal(ctx, client)
+	if err != nil {
+		h.commandError(client, event.RequestID, "session expired; reconnect")
+		_ = client.conn.Close()
+		return
+	}
+	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+client.principal.AccessToken)
+	isAdmin := hasPermission(principal, "chat.read")
+	if event.Type == "message.send" {
+		isAdmin = hasPermission(principal, "chat.reply")
+	}
 	switch event.Type {
 	case "message.send":
 		var request ChatMessageRequest

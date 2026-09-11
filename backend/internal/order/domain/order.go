@@ -6,6 +6,9 @@ import (
 )
 
 var (
+	ErrWalletNotFound      = errors.New("wallet not found")
+	ErrInsufficientFunds   = errors.New("insufficient wallet balance")
+	ErrPaymentUnknown      = errors.New("payment result is unknown; retry with the same idempotency key")
 	ErrInvalidInput        = errors.New("invalid order input")
 	ErrCartItemNotFound    = errors.New("cart item not found")
 	ErrCartEmpty           = errors.New("cart is empty")

@@ -193,10 +193,17 @@ func formatOptionalTime(value time.Time) string {
 }
 
 func mapError(err error) error {
+	if errors.Is(err, domain.ErrPaymentUnknown) {
+		return grpcerror.WithReason(codes.Unavailable, "PAYMENT_RESULT_UNKNOWN", domain.ErrPaymentUnknown.Error())
+	}
 	if mapped := grpcerror.FromContext(err); mapped != nil {
 		return mapped
 	}
 	switch {
+	case errors.Is(err, domain.ErrWalletNotFound):
+		return grpcerror.WithReason(codes.FailedPrecondition, "WALLET_NOT_FOUND", domain.ErrWalletNotFound.Error())
+	case errors.Is(err, domain.ErrInsufficientFunds):
+		return grpcerror.WithReason(codes.FailedPrecondition, "INSUFFICIENT_FUNDS", domain.ErrInsufficientFunds.Error())
 	case errors.Is(err, domain.ErrInvalidInput), errors.Is(err, domain.ErrCartEmpty):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrCartItemNotFound), errors.Is(err, domain.ErrOrderNotFound):

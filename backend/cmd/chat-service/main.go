@@ -18,6 +18,7 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/chat/application"
 	chatgrpc "github.com/thinhnguyenwilliam/book-store/backend/internal/chat/delivery/grpc"
 	rabbitmqadapter "github.com/thinhnguyenwilliam/book-store/backend/internal/messaging/rabbitmq"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/authorization"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/config"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/database"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcclient"
@@ -61,6 +62,11 @@ func execute() int {
 }
 
 func run(cfg config.Config) error {
+	guard, closeGuard, guardErr := authorization.Remote(cfg.GRPC.AuthAddress)
+	if guardErr != nil {
+		return guardErr
+	}
+	defer closeGuard()
 	shutdownTimeout, err := time.ParseDuration(cfg.Shutdown.Timeout)
 	if err != nil {
 		return err
@@ -99,7 +105,7 @@ func run(cfg config.Config) error {
 	workers := &sync.WaitGroup{}
 	workers.Add(1)
 	go func() { defer workers.Done(); dispatcher.Run(dispatcherCtx) }()
-	serverErr := grpcserver.Run(serverCtx, cfg.GRPC.ChatListenAddress, shutdownTimeout, func(server *grpc.Server) { bookstorev1.RegisterChatServiceServer(server, handler) })
+	serverErr := grpcserver.Run(serverCtx, cfg.GRPC.ChatListenAddress, shutdownTimeout, func(server *grpc.Server) { bookstorev1.RegisterChatServiceServer(server, handler) }, guard)
 	stopDispatcher()
 	waitCtx, cancelWait := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancelWait()

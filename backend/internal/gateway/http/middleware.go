@@ -11,9 +11,11 @@ import (
 const principalContextKey = "principal"
 
 type Principal struct {
-	UserID string
-	Email  string
-	Roles  []string
+	AccessToken string
+	Permissions []string
+	UserID      string
+	Email       string
+	Roles       []string
 }
 
 func (h *Handler) Authenticate(next echo.HandlerFunc) echo.HandlerFunc {
@@ -31,9 +33,11 @@ func (h *Handler) Authenticate(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		c.Set(principalContextKey, Principal{
-			UserID: claims.GetUserId(),
-			Email:  claims.GetEmail(),
-			Roles:  claims.GetRoles(),
+			UserID:      claims.GetUserId(),
+			Email:       claims.GetEmail(),
+			Roles:       claims.GetRoles(),
+			Permissions: claims.GetPermissions(),
+			AccessToken: parts[1],
 		})
 		return next(c)
 	}
@@ -55,7 +59,7 @@ func (h *Handler) OptionalAuthenticate(next echo.HandlerFunc) echo.HandlerFunc {
 		if err != nil {
 			return errorResponse(c, err)
 		}
-		c.Set(principalContextKey, Principal{UserID: claims.GetUserId(), Email: claims.GetEmail(), Roles: claims.GetRoles()})
+		c.Set(principalContextKey, Principal{UserID: claims.GetUserId(), Email: claims.GetEmail(), Roles: claims.GetRoles(), Permissions: claims.GetPermissions()})
 		return next(c)
 	}
 }

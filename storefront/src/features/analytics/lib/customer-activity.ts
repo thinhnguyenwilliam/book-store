@@ -1,3 +1,4 @@
+import { trackGoogleActivity } from './google-analytics'
 import {
   sendCustomerActivity,
   type CustomerActivityPayload,
@@ -35,6 +36,7 @@ function track(activity: {
   quantity?: number
 }): void {
   if (typeof window === 'undefined') return
+  trackGoogleActivity(activity.event_type, activity.book_id, activity.quantity)
   const payload: CustomerActivityPayload = {
     ...activity,
     anonymous_id: stableID(localStorage, ANONYMOUS_ID_KEY),

@@ -17,7 +17,7 @@ func (h *Handler) graphQLRequest(c echo.Context) error {
 	}
 	request := c.Request()
 	request = request.WithContext(gatewaygraphql.ContextWithPrincipal(grpcContext(c), gatewaygraphql.Principal{
-		UserID: principal.UserID, Email: principal.Email, Roles: principal.Roles,
+		UserID: principal.UserID, Email: principal.Email, Roles: principal.Roles, Permissions: principal.Permissions,
 	}))
 	h.graphQL.ServeHTTP(c.Response(), request)
 	return nil
@@ -36,5 +36,5 @@ func (h *Handler) optionalPrincipal(c echo.Context) (Principal, error) {
 	if err != nil {
 		return Principal{}, err
 	}
-	return Principal{UserID: claims.GetUserId(), Email: claims.GetEmail(), Roles: claims.GetRoles()}, nil
+	return Principal{UserID: claims.GetUserId(), Email: claims.GetEmail(), Roles: claims.GetRoles(), Permissions: claims.GetPermissions()}, nil
 }

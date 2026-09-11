@@ -1,0 +1,25 @@
+rule_files:
+  - /etc/prometheus/alerts.yml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'up{job="node-exporter",instance="node-exporter:9100"}'
+        values: '0 0 0 0 1 1'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: MonitoringTargetDown
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: MonitoringTargetDown
+        exp_alerts:
+          - exp_labels:
+              job: node-exporter
+              instance: node-exporter:9100
+              severity: critical
+            exp_annotations:
+              summary: Monitoring target node-exporter is down
+              description: Cannot scrape node-exporter:9100 for at least 2 minutes.
+      - eval_time: 5m
+        alertname: MonitoringTargetDown
+        exp_alerts: []

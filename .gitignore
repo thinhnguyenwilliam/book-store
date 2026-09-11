@@ -15,6 +15,7 @@ Thumbs.db
 !.env.example
 backend/config/local.yml
 backend/secrets/
+backend/observability/alertmanager.local.yml
 **/config/*.local.yml
 **/config/*.local.yaml
 **/config/*.secret.yml

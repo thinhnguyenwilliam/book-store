@@ -5,13 +5,16 @@
 - `BR-AUTH-001` — Email được trim, chuyển lowercase và phải hợp lệ; email là duy nhất.
 - `BR-AUTH-002` — Mật khẩu đăng ký có tối thiểu 8 ký tự.
 - `BR-AUTH-003` — Tên hiển thị không dài quá 100 ký tự.
-- `BR-AUTH-004` — Account mới luôn nhận role `customer`; không có public API tự cấp role `admin`.
+- `BR-AUTH-004` — Account mới luôn nhận role `customer` trên cả `auth.accounts.roles` và `auth.account_roles`; không có public API tự cấp role quản trị.
 - `BR-AUTH-005` — Access token mặc định sống 5 phút. Refresh session mặc định sống 168 giờ và chỉ lưu hash token trong database.
 - `BR-AUTH-006` — Refresh token được rotate. Phát hiện reuse phải thu hồi session family liên quan.
 - `BR-AUTH-007` — Social login phải kiểm tra provider state chống CSRF. Google còn phải kiểm tra nonce của ID token.
 - `BR-AUTH-008` — Google/Facebook identity dùng cặp `provider + subject` làm định danh ổn định; không dùng email làm identity key.
 - `BR-AUTH-009` — Social account chỉ được tạo khi `create_account=true`; admin portal gửi `false`.
 - `BR-AUTH-010` — Provider credential không được lưu hoặc ghi log.
+- `BR-AUTH-011` — Authorization đọc `account_roles` + `role_permissions` trên mỗi `VerifyToken`; thu hồi quyền có hiệu lực từ request tiếp theo.
+- `BR-AUTH-012` — Role `system` không sửa/xóa được. Không xóa role còn đang gán cho account. Không xóa/hạ `super_admin` cuối cùng.
+- `BR-AUTH-013` — Người dùng không tự gán role cho mình và không cấp permission mình không có.
 
 ## Catalog và tồn kho
 

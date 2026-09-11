@@ -20,3 +20,4 @@ volumes:
   prometheus-data:
   loki-data:
   grafana-data:
+  alertmanager-data:

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/features/auth/model/auth.store'
 import FacebookSignInButton from '@/features/auth/ui/FacebookSignInButton.vue'
+import OAuthSignInButton from '@/features/auth/ui/OAuthSignInButton.vue'
 import GoogleSignInButton from '@/features/auth/ui/GoogleSignInButton.vue'
 import { ApiError, providerLoginErrorMessage } from '@/shared/api/http-client'
 import { env } from '@/shared/config/env'
@@ -72,10 +73,12 @@ async function signInWithFacebook(accessToken: string, state: string): Promise<v
         <header>
           <p class="eyebrow">Khu vực nội bộ</p>
           <h2>Đăng nhập quản trị</h2>
-          <p>Chỉ tài khoản có role <code>admin</code> mới được truy cập.</p>
+          <p>Chỉ tài khoản có quyền <code>admin.access</code> mới được truy cập.</p>
         </header>
 
         <div class="login-social-buttons">
+          <OAuthSignInButton provider="discord" />
+          <OAuthSignInButton provider="twitter" />
           <GoogleSignInButton
             :client-id="env.googleClientId"
             :create-account="false"

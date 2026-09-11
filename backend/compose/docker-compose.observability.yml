@@ -3,6 +3,47 @@ x-observability-defaults: &observability-defaults
   networks: [backend]
 
 services:
+  alertmanager:
+    <<: *observability-defaults
+    image: quay.io/prometheus/alertmanager:v0.34.0
+    command:
+      - --config.file=/etc/alertmanager/config.yml
+      - --storage.path=/alertmanager
+      - --cluster.listen-address=
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ${ALERTMANAGER_CONFIG:-./observability/alertmanager.yml}:/etc/alertmanager/config.yml:ro
+      - ./secrets/alertmanager:/etc/alertmanager/secrets:ro
+      - alertmanager-data:/alertmanager
+
+  # Linux host CPU, memory and disks. Network collectors are disabled because
+  # this exporter runs in Docker's bridge network namespace.
+  node-exporter:
+    <<: *observability-defaults
+    image: quay.io/prometheus/node-exporter:v1.12.1
+    pid: host
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    command:
+      - --path.rootfs=/host
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --collector.disable-defaults
+      - --collector.cpu
+      - --collector.meminfo
+      - --collector.filesystem
+      - --collector.loadavg
+      - --collector.stat
+      - --collector.uname
+      - --collector.time
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+)($|/)
+    ports:
+      - "127.0.0.1:9100:9100"
+    volumes:
+      - /:/host:ro,rslave
+
   otel-storage-init:
     <<: *observability-defaults
     image: postgres:17-alpine
@@ -17,6 +58,8 @@ services:
 
   otel-collector:
     <<: *observability-defaults
+    # Local log files are group-readable (0640); match the host developer GID.
+    group_add: ["${LOCAL_LOG_GID:-1000}"]
     image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.153.0
     command: ["--config=/etc/otelcol/config.yml"]
     depends_on:
@@ -68,6 +111,8 @@ services:
       otel-collector: { condition: service_started }
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./observability/alerts.test.yml:/etc/prometheus/alerts.test.yml:ro
       - prometheus-data:/prometheus
 
   loki:
@@ -97,4 +142,5 @@ services:
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/etc/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana

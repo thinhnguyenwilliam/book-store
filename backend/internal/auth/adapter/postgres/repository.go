@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -97,11 +98,15 @@ func (r *Repository) Create(
 			return err
 		}
 		if identity != nil {
+			// Public registration always starts as customer, including social providers.
 			if err := tx.Table("auth.account_identities").Create(identityRecord(identity)).Error; err != nil {
 				return err
 			}
 		}
 
+		if err := tx.Exec("INSERT INTO auth.account_roles(account_id, role_code) VALUES (?, 'customer')", account.ID).Error; err != nil {
+			return err
+		}
 		traceID := apptrace.IDFromContext(ctx)
 		if traceID == "" {
 			traceID, err = apptrace.NewID()
@@ -276,6 +281,29 @@ func (r *Repository) Delete(ctx context.Context, id string, deletedAt time.Time)
 	}
 
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := authorizationLock(tx); err != nil {
+			return err
+		}
+		targetAccess, err := access(tx, id)
+		if err != nil {
+			return err
+		}
+		actor := domain.ActorFromContext(ctx)
+		if actor == "" || actor == id {
+			return domain.ErrForbidden
+		}
+		actorAccess, err := access(tx, actor)
+		if err != nil {
+			return err
+		}
+		if !slices.Contains(actorAccess.Permissions, "customers.delete") || !subset(targetAccess.Permissions, actorAccess.Permissions) {
+			return domain.ErrForbidden
+		}
+		for _, role := range targetAccess.Roles {
+			if role == "super_admin" {
+				return domain.ErrProtectedRole
+			}
+		}
 		result := tx.Table("auth.accounts").Where("id = ?", id).Delete(&accountModel{})
 		if result.Error != nil {
 			return result.Error

@@ -1,5 +1,7 @@
 # Book Store Backend
 
+Hướng dẫn [Alertmanager, Slack/Telegram, Node Exporter, Grafana và GA4](observability/README.md).
+
 Backend gồm mười hai process Go độc lập và một nhóm hạ tầng dùng cho local development:
 
 ```text
@@ -369,6 +371,10 @@ make observability-up
 make observability-ps
 make observability-logs
 ```
+
+Collector đọc log local bằng group ID `1000`. Nếu `id -g` trên máy khác trả
+giá trị khác, chạy `LOCAL_LOG_GID=$(id -g) make observability-up` để cấp quyền
+đọc file log mà không cần mở quyền cho mọi người.
 
 Truy cập:
 

@@ -12,6 +12,11 @@ declare module 'vue-router' {
 
 const routes: RouteRecordRaw[] = [
   {
+    path: '/auth/callback/:provider',
+    name: 'oauth-callback',
+    component: () => import('@/pages/OAuthCallbackPage.vue'),
+  },
+  {
     path: '/',
     component: StoreLayout,
     children: [
@@ -73,6 +78,7 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
+  if (to.name === 'oauth-callback') return
   const auth = useAuthStore()
   await auth.initialize()
 

@@ -3,10 +3,43 @@ import { reactive, ref, watch } from 'vue'
 
 import { formatDateTime } from '@/shared/lib/format'
 import AppIcon from '@/shared/ui/AppIcon.vue'
+import type { Role } from '@/features/authorization/api'
+import { canGrantRole } from '@/features/authorization/landing'
 import type { Customer, CustomerInput } from '../model/types'
 
-const props = defineProps<{ open: boolean; customer?: Customer; saving: boolean }>()
-const emit = defineEmits<{ close: []; save: [payload: CustomerInput] }>()
+const props = withDefaults(
+  defineProps<{
+    open: boolean
+    customer?: Customer
+    saving: boolean
+    assigning?: boolean
+    canUpdate?: boolean
+    canAssign?: boolean
+    isSelf?: boolean
+    actorRoles?: string[]
+    actorPermissions?: string[]
+    roles?: Role[]
+    selectedRoles?: string[]
+    accountPermissions?: string[]
+  }>(),
+  {
+    canUpdate: true,
+    canAssign: false,
+    isSelf: false,
+    assigning: false,
+    actorRoles: () => [],
+    actorPermissions: () => [],
+    roles: () => [],
+    selectedRoles: () => [],
+    accountPermissions: () => [],
+  },
+)
+const emit = defineEmits<{
+  close: []
+  save: [payload: CustomerInput]
+  assign: []
+  'update:selectedRoles': [value: string[]]
+}>()
 const form = reactive({ displayName: '' })
 const validationError = ref('')
 
@@ -21,10 +54,11 @@ watch(
 )
 
 function close(): void {
-  if (!props.saving) emit('close')
+  if (!props.saving && !props.assigning) emit('close')
 }
 
 function submit(): void {
+  if (!props.canUpdate) return
   const displayName = form.displayName.trim()
   if (!displayName) {
     validationError.value = 'Tên hiển thị không được để trống.'
@@ -32,6 +66,13 @@ function submit(): void {
   }
   validationError.value = ''
   emit('save', { display_name: displayName })
+}
+
+function toggleRole(code: string, checked: boolean): void {
+  const next = checked
+    ? [...props.selectedRoles, code]
+    : props.selectedRoles.filter((role) => role !== code)
+  emit('update:selectedRoles', next)
 }
 </script>
 
@@ -52,6 +93,10 @@ function submit(): void {
 
           <dl v-if="customer" class="customer-facts">
             <div>
+              <dt>Tên hiển thị</dt>
+              <dd>{{ customer.display_name }}</dd>
+            </div>
+            <div>
               <dt>Email</dt>
               <dd>{{ customer.email }}</dd>
             </div>
@@ -71,7 +116,7 @@ function submit(): void {
             </div>
           </dl>
 
-          <form @submit.prevent="submit">
+          <form v-if="canUpdate" @submit.prevent="submit">
             <label>
               <span>Tên hiển thị</span>
               <input v-model="form.displayName" maxlength="120" autocomplete="off" />
@@ -81,7 +126,7 @@ function submit(): void {
               <button
                 class="button button--secondary"
                 type="button"
-                :disabled="saving"
+                :disabled="saving || assigning"
                 @click="close"
               >
                 Hủy
@@ -89,10 +134,42 @@ function submit(): void {
               <button class="button button--primary" type="submit" :disabled="saving">
                 <span v-if="saving" class="spinner" />
                 <AppIcon v-else name="check" :size="17" />
-                {{ saving ? 'Đang lưu…' : 'Lưu thay đổi' }}
+                {{ saving ? 'Đang lưu…' : 'Lưu hồ sơ' }}
               </button>
             </footer>
           </form>
+
+          <section v-if="roles.length" class="role-block">
+            <h3>Vai trò</h3>
+            <p v-if="isSelf">Không được thay đổi quyền của tài khoản đang đăng nhập.</p>
+            <label v-for="role in roles" :key="role.code" class="role-check">
+              <input
+                type="checkbox"
+                :value="role.code"
+                :checked="selectedRoles.includes(role.code)"
+                :disabled="
+                  assigning ||
+                  !canAssign ||
+                  isSelf ||
+                  !canGrantRole(role, actorRoles, actorPermissions)
+                "
+                @change="toggleRole(role.code, ($event.target as HTMLInputElement).checked)"
+              />
+              <span>{{ role.name }}</span>
+            </label>
+            <p v-if="accountPermissions.length">
+              Quyền hiện hành: {{ accountPermissions.join(', ') }}
+            </p>
+            <button
+              v-if="canAssign && !isSelf"
+              class="button button--primary"
+              type="button"
+              :disabled="assigning || !selectedRoles.length"
+              @click="emit('assign')"
+            >
+              {{ assigning ? 'Đang lưu vai trò…' : 'Lưu vai trò' }}
+            </button>
+          </section>
         </section>
       </div>
     </Transition>
@@ -157,6 +234,20 @@ function submit(): void {
 }
 .customer-facts code {
   font-size: 0.7rem;
+}
+.role-block {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+.role-block h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.role-check {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
 }
 form {
   display: grid;
