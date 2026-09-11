@@ -24,6 +24,7 @@ import (
 	appLogger "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/logger"
 	platformoutbox "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/outbox"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/rediscache"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/telemetry"
 	"google.golang.org/grpc"
 )
 
@@ -46,6 +47,12 @@ func execute() int {
 	}
 	slog.SetDefault(logManager.Logger())
 	defer func() { _ = logManager.Close() }()
+	telemetryManager, err := telemetry.New(context.Background(), "bookservice", cfg.Telemetry)
+	if err != nil {
+		slog.Error("initialize book service telemetry", "error", err)
+		return 1
+	}
+	defer func() { _ = telemetryManager.Close() }()
 
 	if err := run(cfg); err != nil {
 		slog.Error("book service stopped", "error", err)

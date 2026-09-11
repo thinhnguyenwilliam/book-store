@@ -3,6 +3,14 @@
 set -euo pipefail
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+compose=(
+  docker compose --project-directory "${project_dir}"
+  -f "${project_dir}/docker-compose.yml"
+  -f "${project_dir}/compose/docker-compose.data.yml"
+  -f "${project_dir}/compose/docker-compose.kafka.yml"
+  -f "${project_dir}/compose/docker-compose.observability.yml"
+  -f "${project_dir}/compose/docker-compose.apps.yml"
+)
 runtime_dir="$(mktemp -d)"
 pids=()
 
@@ -20,10 +28,10 @@ trap cleanup EXIT INT TERM
 
 cd "${project_dir}"
 
-docker compose up -d --no-build postgres redis rabbitmq >/dev/null
+"${compose[@]}" up -d --no-build postgres redis rabbitmq >/dev/null
 postgres_ready=false
 for _ in $(seq 1 40); do
-  if docker compose exec -T postgres pg_isready -U bookstore -d bookstore >/dev/null 2>&1; then
+  if "${compose[@]}" exec -T postgres pg_isready -U bookstore -d bookstore >/dev/null 2>&1; then
     postgres_ready=true
     break
   fi
@@ -35,7 +43,7 @@ if [[ "${postgres_ready}" != "true" ]]; then
 fi
 redis_ready=false
 for _ in $(seq 1 40); do
-  redis_response="$(docker compose exec -T redis redis-cli ping 2>/dev/null || true)"
+  redis_response="$("${compose[@]}" exec -T redis redis-cli ping 2>/dev/null || true)"
   if [[ "${redis_response}" == "PONG" ]]; then
     redis_ready=true
     break
@@ -94,7 +102,7 @@ if ! "${project_dir}/scripts/e2e-checkout.sh"; then
   exit 1
 fi
 
-mapfile -t cache_keys < <(docker compose exec -T redis redis-cli --scan \
+mapfile -t cache_keys < <("${compose[@]}" exec -T redis redis-cli --scan \
   --pattern 'bookstore-local:cache:*')
 if (( ${#cache_keys[@]} < 2 )); then
   echo "Redis cache verification failed: expected book and cart keys" >&2

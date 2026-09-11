@@ -25,6 +25,7 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/lifecycle"
 	appLogger "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/logger"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/outbox"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/telemetry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -46,6 +47,12 @@ func execute() int {
 	}
 	slog.SetDefault(logManager.Logger())
 	defer func() { _ = logManager.Close() }()
+	telemetryManager, err := telemetry.New(context.Background(), "chatservice", cfg.Telemetry)
+	if err != nil {
+		slog.Error("initialize chat service telemetry", "error", err)
+		return 1
+	}
+	defer func() { _ = telemetryManager.Close() }()
 	if err := run(cfg); err != nil {
 		slog.Error("chat service stopped", "error", err)
 		return 1
@@ -73,7 +80,7 @@ func run(cfg config.Config) error {
 		return err
 	}
 	defer func() { _ = database.Close(db) }()
-	userConnection, err := grpc.NewClient(cfg.GRPC.UserAddress, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(grpcclient.UnaryDeadlineInterceptor(callTimeout), grpcclient.UnaryLoggingInterceptor), grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor))
+	userConnection, err := grpc.NewClient(cfg.GRPC.UserAddress, grpc.WithTransportCredentials(insecure.NewCredentials()), grpcclient.ObservabilityDialOption(), grpc.WithChainUnaryInterceptor(grpcclient.UnaryDeadlineInterceptor(callTimeout), grpcclient.UnaryLoggingInterceptor), grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor))
 	if err != nil {
 		return err
 	}

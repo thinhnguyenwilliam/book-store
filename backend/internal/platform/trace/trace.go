@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"strings"
+
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -39,6 +41,50 @@ func ContextWithID(ctx context.Context, id string) context.Context {
 		return context.WithValue(ctx, contextKey{}, normalized)
 	}
 	return ctx
+}
+
+// ContextWithRemoteID seeds a valid W3C parent when callers only provide the
+// legacy X-Trace-ID header. The first server span will continue this trace ID.
+func ContextWithRemoteID(ctx context.Context, id string) (context.Context, error) {
+	traceID, err := oteltrace.TraceIDFromHex(Normalize(id))
+	if err != nil {
+		return ctx, err
+	}
+	var spanID oteltrace.SpanID
+	if _, err := rand.Read(spanID[:]); err != nil {
+		return ctx, err
+	}
+	spanContext := oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
+		TraceID:    traceID,
+		SpanID:     spanID,
+		TraceFlags: oteltrace.FlagsSampled,
+		Remote:     true,
+	})
+	return oteltrace.ContextWithRemoteSpanContext(ctx, spanContext), nil
+}
+
+// EnsureSpanContext bridges the application's legacy trace ID into an
+// OpenTelemetry parent. It is mainly used for asynchronous messages created
+// from an outbox, where only the stable trace ID may remain in the context.
+func EnsureSpanContext(ctx context.Context) context.Context {
+	if oteltrace.SpanContextFromContext(ctx).IsValid() {
+		return ctx
+	}
+	seeded, err := ContextWithRemoteID(ctx, IDFromContext(ctx))
+	if err != nil {
+		return ctx
+	}
+	return seeded
+}
+
+// SyncID stores the active OpenTelemetry trace ID for the slog handler and
+// existing X-Trace-ID integrations.
+func SyncID(ctx context.Context) context.Context {
+	spanContext := oteltrace.SpanContextFromContext(ctx)
+	if !spanContext.IsValid() {
+		return ctx
+	}
+	return ContextWithID(ctx, spanContext.TraceID().String())
 }
 
 func IDFromContext(ctx context.Context) string {

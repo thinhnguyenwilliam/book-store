@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/logger"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/telemetry"
 )
 
 type Config struct {
@@ -25,6 +26,7 @@ type Config struct {
 	Outbox        OutboxConfig        `mapstructure:"outbox"`
 	Shutdown      ShutdownConfig      `mapstructure:"shutdown"`
 	Logging       logger.Config       `mapstructure:"logging"`
+	Telemetry     telemetry.Config    `mapstructure:"telemetry"`
 }
 
 type GatewayConfig struct {
@@ -582,6 +584,30 @@ func (c Config) validate() error {
 	}
 	if c.Logging.MaxBackups < 0 {
 		return fmt.Errorf("logging.max_backups must not be negative")
+	}
+	if c.Telemetry.TraceSampleRatio < 0 || c.Telemetry.TraceSampleRatio > 1 {
+		return fmt.Errorf("telemetry.trace_sample_ratio must be between 0 and 1")
+	}
+	if c.Telemetry.Enabled {
+		for key, value := range map[string]string{
+			"telemetry.otlp_endpoint":          c.Telemetry.OTLPEndpoint,
+			"telemetry.service_namespace":      c.Telemetry.ServiceNamespace,
+			"telemetry.environment":            c.Telemetry.Environment,
+			"telemetry.metric_export_interval": c.Telemetry.MetricExportInterval,
+			"telemetry.shutdown_timeout":       c.Telemetry.ShutdownTimeout,
+		} {
+			if strings.TrimSpace(value) == "" {
+				return fmt.Errorf("%s is required when telemetry is enabled", key)
+			}
+		}
+		for key, value := range map[string]string{
+			"telemetry.metric_export_interval": c.Telemetry.MetricExportInterval,
+			"telemetry.shutdown_timeout":       c.Telemetry.ShutdownTimeout,
+		} {
+			if duration, err := time.ParseDuration(value); err != nil || duration <= 0 {
+				return fmt.Errorf("%s must be a positive duration", key)
+			}
+		}
 	}
 	return nil
 }

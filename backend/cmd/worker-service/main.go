@@ -14,6 +14,7 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/config"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcclient"
 	appLogger "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/logger"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/telemetry"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/worker"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -38,6 +39,12 @@ func execute() int {
 	}
 	slog.SetDefault(logManager.Logger())
 	defer func() { _ = logManager.Close() }()
+	telemetryManager, err := telemetry.New(context.Background(), "workerservice", cfg.Telemetry)
+	if err != nil {
+		slog.Error("initialize worker service telemetry", "error", err)
+		return 1
+	}
+	defer func() { _ = telemetryManager.Close() }()
 
 	if err := run(cfg); err != nil {
 		slog.Error("worker service stopped", "error", err)
@@ -59,6 +66,7 @@ func run(cfg config.Config) error {
 	userConnection, err := grpc.NewClient(
 		cfg.GRPC.UserAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpcclient.ObservabilityDialOption(),
 		grpc.WithChainUnaryInterceptor(
 			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout),
 			grpcclient.UnaryLoggingInterceptor,

@@ -3,6 +3,8 @@ package trace
 import (
 	"context"
 	"testing"
+
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 func TestTraceIDRoundTrip(t *testing.T) {
@@ -15,6 +17,15 @@ func TestTraceIDRoundTrip(t *testing.T) {
 	}
 	if got := IDFromContext(ContextWithID(context.Background(), id)); got != id {
 		t.Fatalf("IDFromContext() = %q, want %q", got, id)
+	}
+}
+
+func TestEnsureSpanContextUsesApplicationTraceID(t *testing.T) {
+	const traceID = "0123456789abcdef0123456789abcdef"
+	ctx := EnsureSpanContext(ContextWithID(context.Background(), traceID))
+	spanContext := oteltrace.SpanContextFromContext(ctx)
+	if !spanContext.IsValid() || spanContext.TraceID().String() != traceID {
+		t.Fatalf("span context trace ID = %q, want %q", spanContext.TraceID().String(), traceID)
 	}
 }
 

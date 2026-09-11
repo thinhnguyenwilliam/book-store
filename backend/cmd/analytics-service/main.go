@@ -23,6 +23,7 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcserver"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/lifecycle"
 	appLogger "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/logger"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/telemetry"
 	"google.golang.org/grpc"
 )
 
@@ -43,6 +44,12 @@ func execute() int {
 	}
 	slog.SetDefault(logManager.Logger())
 	defer func() { _ = logManager.Close() }()
+	telemetryManager, err := telemetry.New(context.Background(), "analyticsservice", cfg.Telemetry)
+	if err != nil {
+		slog.Error("initialize analytics service telemetry", "error", err)
+		return 1
+	}
+	defer func() { _ = telemetryManager.Close() }()
 	if err := run(cfg); err != nil {
 		slog.Error("analytics service stopped", "error", err)
 		return 1

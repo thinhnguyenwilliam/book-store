@@ -9,6 +9,11 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	apptrace "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/trace"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 type Publisher struct {
@@ -23,12 +28,43 @@ func NewPublisher(config Config) *Publisher {
 	return &Publisher{config: config}
 }
 
-func (p *Publisher) Publish(ctx context.Context, eventID, eventType, aggregateID string, payload []byte) error {
+func (p *Publisher) Publish(ctx context.Context, eventID, eventType, aggregateID string, payload []byte) (err error) {
+	ctx = apptrace.EnsureSpanContext(ctx)
+	ctx, span := otel.Tracer("bookstore/messaging/rabbitmq").Start(
+		ctx,
+		"rabbitmq publish "+eventType,
+		oteltrace.WithSpanKind(oteltrace.SpanKindProducer),
+		oteltrace.WithAttributes(
+			attribute.String("messaging.system", "rabbitmq"),
+			attribute.String("messaging.destination.name", p.config.Exchange),
+			attribute.String("messaging.message.id", eventID),
+		),
+	)
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
+	ctx = apptrace.SyncID(ctx)
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	if err := p.ensureChannel(); err != nil {
 		return err
+	}
+
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	headers := amqp.Table{
+		"event_id":     eventID,
+		"aggregate_id": aggregateID,
+		"trace_id":     apptrace.IDFromContext(ctx),
+	}
+	for _, key := range carrier.Keys() {
+		headers[key] = carrier.Get(key)
 	}
 
 	confirmation, err := p.channel.PublishWithDeferredConfirmWithContext(
@@ -38,11 +74,7 @@ func (p *Publisher) Publish(ctx context.Context, eventID, eventType, aggregateID
 		true,
 		false,
 		amqp.Publishing{
-			Headers: amqp.Table{
-				"event_id":     eventID,
-				"aggregate_id": aggregateID,
-				"trace_id":     apptrace.IDFromContext(ctx),
-			},
+			Headers:      headers,
 			ContentType:  "application/json",
 			DeliveryMode: amqp.Persistent,
 			MessageId:    eventID,

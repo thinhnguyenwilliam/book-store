@@ -160,6 +160,15 @@ logging:
   max_size_mb: 100
   max_age_days: 14
   max_backups: 30
+telemetry:
+  enabled: true
+  otlp_endpoint: "otel-collector:4317"
+  insecure: true
+  service_namespace: "bookstore"
+  environment: "test"
+  trace_sample_ratio: 1.0
+  metric_export_interval: "10s"
+  shutdown_timeout: "1s"
 `)
 	if err := os.WriteFile(path, content, 0o600); err != nil {
 		t.Fatalf("write test config: %v", err)
@@ -177,6 +186,9 @@ logging:
 	}
 	if cfg.GRPC.CallTimeout != "1500ms" {
 		t.Fatalf("GRPC.CallTimeout = %q, want %q", cfg.GRPC.CallTimeout, "1500ms")
+	}
+	if !cfg.Telemetry.Enabled || cfg.Telemetry.OTLPEndpoint != "otel-collector:4317" {
+		t.Fatalf("unexpected telemetry config: %+v", cfg.Telemetry)
 	}
 }
 
