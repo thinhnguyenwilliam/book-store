@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -156,14 +157,43 @@ type PostgresConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret            string `mapstructure:"jwt_secret"`
-	JWTIssuer            string `mapstructure:"jwt_issuer"`
-	AccessTokenTTL       string `mapstructure:"access_token_ttl"`
-	RefreshTokenTTL      string `mapstructure:"refresh_token_ttl"`
-	GoogleClientID       string `mapstructure:"google_client_id"`
-	FacebookAppID        string `mapstructure:"facebook_app_id"`
-	FacebookAppSecret    string `mapstructure:"facebook_app_secret"`
-	FacebookGraphVersion string `mapstructure:"facebook_graph_version"`
+	Discord              OAuthProviderConfig `mapstructure:"discord"`
+	Twitter              OAuthProviderConfig `mapstructure:"twitter"`
+	JWTSecret            string              `mapstructure:"jwt_secret"`
+	JWTIssuer            string              `mapstructure:"jwt_issuer"`
+	AccessTokenTTL       string              `mapstructure:"access_token_ttl"`
+	RefreshTokenTTL      string              `mapstructure:"refresh_token_ttl"`
+	GoogleClientID       string              `mapstructure:"google_client_id"`
+	FacebookAppID        string              `mapstructure:"facebook_app_id"`
+	FacebookAppSecret    string              `mapstructure:"facebook_app_secret"`
+	FacebookGraphVersion string              `mapstructure:"facebook_graph_version"`
+}
+
+type OAuthProviderConfig struct {
+	ClientID     string   `mapstructure:"client_id"`
+	ClientSecret string   `mapstructure:"client_secret"`
+	RedirectURIs []string `mapstructure:"redirect_uris"`
+}
+
+func validateOAuthConfig(provider string, cfg OAuthProviderConfig) error {
+	if cfg.ClientID == "" && cfg.ClientSecret == "" {
+		return nil
+	}
+	if cfg.ClientID == "" || cfg.ClientSecret == "" || len(cfg.RedirectURIs) == 0 {
+		return fmt.Errorf("auth.%s requires client_id, client_secret and redirect_uris", provider)
+	}
+	for _, value := range cfg.RedirectURIs {
+		uri, err := url.Parse(value)
+		if err != nil {
+			return fmt.Errorf("auth.%s contains an invalid redirect URI", provider)
+		}
+		secureOrLocal := uri.Scheme == "https" || (uri.Scheme == "http" && (uri.Hostname() == "localhost" || uri.Hostname() == "127.0.0.1"))
+		if uri.Hostname() == "" || uri.User != nil || uri.RawQuery != "" || uri.Fragment != "" || !secureOrLocal ||
+			uri.Path != "/auth/callback/"+provider {
+			return fmt.Errorf("auth.%s contains an invalid redirect URI", provider)
+		}
+	}
+	return nil
 }
 
 type RedisConfig struct {
@@ -366,6 +396,12 @@ func (c Config) validate() error {
 		return fmt.Errorf("auth.jwt_secret must contain at least 32 characters")
 	}
 	facebookAppConfigured := strings.TrimSpace(c.Auth.FacebookAppID) != ""
+	if err := validateOAuthConfig("discord", c.Auth.Discord); err != nil {
+		return err
+	}
+	if err := validateOAuthConfig("twitter", c.Auth.Twitter); err != nil {
+		return err
+	}
 	facebookSecretConfigured := strings.TrimSpace(c.Auth.FacebookAppSecret) != ""
 	if facebookAppConfigured != facebookSecretConfigured {
 		return fmt.Errorf("auth.facebook_app_id and auth.facebook_app_secret must be configured together")

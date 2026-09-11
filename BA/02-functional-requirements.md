@@ -11,7 +11,10 @@ Mã yêu cầu là định danh ổn định để liên kết business rule, AP
 - `FR-AUTH-005` — Admin portal chỉ dùng social login để đăng nhập account đã tồn tại; không tự tạo admin.
 - `FR-AUTH-006` — Client có thể làm mới access token bằng refresh cookie HttpOnly.
 - `FR-AUTH-007` — Người dùng có thể logout và thu hồi refresh session hiện tại.
-- `FR-AUTH-008` — Backend phải phân tách authentication và authorization theo role.
+- `FR-AUTH-008` — Backend tách authentication và authorization theo permission; JWT không phải nguồn sự thật của quyền.
+- `FR-AUTH-009` — Super admin xem catalog role/permission và lịch sử thay đổi phân quyền.
+- `FR-AUTH-010` — Super admin tạo, sửa, xóa role tùy chỉnh; role hệ thống bất biến.
+- `FR-AUTH-011` — Super admin (hoặc role được ủy quyền `users.assign_roles`) gán role cho account khác, không tự gán cho mình và không leo quyền.
 
 ## Hồ sơ và quản lý khách hàng
 

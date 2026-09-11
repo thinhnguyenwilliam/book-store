@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 
+	grpcerror "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcerror"
+
 	"github.com/labstack/echo/v4"
 	apptrace "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/trace"
 	"google.golang.org/grpc/codes"
@@ -19,6 +21,9 @@ const statusClientClosedRequest = 499
 // configurable per-call timeout, so this layer must not hide another timeout.
 func grpcContext(c echo.Context) context.Context {
 	ctx := c.Request().Context()
+	if authorization := c.Request().Header.Get(echo.HeaderAuthorization); authorization != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "authorization", authorization)
+	}
 	if requestID := c.Response().Header().Get(echo.HeaderXRequestID); requestID != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, "x-request-id", requestID)
 	}
@@ -49,7 +54,13 @@ func errorResponse(c echo.Context, err error) error {
 		return c.JSON(http.StatusInternalServerError, errorBody("internal server error"))
 	}
 	statusCode, message := grpcToHTTP(grpcStatus.Code(), grpcStatus.Message())
-	return c.JSON(statusCode, errorBody(message))
+	body := errorBody(message)
+	body.Error.Code = grpcerror.Reason(err)
+	if body.Error.Code == "PAYMENT_RESULT_UNKNOWN" {
+		body.Error.Message = "payment result is unknown; retry with the same idempotency key"
+		body.Error.Retryable = true
+	}
+	return c.JSON(statusCode, body)
 }
 
 func grpcToHTTP(code codes.Code, grpcMessage string) (int, string) {
@@ -86,6 +97,12 @@ func errorBody(message string) ErrorResponse {
 }
 
 func providerErrorResponse(c echo.Context, provider string, err error) error {
+	switch grpcerror.Reason(err) {
+	case "invalid_oauth_state":
+		return providerError(c, http.StatusForbidden, provider, "invalid_oauth_state", "external login state is invalid or expired", false)
+	case "provider_email_required":
+		return providerError(c, http.StatusUnauthorized, provider, "provider_email_required", "provider must supply a verified email", false)
+	}
 	grpcStatus, ok := status.FromError(err)
 	if !ok {
 		return providerError(c, http.StatusInternalServerError, provider, "external_login_failed", "external login failed", false)

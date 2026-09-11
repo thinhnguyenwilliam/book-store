@@ -45,19 +45,42 @@ async function signOut(): Promise<void> {
 
       <nav class="navigation" aria-label="Điều hướng quản trị">
         <p>Không gian làm việc</p>
-        <RouterLink :to="{ name: 'dashboard' }" @click="sidebarOpen = false">
+        <RouterLink
+          v-if="auth.can('analytics.read') && auth.can('books.read') && auth.can('customers.read')"
+          :to="{ name: 'dashboard' }"
+          @click="sidebarOpen = false"
+        >
           <AppIcon name="dashboard" /><span>Tổng quan</span>
         </RouterLink>
-        <RouterLink :to="{ name: 'books' }" @click="sidebarOpen = false">
+        <RouterLink
+          v-if="auth.can('books.read')"
+          :to="{ name: 'books' }"
+          @click="sidebarOpen = false"
+        >
           <AppIcon name="book" /><span>Quản lý sách</span>
         </RouterLink>
-        <RouterLink :to="{ name: 'customers' }" @click="sidebarOpen = false">
+        <RouterLink
+          v-if="auth.can('customers.read')"
+          :to="{ name: 'customers' }"
+          @click="sidebarOpen = false"
+        >
           <AppIcon name="user" /><span>Khách hàng</span>
         </RouterLink>
-        <RouterLink :to="{ name: 'chat' }" @click="sidebarOpen = false">
+        <RouterLink
+          v-if="auth.can('chat.read')"
+          :to="{ name: 'chat' }"
+          @click="sidebarOpen = false"
+        >
           <AppIcon name="chat" /><span>Trò chuyện</span>
         </RouterLink>
         <p class="navigation__section">Liên kết</p>
+        <RouterLink
+          v-if="auth.can('roles.read')"
+          :to="{ name: 'authorization' }"
+          @click="sidebarOpen = false"
+        >
+          <AppIcon name="user" /><span>Vai trò & phân quyền</span>
+        </RouterLink>
         <a :href="env.storefrontUrl" target="_blank" rel="noopener noreferrer">
           <AppIcon name="external" /><span>Mở storefront</span>
         </a>

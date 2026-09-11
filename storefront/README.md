@@ -1,5 +1,7 @@
 # Mộc Thư Storefront
 
+Xem [cấu hình GA4 và thống kê truy cập](../backend/observability/README.md).
+
 Storefront Vue 3 + TypeScript dành cho Book Store. Ứng dụng dùng Axios gọi Echo API Gateway, hỗ trợ đăng ký/đăng nhập, hồ sơ, tìm kiếm sách Elasticsearch, chi tiết sách, giỏ hàng, checkout và thông báo.
 
 ## Chạy local

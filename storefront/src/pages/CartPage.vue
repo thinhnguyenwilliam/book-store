@@ -66,11 +66,17 @@ async function checkout(): Promise<void> {
       await cart.syncAuthenticated(true).catch(() => undefined)
     }
     checkoutError.value =
-      requestError instanceof ApiError
-        ? requestError.message
-        : requestError instanceof Error
-          ? requestError.message
-          : 'Không thể hoàn tất checkout. Vui lòng thử lại.'
+      requestError instanceof ApiError && requestError.code === 'WALLET_NOT_FOUND'
+        ? 'Bạn chưa có ví Book Store. Vui lòng tạo ví và nạp đủ tiền trước khi thanh toán.'
+        : requestError instanceof ApiError && requestError.code === 'INSUFFICIENT_FUNDS'
+          ? 'Số dư ví không đủ. Vui lòng nạp thêm tiền trước khi thanh toán.'
+          : requestError instanceof ApiError && requestError.code === 'PAYMENT_RESULT_UNKNOWN'
+            ? 'Chưa xác định được kết quả thanh toán. Vui lòng thử lại; hệ thống sẽ dùng cùng mã giao dịch để tránh trừ tiền hai lần.'
+            : requestError instanceof ApiError
+              ? requestError.message
+              : requestError instanceof Error
+                ? requestError.message
+                : 'Không thể hoàn tất checkout. Vui lòng thử lại.'
   } finally {
     processing.value = false
   }

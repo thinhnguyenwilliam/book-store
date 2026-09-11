@@ -3,6 +3,7 @@ package graphql
 import (
 	"context"
 	"errors"
+	"slices"
 	"sort"
 	"strings"
 
@@ -14,9 +15,10 @@ import (
 )
 
 type Principal struct {
-	UserID string
-	Email  string
-	Roles  []string
+	Permissions []string
+	UserID      string
+	Email       string
+	Roles       []string
 }
 
 type principalContextKey struct{}
@@ -43,12 +45,12 @@ func requireAdmin(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	for _, role := range principal.Roles {
-		if role == "admin" {
-			return nil
+	for _, permission := range []string{"admin.access", "books.read", "customers.read", "analytics.read"} {
+		if !slices.Contains(principal.Permissions, permission) {
+			return graphError("FORBIDDEN", "dashboard permissions required")
 		}
 	}
-	return graphError("FORBIDDEN", "admin role required")
+	return nil
 }
 
 func graphError(code, message string) error {

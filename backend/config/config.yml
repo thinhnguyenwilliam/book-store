@@ -58,6 +58,18 @@ auth:
   facebook_app_id: ""
   facebook_app_secret: ""
   facebook_graph_version: "v25.0"
+  discord:
+    client_id: ""
+    client_secret: ""
+    redirect_uris:
+      - "http://localhost:5173/auth/callback/discord"
+      - "http://localhost:5174/auth/callback/discord"
+  twitter:
+    client_id: ""
+    client_secret: ""
+    redirect_uris:
+      - "http://localhost:5173/auth/callback/twitter"
+      - "http://localhost:5174/auth/callback/twitter"
 
 payment:
   currency: "VND"

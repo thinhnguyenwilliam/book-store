@@ -126,7 +126,7 @@ func (h *Handler) updateComment(c echo.Context) error {
 // @Router /api/v1/comments/{id} [delete]
 func (h *Handler) deleteComment(c echo.Context) error {
 	principal := principalFromContext(c)
-	item, err := h.comments.DeleteComment(grpcContext(c), &bookstorev1.DeleteCommentRequest{Id: c.Param("id"), ActorId: principal.UserID, IsAdmin: hasRole(principal, "admin")})
+	item, err := h.comments.DeleteComment(grpcContext(c), &bookstorev1.DeleteCommentRequest{Id: c.Param("id"), ActorId: principal.UserID, IsAdmin: hasPermission(principal, "comments.moderate")})
 	if err != nil {
 		return errorResponse(c, err)
 	}
@@ -164,12 +164,4 @@ func commentListJSON(response *bookstorev1.ListCommentsResponse) CommentListResp
 }
 func commentJSON(item *bookstorev1.Comment) CommentResponse {
 	return CommentResponse{ID: item.GetId(), BookID: item.GetBookId(), AuthorID: item.GetAuthorId(), AuthorName: item.GetAuthorName(), ParentID: item.GetParentId(), RootID: item.GetRootId(), Depth: item.GetDepth(), Content: item.GetContent(), Status: item.GetStatus(), ReplyCount: item.GetReplyCount(), CreatedAt: item.GetCreatedAt(), UpdatedAt: item.GetUpdatedAt()}
-}
-func hasRole(principal Principal, role string) bool {
-	for _, value := range principal.Roles {
-		if value == role {
-			return true
-		}
-	}
-	return false
 }

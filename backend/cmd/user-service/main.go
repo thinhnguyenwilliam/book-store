@@ -10,6 +10,7 @@ import (
 	"time"
 
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/authorization"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/config"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/database"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcserver"
@@ -55,6 +56,11 @@ func execute() int {
 }
 
 func run(cfg config.Config) error {
+	guard, closeGuard, guardErr := authorization.Remote(cfg.GRPC.AuthAddress)
+	if guardErr != nil {
+		return guardErr
+	}
+	defer closeGuard()
 	shutdownTimeout, err := time.ParseDuration(cfg.Shutdown.Timeout)
 	if err != nil {
 		return err
@@ -82,5 +88,5 @@ func run(cfg config.Config) error {
 	defer stop()
 	return grpcserver.Run(serverCtx, cfg.GRPC.UserListenAddress, shutdownTimeout, func(server *grpc.Server) {
 		bookstorev1.RegisterUserServiceServer(server, handler)
-	})
+	}, guard)
 }

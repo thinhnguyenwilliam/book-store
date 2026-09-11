@@ -48,9 +48,10 @@ type PasswordHasher interface {
 }
 
 type Claims struct {
-	UserID string
-	Email  string
-	Roles  []string
+	Permissions []string
+	UserID      string
+	Email       string
+	Roles       []string
 }
 
 type TokenManager interface {

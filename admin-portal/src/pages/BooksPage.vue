@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useAuthStore } from '@/features/auth/model/auth.store'
 
 import { useAdminBooksStore } from '@/features/books/model/books.store'
 import type { Book, BookInput } from '@/features/books/model/types'
@@ -10,6 +11,7 @@ import AppIcon from '@/shared/ui/AppIcon.vue'
 import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 
 const store = useAdminBooksStore()
+const auth = useAuthStore()
 const notifications = useNotificationStore()
 const query = ref('')
 const drawerOpen = ref(false)
@@ -73,7 +75,12 @@ async function confirmDelete(): Promise<void> {
         <h2>Danh mục sách</h2>
         <p>Quản lý nội dung, giá bán và số lượng hiển thị trên storefront.</p>
       </div>
-      <button class="button button--primary" type="button" @click="openCreate">
+      <button
+        v-if="auth.can('books.create')"
+        class="button button--primary"
+        type="button"
+        @click="openCreate"
+      >
         <AppIcon name="plus" :size="17" /> Thêm sách
       </button>
     </section>
@@ -149,13 +156,19 @@ async function confirmDelete(): Promise<void> {
               </td>
               <td>
                 <div class="row-actions">
-                  <button type="button" title="Sửa sách" @click="openEdit(book)">
+                  <button
+                    v-if="auth.can('books.update')"
+                    type="button"
+                    title="Sửa sách"
+                    @click="openEdit(book)"
+                  >
                     <AppIcon name="edit" :size="17" /></button
                   ><button
                     class="row-actions__delete"
                     type="button"
                     title="Xóa sách"
                     @click="deletingBook = book"
+                    v-if="auth.can('books.delete')"
                   >
                     <AppIcon name="trash" :size="17" />
                   </button>
@@ -171,7 +184,12 @@ async function confirmDelete(): Promise<void> {
           <p>
             {{ query ? 'Thử một từ khóa khác.' : 'Thêm cuốn sách đầu tiên để bắt đầu bán hàng.' }}
           </p>
-          <button v-if="!query" class="button button--primary" type="button" @click="openCreate">
+          <button
+            v-if="!query && auth.can('books.create')"
+            class="button button--primary"
+            type="button"
+            @click="openCreate"
+          >
             <AppIcon name="plus" :size="17" /> Thêm sách
           </button>
         </div>

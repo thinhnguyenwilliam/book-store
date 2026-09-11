@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	grpcerror "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcerror"
+
 	bookstorev1 "github.com/thinhnguyenwilliam/book-store/backend/gen/bookstore/v1"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/order/domain"
 	"google.golang.org/grpc/codes"
@@ -40,6 +42,12 @@ func (c *PaymentClient) CreatePayment(
 		Locale: options.Locale, BankCode: options.BankCode,
 	})
 	if err != nil {
+		switch grpcerror.Reason(err) {
+		case "WALLET_NOT_FOUND":
+			return nil, errors.Join(domain.ErrPaymentDeclined, domain.ErrWalletNotFound)
+		case "INSUFFICIENT_FUNDS":
+			return nil, errors.Join(domain.ErrPaymentDeclined, domain.ErrInsufficientFunds)
+		}
 		if status.Code(err) == codes.FailedPrecondition {
 			return nil, errors.Join(domain.ErrPaymentDeclined, err)
 		}

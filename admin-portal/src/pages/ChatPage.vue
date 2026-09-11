@@ -244,7 +244,7 @@ function formatTime(value?: string): string {
             </article>
             <p v-if="customerTyping" class="typing-state">Khách hàng đang nhập…</p>
           </div>
-          <form @submit.prevent="send">
+          <form v-if="auth.can('chat.reply')" @submit.prevent="send">
             <textarea
               v-model="draft"
               rows="2"

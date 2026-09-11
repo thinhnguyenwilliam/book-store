@@ -18,6 +18,7 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/payment/adapter/vnpay"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/payment/application"
 	paymentgrpc "github.com/thinhnguyenwilliam/book-store/backend/internal/payment/delivery/grpc"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/authorization"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/config"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/database"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcserver"
@@ -62,6 +63,11 @@ func execute() int {
 }
 
 func run(cfg config.Config) error {
+	guard, closeGuard, guardErr := authorization.Remote(cfg.GRPC.AuthAddress)
+	if guardErr != nil {
+		return guardErr
+	}
+	defer closeGuard()
 	shutdownTimeout, err := time.ParseDuration(cfg.Shutdown.Timeout)
 	if err != nil {
 		return err
@@ -137,7 +143,7 @@ func run(cfg config.Config) error {
 	}()
 	serverErr := grpcserver.Run(serverCtx, cfg.GRPC.PaymentListenAddress, shutdownTimeout, func(server *grpc.Server) {
 		bookstorev1.RegisterPaymentServiceServer(server, handler)
-	})
+	}, guard)
 	stopBackground()
 	waitCtx, cancelWait := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancelWait()

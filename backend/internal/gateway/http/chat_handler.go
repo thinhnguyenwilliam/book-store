@@ -88,7 +88,7 @@ func (h *Handler) createSupportConversation(c echo.Context) error {
 // @Router /api/v1/chat/conversations [get]
 func (h *Handler) listChatConversations(c echo.Context) error {
 	principal := principalFromContext(c)
-	response, err := h.chat.ListConversations(grpcContext(c), &bookstorev1.ListConversationsRequest{UserId: principal.UserID, IsAdmin: hasRole(principal, "admin"), Limit: int32Query(c, "limit", 20), Cursor: c.QueryParam("cursor")})
+	response, err := h.chat.ListConversations(grpcContext(c), &bookstorev1.ListConversationsRequest{UserId: principal.UserID, IsAdmin: hasPermission(principal, "chat.read"), Limit: int32Query(c, "limit", 20), Cursor: c.QueryParam("cursor")})
 	if err != nil {
 		return errorResponse(c, err)
 	}
@@ -111,7 +111,7 @@ func (h *Handler) listChatConversations(c echo.Context) error {
 // @Router /api/v1/chat/conversations/{id}/messages [get]
 func (h *Handler) listChatMessages(c echo.Context) error {
 	principal := principalFromContext(c)
-	response, err := h.chat.ListMessages(grpcContext(c), &bookstorev1.ListMessagesRequest{ConversationId: c.Param("id"), UserId: principal.UserID, IsAdmin: hasRole(principal, "admin"), Limit: int32Query(c, "limit", 30), Cursor: c.QueryParam("cursor")})
+	response, err := h.chat.ListMessages(grpcContext(c), &bookstorev1.ListMessagesRequest{ConversationId: c.Param("id"), UserId: principal.UserID, IsAdmin: hasPermission(principal, "chat.read"), Limit: int32Query(c, "limit", 30), Cursor: c.QueryParam("cursor")})
 	if err != nil {
 		return errorResponse(c, err)
 	}
@@ -141,7 +141,7 @@ func (h *Handler) sendChatMessage(c echo.Context) error {
 		request.ClientMessageID = c.Request().Header.Get("Idempotency-Key")
 	}
 	principal := principalFromContext(c)
-	item, err := h.chat.SendMessage(grpcContext(c), &bookstorev1.SendMessageRequest{ConversationId: c.Param("id"), SenderId: principal.UserID, IsAdmin: hasRole(principal, "admin"), ClientMessageId: request.ClientMessageID, Content: request.Content})
+	item, err := h.chat.SendMessage(grpcContext(c), &bookstorev1.SendMessageRequest{ConversationId: c.Param("id"), SenderId: principal.UserID, IsAdmin: hasPermission(principal, "chat.read"), ClientMessageId: request.ClientMessageID, Content: request.Content})
 	if err != nil {
 		return errorResponse(c, err)
 	}
@@ -165,7 +165,7 @@ func (h *Handler) updateChatMessage(c echo.Context) error {
 		return errorResponse(c, err)
 	}
 	principal := principalFromContext(c)
-	item, err := h.chat.UpdateMessage(grpcContext(c), &bookstorev1.UpdateMessageRequest{Id: c.Param("id"), ActorId: principal.UserID, IsAdmin: hasRole(principal, "admin"), Content: request.Content})
+	item, err := h.chat.UpdateMessage(grpcContext(c), &bookstorev1.UpdateMessageRequest{Id: c.Param("id"), ActorId: principal.UserID, IsAdmin: hasPermission(principal, "chat.read"), Content: request.Content})
 	if err != nil {
 		return errorResponse(c, err)
 	}
@@ -183,7 +183,7 @@ func (h *Handler) updateChatMessage(c echo.Context) error {
 // @Router /api/v1/chat/messages/{id} [delete]
 func (h *Handler) deleteChatMessage(c echo.Context) error {
 	principal := principalFromContext(c)
-	item, err := h.chat.DeleteMessage(grpcContext(c), &bookstorev1.DeleteMessageRequest{Id: c.Param("id"), ActorId: principal.UserID, IsAdmin: hasRole(principal, "admin")})
+	item, err := h.chat.DeleteMessage(grpcContext(c), &bookstorev1.DeleteMessageRequest{Id: c.Param("id"), ActorId: principal.UserID, IsAdmin: hasPermission(principal, "chat.read")})
 	if err != nil {
 		return errorResponse(c, err)
 	}
@@ -207,11 +207,11 @@ func (h *Handler) markChatRead(c echo.Context) error {
 		return errorResponse(c, err)
 	}
 	principal := principalFromContext(c)
-	response, err := h.chat.MarkConversationRead(grpcContext(c), &bookstorev1.MarkConversationReadRequest{ConversationId: c.Param("id"), UserId: principal.UserID, IsAdmin: hasRole(principal, "admin"), SequenceNumber: request.SequenceNumber})
+	response, err := h.chat.MarkConversationRead(grpcContext(c), &bookstorev1.MarkConversationReadRequest{ConversationId: c.Param("id"), UserId: principal.UserID, IsAdmin: hasPermission(principal, "chat.read"), SequenceNumber: request.SequenceNumber})
 	if err != nil {
 		return errorResponse(c, err)
 	}
-	conversation, err := h.chat.GetConversation(grpcContext(c), &bookstorev1.GetConversationRequest{ConversationId: c.Param("id"), UserId: principal.UserID, IsAdmin: hasRole(principal, "admin")})
+	conversation, err := h.chat.GetConversation(grpcContext(c), &bookstorev1.GetConversationRequest{ConversationId: c.Param("id"), UserId: principal.UserID, IsAdmin: hasPermission(principal, "chat.read")})
 	if err == nil {
 		h.publishChatEvent(c, "conversation.read", map[string]any{"conversation_id": c.Param("id"), "user_id": principal.UserID, "sequence_number": response.GetLastReadSequence()}, []string{conversation.GetCustomerId()}, true)
 	}
@@ -227,7 +227,7 @@ func (h *Handler) markChatRead(c echo.Context) error {
 // @Router /api/v1/chat/unread-count [get]
 func (h *Handler) unreadChatCount(c echo.Context) error {
 	principal := principalFromContext(c)
-	response, err := h.chat.GetUnreadChatCount(grpcContext(c), &bookstorev1.GetUnreadChatCountRequest{UserId: principal.UserID, IsAdmin: hasRole(principal, "admin")})
+	response, err := h.chat.GetUnreadChatCount(grpcContext(c), &bookstorev1.GetUnreadChatCountRequest{UserId: principal.UserID, IsAdmin: hasPermission(principal, "chat.read")})
 	if err != nil {
 		return errorResponse(c, err)
 	}

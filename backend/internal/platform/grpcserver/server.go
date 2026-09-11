@@ -13,19 +13,19 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-func Run(ctx context.Context, addr string, shutdownTimeout time.Duration, register func(*grpc.Server)) error {
+func Run(ctx context.Context, addr string, shutdownTimeout time.Duration, register func(*grpc.Server), interceptors ...grpc.UnaryServerInterceptor) error {
 	var listenConfig net.ListenConfig
 	listener, err := listenConfig.Listen(ctx, "tcp", addr)
 	if err != nil {
 		return err
 	}
-	return run(ctx, listener, shutdownTimeout, register)
+	return run(ctx, listener, shutdownTimeout, register, interceptors...)
 }
 
-func run(ctx context.Context, listener net.Listener, shutdownTimeout time.Duration, register func(*grpc.Server)) error {
+func run(ctx context.Context, listener net.Listener, shutdownTimeout time.Duration, register func(*grpc.Server), interceptors ...grpc.UnaryServerInterceptor) error {
 	server := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
-		grpc.ChainUnaryInterceptor(unaryInterceptor),
+		grpc.ChainUnaryInterceptor(append([]grpc.UnaryServerInterceptor{unaryInterceptor}, interceptors...)...),
 		grpc.ChainStreamInterceptor(streamInterceptor),
 	)
 	register(server)

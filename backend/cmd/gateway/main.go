@@ -263,6 +263,9 @@ func run(cfg config.Config) error {
 		CallTimeout: grpcCallTimeout, MaxMessageBytes: cfg.Chat.MaxMessageBytes, AllowedOrigins: cfg.Gateway.AllowedOrigins,
 	}, chatClient)
 	cancelRealtimeStartup()
+	if realtime != nil {
+		realtime.SetAuthClient(bookstorev1.NewAuthServiceClient(authConnection))
+	}
 	if err != nil {
 		return err
 	}
@@ -324,6 +327,8 @@ func run(cfg config.Config) error {
 	}
 
 	e := echo.New()
+	// Direct local deployment: do not trust client-supplied forwarding headers.
+	e.IPExtractor = echo.ExtractIPDirect()
 	e.HideBanner = true
 	e.Server.ReadHeaderTimeout = readHeaderTimeout
 	e.Server.ReadTimeout = readTimeout
@@ -338,18 +343,18 @@ func run(cfg config.Config) error {
 		LogRequestID:    true,
 		LogRemoteIP:     true,
 		LogMethod:       true,
-		LogURI:          true,
+		LogURIPath:      true,
 		LogStatus:       true,
 		LogLatency:      true,
 		LogResponseSize: true,
 		LogError:        true,
 		LogValuesFunc: func(c echo.Context, values middleware.RequestLoggerValues) error {
-			sloMet := strings.HasPrefix(values.URI, "/api/v1/chat/ws") || values.Latency < performanceTarget
+			sloMet := strings.HasPrefix(values.URIPath, "/api/v1/chat/ws") || values.Latency < performanceTarget
 			attributes := []any{
 				"request_id", values.RequestID,
 				"remote_ip", values.RemoteIP,
 				"method", values.Method,
-				"uri", values.URI,
+				"uri", values.URIPath,
 				"status", values.Status,
 				"duration_ms", float64(values.Latency.Microseconds()) / 1000,
 				"response_bytes", values.ResponseSize,

@@ -19,24 +19,40 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_Register_FullMethodName          = "/bookstore.v1.AuthService/Register"
-	AuthService_Login_FullMethodName             = "/bookstore.v1.AuthService/Login"
-	AuthService_LoginWithGoogle_FullMethodName   = "/bookstore.v1.AuthService/LoginWithGoogle"
-	AuthService_LoginWithFacebook_FullMethodName = "/bookstore.v1.AuthService/LoginWithFacebook"
-	AuthService_Refresh_FullMethodName           = "/bookstore.v1.AuthService/Refresh"
-	AuthService_Logout_FullMethodName            = "/bookstore.v1.AuthService/Logout"
-	AuthService_DeleteAccount_FullMethodName     = "/bookstore.v1.AuthService/DeleteAccount"
-	AuthService_VerifyToken_FullMethodName       = "/bookstore.v1.AuthService/VerifyToken"
+	AuthService_GetAccess_FullMethodName               = "/bookstore.v1.AuthService/GetAccess"
+	AuthService_GetAuthorizationCatalog_FullMethodName = "/bookstore.v1.AuthService/GetAuthorizationCatalog"
+	AuthService_SaveRole_FullMethodName                = "/bookstore.v1.AuthService/SaveRole"
+	AuthService_DeleteRole_FullMethodName              = "/bookstore.v1.AuthService/DeleteRole"
+	AuthService_AssignRoles_FullMethodName             = "/bookstore.v1.AuthService/AssignRoles"
+	AuthService_ListAuthorizationAudit_FullMethodName  = "/bookstore.v1.AuthService/ListAuthorizationAudit"
+	AuthService_Register_FullMethodName                = "/bookstore.v1.AuthService/Register"
+	AuthService_Login_FullMethodName                   = "/bookstore.v1.AuthService/Login"
+	AuthService_LoginWithGoogle_FullMethodName         = "/bookstore.v1.AuthService/LoginWithGoogle"
+	AuthService_LoginWithFacebook_FullMethodName       = "/bookstore.v1.AuthService/LoginWithFacebook"
+	AuthService_StartOAuth_FullMethodName              = "/bookstore.v1.AuthService/StartOAuth"
+	AuthService_FinishOAuth_FullMethodName             = "/bookstore.v1.AuthService/FinishOAuth"
+	AuthService_Refresh_FullMethodName                 = "/bookstore.v1.AuthService/Refresh"
+	AuthService_Logout_FullMethodName                  = "/bookstore.v1.AuthService/Logout"
+	AuthService_DeleteAccount_FullMethodName           = "/bookstore.v1.AuthService/DeleteAccount"
+	AuthService_VerifyToken_FullMethodName             = "/bookstore.v1.AuthService/VerifyToken"
 )
 
 // AuthServiceClient is the client API for AuthService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AuthServiceClient interface {
+	GetAccess(ctx context.Context, in *GetAccessRequest, opts ...grpc.CallOption) (*AccessResponse, error)
+	GetAuthorizationCatalog(ctx context.Context, in *AuthorizationRequest, opts ...grpc.CallOption) (*AuthorizationCatalogResponse, error)
+	SaveRole(ctx context.Context, in *SaveRoleRequest, opts ...grpc.CallOption) (*AuthorizationEmpty, error)
+	DeleteRole(ctx context.Context, in *DeleteRoleRequest, opts ...grpc.CallOption) (*AuthorizationEmpty, error)
+	AssignRoles(ctx context.Context, in *AssignRolesRequest, opts ...grpc.CallOption) (*AuthorizationEmpty, error)
+	ListAuthorizationAudit(ctx context.Context, in *AuthorizationAuditRequest, opts ...grpc.CallOption) (*AuthorizationAuditResponse, error)
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*AuthResponse, error)
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*AuthResponse, error)
 	LoginWithGoogle(ctx context.Context, in *GoogleLoginRequest, opts ...grpc.CallOption) (*AuthResponse, error)
 	LoginWithFacebook(ctx context.Context, in *FacebookLoginRequest, opts ...grpc.CallOption) (*AuthResponse, error)
+	StartOAuth(ctx context.Context, in *StartOAuthRequest, opts ...grpc.CallOption) (*StartOAuthResponse, error)
+	FinishOAuth(ctx context.Context, in *FinishOAuthRequest, opts ...grpc.CallOption) (*AuthResponse, error)
 	Refresh(ctx context.Context, in *RefreshRequest, opts ...grpc.CallOption) (*AuthResponse, error)
 	Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*LogoutResponse, error)
 	DeleteAccount(ctx context.Context, in *DeleteAccountRequest, opts ...grpc.CallOption) (*DeleteAccountResponse, error)
@@ -49,6 +65,66 @@ type authServiceClient struct {
 
 func NewAuthServiceClient(cc grpc.ClientConnInterface) AuthServiceClient {
 	return &authServiceClient{cc}
+}
+
+func (c *authServiceClient) GetAccess(ctx context.Context, in *GetAccessRequest, opts ...grpc.CallOption) (*AccessResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AccessResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetAccess_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) GetAuthorizationCatalog(ctx context.Context, in *AuthorizationRequest, opts ...grpc.CallOption) (*AuthorizationCatalogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AuthorizationCatalogResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetAuthorizationCatalog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) SaveRole(ctx context.Context, in *SaveRoleRequest, opts ...grpc.CallOption) (*AuthorizationEmpty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AuthorizationEmpty)
+	err := c.cc.Invoke(ctx, AuthService_SaveRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) DeleteRole(ctx context.Context, in *DeleteRoleRequest, opts ...grpc.CallOption) (*AuthorizationEmpty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AuthorizationEmpty)
+	err := c.cc.Invoke(ctx, AuthService_DeleteRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) AssignRoles(ctx context.Context, in *AssignRolesRequest, opts ...grpc.CallOption) (*AuthorizationEmpty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AuthorizationEmpty)
+	err := c.cc.Invoke(ctx, AuthService_AssignRoles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ListAuthorizationAudit(ctx context.Context, in *AuthorizationAuditRequest, opts ...grpc.CallOption) (*AuthorizationAuditResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AuthorizationAuditResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListAuthorizationAudit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *authServiceClient) Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*AuthResponse, error) {
@@ -85,6 +161,26 @@ func (c *authServiceClient) LoginWithFacebook(ctx context.Context, in *FacebookL
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AuthResponse)
 	err := c.cc.Invoke(ctx, AuthService_LoginWithFacebook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) StartOAuth(ctx context.Context, in *StartOAuthRequest, opts ...grpc.CallOption) (*StartOAuthResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartOAuthResponse)
+	err := c.cc.Invoke(ctx, AuthService_StartOAuth_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) FinishOAuth(ctx context.Context, in *FinishOAuthRequest, opts ...grpc.CallOption) (*AuthResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AuthResponse)
+	err := c.cc.Invoke(ctx, AuthService_FinishOAuth_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -135,10 +231,18 @@ func (c *authServiceClient) VerifyToken(ctx context.Context, in *VerifyTokenRequ
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
 type AuthServiceServer interface {
+	GetAccess(context.Context, *GetAccessRequest) (*AccessResponse, error)
+	GetAuthorizationCatalog(context.Context, *AuthorizationRequest) (*AuthorizationCatalogResponse, error)
+	SaveRole(context.Context, *SaveRoleRequest) (*AuthorizationEmpty, error)
+	DeleteRole(context.Context, *DeleteRoleRequest) (*AuthorizationEmpty, error)
+	AssignRoles(context.Context, *AssignRolesRequest) (*AuthorizationEmpty, error)
+	ListAuthorizationAudit(context.Context, *AuthorizationAuditRequest) (*AuthorizationAuditResponse, error)
 	Register(context.Context, *RegisterRequest) (*AuthResponse, error)
 	Login(context.Context, *LoginRequest) (*AuthResponse, error)
 	LoginWithGoogle(context.Context, *GoogleLoginRequest) (*AuthResponse, error)
 	LoginWithFacebook(context.Context, *FacebookLoginRequest) (*AuthResponse, error)
+	StartOAuth(context.Context, *StartOAuthRequest) (*StartOAuthResponse, error)
+	FinishOAuth(context.Context, *FinishOAuthRequest) (*AuthResponse, error)
 	Refresh(context.Context, *RefreshRequest) (*AuthResponse, error)
 	Logout(context.Context, *LogoutRequest) (*LogoutResponse, error)
 	DeleteAccount(context.Context, *DeleteAccountRequest) (*DeleteAccountResponse, error)
@@ -153,6 +257,24 @@ type AuthServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAuthServiceServer struct{}
 
+func (UnimplementedAuthServiceServer) GetAccess(context.Context, *GetAccessRequest) (*AccessResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAccess not implemented")
+}
+func (UnimplementedAuthServiceServer) GetAuthorizationCatalog(context.Context, *AuthorizationRequest) (*AuthorizationCatalogResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAuthorizationCatalog not implemented")
+}
+func (UnimplementedAuthServiceServer) SaveRole(context.Context, *SaveRoleRequest) (*AuthorizationEmpty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SaveRole not implemented")
+}
+func (UnimplementedAuthServiceServer) DeleteRole(context.Context, *DeleteRoleRequest) (*AuthorizationEmpty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteRole not implemented")
+}
+func (UnimplementedAuthServiceServer) AssignRoles(context.Context, *AssignRolesRequest) (*AuthorizationEmpty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AssignRoles not implemented")
+}
+func (UnimplementedAuthServiceServer) ListAuthorizationAudit(context.Context, *AuthorizationAuditRequest) (*AuthorizationAuditResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAuthorizationAudit not implemented")
+}
 func (UnimplementedAuthServiceServer) Register(context.Context, *RegisterRequest) (*AuthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
 }
@@ -164,6 +286,12 @@ func (UnimplementedAuthServiceServer) LoginWithGoogle(context.Context, *GoogleLo
 }
 func (UnimplementedAuthServiceServer) LoginWithFacebook(context.Context, *FacebookLoginRequest) (*AuthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LoginWithFacebook not implemented")
+}
+func (UnimplementedAuthServiceServer) StartOAuth(context.Context, *StartOAuthRequest) (*StartOAuthResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartOAuth not implemented")
+}
+func (UnimplementedAuthServiceServer) FinishOAuth(context.Context, *FinishOAuthRequest) (*AuthResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FinishOAuth not implemented")
 }
 func (UnimplementedAuthServiceServer) Refresh(context.Context, *RefreshRequest) (*AuthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Refresh not implemented")
@@ -196,6 +324,114 @@ func RegisterAuthServiceServer(s grpc.ServiceRegistrar, srv AuthServiceServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&AuthService_ServiceDesc, srv)
+}
+
+func _AuthService_GetAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAccessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetAccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetAccess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetAccess(ctx, req.(*GetAccessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_GetAuthorizationCatalog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AuthorizationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetAuthorizationCatalog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetAuthorizationCatalog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetAuthorizationCatalog(ctx, req.(*AuthorizationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_SaveRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).SaveRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_SaveRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).SaveRole(ctx, req.(*SaveRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_DeleteRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).DeleteRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_DeleteRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).DeleteRole(ctx, req.(*DeleteRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_AssignRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssignRolesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).AssignRoles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_AssignRoles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).AssignRoles(ctx, req.(*AssignRolesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ListAuthorizationAudit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AuthorizationAuditRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListAuthorizationAudit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListAuthorizationAudit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListAuthorizationAudit(ctx, req.(*AuthorizationAuditRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _AuthService_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -266,6 +502,42 @@ func _AuthService_LoginWithFacebook_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).LoginWithFacebook(ctx, req.(*FacebookLoginRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_StartOAuth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartOAuthRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).StartOAuth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_StartOAuth_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).StartOAuth(ctx, req.(*StartOAuthRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_FinishOAuth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FinishOAuthRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).FinishOAuth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_FinishOAuth_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).FinishOAuth(ctx, req.(*FinishOAuthRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -350,6 +622,30 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*AuthServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "GetAccess",
+			Handler:    _AuthService_GetAccess_Handler,
+		},
+		{
+			MethodName: "GetAuthorizationCatalog",
+			Handler:    _AuthService_GetAuthorizationCatalog_Handler,
+		},
+		{
+			MethodName: "SaveRole",
+			Handler:    _AuthService_SaveRole_Handler,
+		},
+		{
+			MethodName: "DeleteRole",
+			Handler:    _AuthService_DeleteRole_Handler,
+		},
+		{
+			MethodName: "AssignRoles",
+			Handler:    _AuthService_AssignRoles_Handler,
+		},
+		{
+			MethodName: "ListAuthorizationAudit",
+			Handler:    _AuthService_ListAuthorizationAudit_Handler,
+		},
+		{
 			MethodName: "Register",
 			Handler:    _AuthService_Register_Handler,
 		},
@@ -364,6 +660,14 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LoginWithFacebook",
 			Handler:    _AuthService_LoginWithFacebook_Handler,
+		},
+		{
+			MethodName: "StartOAuth",
+			Handler:    _AuthService_StartOAuth_Handler,
+		},
+		{
+			MethodName: "FinishOAuth",
+			Handler:    _AuthService_FinishOAuth_Handler,
 		},
 		{
 			MethodName: "Refresh",

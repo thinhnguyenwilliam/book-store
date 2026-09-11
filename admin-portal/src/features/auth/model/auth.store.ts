@@ -5,7 +5,9 @@ import { ApiError, onSessionExpired, setApiAccessToken } from '@/shared/api/http
 import { disableGoogleAutoSelect } from '@/shared/lib/google-identity'
 import { revokeLocalPushToken, unregisterCurrentPushDevice } from '@/features/push/lib/push'
 import * as authApi from '../api/auth.api'
-import { tokenHasRole } from './token'
+import type { OAuthCallback } from '../lib/oauth'
+import { apiRequest } from '@/shared/api/http-client'
+import type { AuthResponse } from './types'
 import type { LoginPayload, UserProfile } from './types'
 
 export const useAuthStore = defineStore('admin-auth', () => {
@@ -14,9 +16,25 @@ export const useAuthStore = defineStore('admin-auth', () => {
   const loading = ref(false)
   const initialized = ref(false)
   const accessDenied = ref(false)
+  const permissions = ref<string[]>([])
+  const roles = ref<string[]>([])
+  const can = (permission: string): boolean => permissions.value.includes(permission)
+  async function refreshPermissions(): Promise<void> {
+    try {
+      const result = await apiRequest<{ roles: string[]; permissions: string[] }>(
+        '/api/v1/auth/me/permissions',
+      )
+      permissions.value = result.permissions
+      roles.value = result.roles
+    } catch (error) {
+      permissions.value = []
+      roles.value = []
+      throw error
+    }
+  }
 
   const isAuthenticated = computed(() => Boolean(token.value))
-  const isAdmin = computed(() => Boolean(token.value && tokenHasRole(token.value, 'admin')))
+  const isAdmin = computed(() => Boolean(token.value && can('admin.access')))
   const displayName = computed(
     () => profile.value?.display_name || profile.value?.email || 'Quản trị viên',
   )
@@ -29,6 +47,8 @@ export const useAuthStore = defineStore('admin-auth', () => {
   function clearSession(): void {
     token.value = null
     profile.value = null
+    permissions.value = []
+    roles.value = []
     setApiAccessToken(null)
   }
 
@@ -39,7 +59,8 @@ export const useAuthStore = defineStore('admin-auth', () => {
 
   async function establishAdminSession(accessToken: string): Promise<void> {
     applyAccessToken(accessToken)
-    if (!tokenHasRole(accessToken, 'admin')) {
+    await refreshPermissions()
+    if (!can('admin.access')) {
       accessDenied.value = true
       try {
         await authApi.logout()
@@ -101,6 +122,23 @@ export const useAuthStore = defineStore('admin-auth', () => {
     }
   }
 
+  async function signInWithOAuth(payload: OAuthCallback): Promise<void> {
+    loading.value = true
+    try {
+      const response = await apiRequest<AuthResponse>(
+        '/api/v1/auth/oauth/' + payload.provider + '/finish',
+        {
+          method: 'POST',
+          data: { ...payload, create_account: false },
+          skipAuthRefresh: true,
+        },
+      )
+      await establishAdminSession(response.access_token)
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function signOut(): Promise<void> {
     try {
       await unregisterCurrentPushDevice()
@@ -113,6 +151,10 @@ export const useAuthStore = defineStore('admin-auth', () => {
   }
 
   return {
+    permissions,
+    roles,
+    can,
+    refreshPermissions,
     profile,
     loading,
     initialized,
@@ -124,6 +166,7 @@ export const useAuthStore = defineStore('admin-auth', () => {
     signIn,
     signInWithGoogle,
     signInWithFacebook,
+    signInWithOAuth,
     signOut,
   }
 })

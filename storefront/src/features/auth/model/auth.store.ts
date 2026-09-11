@@ -5,6 +5,9 @@ import { ApiError, onSessionExpired, setApiAccessToken } from '@/shared/api/http
 import { disableGoogleAutoSelect } from '@/shared/lib/google-identity'
 import { revokeLocalPushToken, unregisterCurrentPushDevice } from '@/features/push/lib/push'
 import * as authApi from '../api/auth.api'
+import type { OAuthCallback } from '../lib/oauth'
+import { apiRequest } from '@/shared/api/http-client'
+import type { AuthResponse } from './types'
 import type { LoginPayload, RegisterPayload, UserProfile } from './types'
 
 function sleep(duration: number): Promise<void> {
@@ -140,6 +143,24 @@ export const useAuthStore = defineStore('auth', () => {
     profile.value = await authApi.updateProfile(value)
   }
 
+  async function signInWithOAuth(payload: OAuthCallback): Promise<void> {
+    loading.value = true
+    try {
+      const response = await apiRequest<AuthResponse>(
+        '/api/v1/auth/oauth/' + payload.provider + '/finish',
+        {
+          method: 'POST',
+          data: { ...payload, create_account: true },
+          skipAuthRefresh: true,
+        },
+      )
+      applyAccessToken(response.access_token)
+      await fetchProfileWithRetry()
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function signOut(): Promise<void> {
     try {
       await unregisterCurrentPushDevice()
@@ -163,6 +184,7 @@ export const useAuthStore = defineStore('auth', () => {
     signUp,
     signInWithGoogle,
     signInWithFacebook,
+    signInWithOAuth,
     saveDisplayName,
     signOut,
   }

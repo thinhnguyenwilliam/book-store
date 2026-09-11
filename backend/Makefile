@@ -1,4 +1,20 @@
 .DEFAULT_GOAL := help
+export ALERTMANAGER_CONFIG ?= $(if $(wildcard observability/alertmanager.local.yml),./observability/alertmanager.local.yml,./observability/alertmanager.yml)
+
+.PHONY: monitoring-check alertmanager-up alertmanager-local-up
+
+monitoring-check: ## Validate Prometheus rules and Alertmanager config (no notifications sent)
+	$(COMPOSE) run --rm --no-deps --entrypoint /bin/promtool prometheus check config /etc/prometheus/prometheus.yml
+	$(COMPOSE) run --rm --no-deps --entrypoint /bin/promtool prometheus test rules /etc/prometheus/alerts.test.yml
+	$(COMPOSE) run --rm --no-deps --entrypoint /bin/amtool alertmanager check-config /etc/alertmanager/config.yml
+
+alertmanager-up: ## Start Alertmanager (uses local config if present)
+	$(COMPOSE) up -d --no-build alertmanager
+
+alertmanager-local-up: ## Enable Slack/Telegram using gitignored observability/alertmanager.local.yml
+	@test -f observability/alertmanager.local.yml || { echo "Copy observability/alertmanager.local.yml.example and fill channel/chat_id first."; exit 1; }
+	ALERTMANAGER_CONFIG=./observability/alertmanager.local.yml $(COMPOSE) run --rm --no-deps --entrypoint /bin/amtool alertmanager check-config /etc/alertmanager/config.yml
+	ALERTMANAGER_CONFIG=./observability/alertmanager.local.yml $(COMPOSE) up -d --no-build alertmanager
 
 .PHONY: help tools generate proto swagger graphql tidy fmt test test-integration vet lint lint-tool build check perf e2e-checkout e2e-checkout-local migrate \
 	docker-config docker-build up run up-foreground down down-volumes restart ps logs \
@@ -28,8 +44,8 @@ DEV_COMPOSE := $(COMPOSE) -f docker-compose.dev.yml
 LOCAL_CONFIG := config/local.yml
 LOCAL_SECRET_CONFIG ?= config/local.secret.yml
 LOCAL_SECRET_ARG = $(if $(wildcard $(LOCAL_SECRET_CONFIG)),-secrets $(LOCAL_SECRET_CONFIG),)
-OBSERVABILITY_SERVICES := otel-storage-init otel-collector otel-log-consumer tempo loki prometheus grafana
-OBSERVABILITY_PULL_SERVICES := otel-collector tempo loki prometheus grafana
+OBSERVABILITY_SERVICES := otel-storage-init otel-collector otel-log-consumer tempo loki prometheus grafana alertmanager node-exporter
+OBSERVABILITY_PULL_SERVICES := otel-collector tempo loki prometheus grafana alertmanager node-exporter
 INFRA_SERVICES := postgres pgadmin redis redisinsight rabbitmq mailpit kafka-volume-init kafka kafka-init kafka-ui elasticsearch $(OBSERVABILITY_SERVICES)
 INFRA_CORE_SERVICES := postgres pgadmin redis redisinsight rabbitmq mailpit kafka-volume-init kafka kafka-init kafka-ui $(OBSERVABILITY_SERVICES)
 APP_SERVICES := gateway auth-service user-service book-service order-service payment-service worker-service notification-service comment-service chat-service analytics-service search-service

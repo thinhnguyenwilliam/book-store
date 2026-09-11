@@ -192,10 +192,12 @@ func mapError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrInvalidInput):
 		return status.Error(codes.InvalidArgument, err.Error())
-	case errors.Is(err, domain.ErrWalletNotFound), errors.Is(err, domain.ErrPaymentNotFound):
+	case errors.Is(err, domain.ErrWalletNotFound):
+		return grpcerror.WithReason(codes.NotFound, "WALLET_NOT_FOUND", "wallet not found")
+	case errors.Is(err, domain.ErrPaymentNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, domain.ErrInsufficientFunds):
-		return status.Error(codes.FailedPrecondition, err.Error())
+		return grpcerror.WithReason(codes.FailedPrecondition, "INSUFFICIENT_FUNDS", "insufficient wallet balance")
 	case errors.Is(err, domain.ErrPaymentState):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrIdempotency):

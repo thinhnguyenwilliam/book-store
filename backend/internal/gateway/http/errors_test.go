@@ -8,11 +8,36 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	grpcerror "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcerror"
 	apptrace "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
+
+func TestPaymentErrorReasonsReachHTTP(t *testing.T) {
+	for _, reason := range []string{"WALLET_NOT_FOUND", "INSUFFICIENT_FUNDS", "PAYMENT_RESULT_UNKNOWN"} {
+		t.Run(reason, func(t *testing.T) {
+			code, wantHTTP := codes.FailedPrecondition, http.StatusPreconditionFailed
+			retryable := reason == "PAYMENT_RESULT_UNKNOWN"
+			if retryable {
+				code, wantHTTP = codes.Unavailable, http.StatusServiceUnavailable
+			}
+			recorder := httptest.NewRecorder()
+			c := echo.New().NewContext(httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/payments", nil), recorder)
+			if err := errorResponse(c, grpcerror.WithReason(code, reason, "safe message")); err != nil {
+				t.Fatal(err)
+			}
+			var body ErrorResponse
+			if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			if recorder.Code != wantHTTP || body.Error.Code != reason || body.Error.Retryable != retryable {
+				t.Fatalf("unexpected response: %d %+v", recorder.Code, body)
+			}
+		})
+	}
+}
 
 func TestContextWithTimeoutPropagatesRequestIDToGRPC(t *testing.T) {
 	e := echo.New()

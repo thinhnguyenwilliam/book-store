@@ -109,5 +109,5 @@ func generateProviderState() (string, error) {
 }
 
 func validProvider(provider string) bool {
-	return provider == providerGoogle || provider == providerFacebook
+	return provider == providerGoogle || provider == providerFacebook || provider == "discord" || provider == "twitter"
 }
