@@ -56,6 +56,9 @@ admin-portal/coverage/
 admin-portal/.vite/
 admin-portal/.eslintcache
 
+# Local one-command runtime (PIDs and process logs)
+.run/
+
 # Package manager and application logs
 *.log
 backend/logs/

@@ -11,6 +11,11 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/lifecycle"
 	apptrace "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/trace"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 type Handler func(context.Context, string, []byte) error
@@ -96,7 +101,21 @@ consumeLoop:
 				defer cancel()
 				handlerCtx = contextWithDeliveryTraceID(handlerCtx, delivery)
 				handlerCtx = contextWithDeliveryEventID(handlerCtx, delivery)
+				handlerCtx, span := otel.Tracer("bookstore/messaging/rabbitmq").Start(
+					handlerCtx,
+					"rabbitmq process "+delivery.Type,
+					oteltrace.WithSpanKind(oteltrace.SpanKindConsumer),
+					oteltrace.WithAttributes(
+						attribute.String("messaging.system", "rabbitmq"),
+						attribute.String("messaging.destination.name", c.config.Queue),
+						attribute.String("messaging.message.id", delivery.MessageId),
+					),
+				)
+				defer span.End()
+				handlerCtx = apptrace.SyncID(handlerCtx)
 				if err := handler(handlerCtx, delivery.Type, delivery.Body); err != nil {
+					span.RecordError(err)
+					span.SetStatus(codes.Error, err.Error())
 					attempt := deliveryAttempt(delivery)
 					requeue := attempt < maxDeliveryAttempts
 					retryIn := retryDelay(attempt)
@@ -190,14 +209,26 @@ func waitForRetry(ctx context.Context, delay time.Duration) {
 }
 
 func contextWithDeliveryTraceID(ctx context.Context, delivery amqp.Delivery) context.Context {
+	carrier := propagation.MapCarrier{}
+	for _, key := range []string{"traceparent", "tracestate", "baggage"} {
+		if value, ok := delivery.Headers[key].(string); ok && value != "" {
+			carrier.Set(key, value)
+		}
+	}
+	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
+	if oteltrace.SpanContextFromContext(ctx).IsValid() {
+		return apptrace.SyncID(ctx)
+	}
 	if value, ok := delivery.Headers["trace_id"].(string); ok {
 		if traceID := apptrace.Normalize(value); traceID != "" {
-			return apptrace.ContextWithID(ctx, traceID)
+			ctx = apptrace.ContextWithID(ctx, traceID)
+			return apptrace.EnsureSpanContext(ctx)
 		}
 	}
 	traceID, err := apptrace.NewID()
 	if err != nil {
 		return ctx
 	}
-	return apptrace.ContextWithID(ctx, traceID)
+	ctx = apptrace.ContextWithID(ctx, traceID)
+	return apptrace.EnsureSpanContext(ctx)
 }

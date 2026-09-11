@@ -19,6 +19,7 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcserver"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/lifecycle"
 	appLogger "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/logger"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/telemetry"
 	searchelastic "github.com/thinhnguyenwilliam/book-store/backend/internal/search/adapter/elasticsearch"
 	searchevents "github.com/thinhnguyenwilliam/book-store/backend/internal/search/adapter/events"
 	searchgrpcclient "github.com/thinhnguyenwilliam/book-store/backend/internal/search/adapter/grpcclient"
@@ -46,6 +47,12 @@ func execute() int {
 	}
 	slog.SetDefault(logManager.Logger())
 	defer func() { _ = logManager.Close() }()
+	telemetryManager, err := telemetry.New(context.Background(), "searchservice", cfg.Telemetry)
+	if err != nil {
+		slog.Error("initialize search service telemetry", "error", err)
+		return 1
+	}
+	defer func() { _ = telemetryManager.Close() }()
 	if err := run(cfg, *forceReindex); err != nil {
 		slog.Error("search service stopped", "error", err)
 		return 1
@@ -87,6 +94,7 @@ func run(cfg config.Config, forceReindex bool) error {
 	bookConnection, err := grpc.NewClient(
 		cfg.GRPC.BookAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpcclient.ObservabilityDialOption(),
 		grpc.WithChainUnaryInterceptor(
 			grpcclient.UnaryDeadlineInterceptor(callTimeout), grpcclient.UnaryLoggingInterceptor,
 		),

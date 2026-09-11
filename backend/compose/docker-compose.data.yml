@@ -1,0 +1,94 @@
+x-data-defaults: &data-defaults
+  restart: unless-stopped
+  networks: [backend]
+
+services:
+  postgres:
+    <<: *data-defaults
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: bookstore
+      POSTGRES_PASSWORD: bookstore
+      POSTGRES_DB: bookstore
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bookstore -d bookstore"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+
+  pgadmin:
+    <<: *data-defaults
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@bookstore.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports: ["5050:80"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    volumes: [pgadmin-data:/var/lib/pgadmin]
+
+  redis:
+    <<: *data-defaults
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes: [redis-data:/data]
+
+  redisinsight:
+    <<: *data-defaults
+    image: redis/redisinsight:latest
+    ports: ["5540:5540"]
+    depends_on:
+      redis: { condition: service_healthy }
+    volumes: [redisinsight-data:/data]
+
+  rabbitmq:
+    <<: *data-defaults
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: bookstore
+      RABBITMQ_DEFAULT_PASS: bookstore
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes: [rabbitmq-data:/var/lib/rabbitmq]
+
+  elasticsearch:
+    <<: *data-defaults
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.2
+    environment:
+      discovery.type: "single-node"
+      xpack.security.enabled: "false"
+      xpack.security.autoconfiguration.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports: ["127.0.0.1:9200:9200"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health?wait_for_status=yellow >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    volumes: [elasticsearch-data:/usr/share/elasticsearch/data]
+
+  mailpit:
+    <<: *data-defaults
+    # GHCR is the upstream registry and avoids Docker Hub TLS/rate-limit issues.
+    image: ghcr.io/axllent/mailpit:v1.31.0
+    ports:
+      - "1025:1025"
+      - "8025:8025"

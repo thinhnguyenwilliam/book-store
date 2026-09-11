@@ -2,6 +2,15 @@
 
 set -euo pipefail
 
+project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+compose=(
+  docker compose --project-directory "${project_dir}"
+  -f "${project_dir}/docker-compose.yml"
+  -f "${project_dir}/compose/docker-compose.data.yml"
+  -f "${project_dir}/compose/docker-compose.kafka.yml"
+  -f "${project_dir}/compose/docker-compose.observability.yml"
+  -f "${project_dir}/compose/docker-compose.apps.yml"
+)
 base_url="${E2E_BASE_URL:-http://localhost:8080}"
 email="${E2E_EMAIL:-checkout.e2e@example.com}"
 password="${E2E_PASSWORD:-local-checkout-password123}"
@@ -35,7 +44,7 @@ if [[ "${register_status}" != "201" && "${register_status}" != "409" ]]; then
   assert_status "${register_status}" "201" "${work_dir}/register.json"
 fi
 
-docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U bookstore -d bookstore \
+"${compose[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U bookstore -d bookstore \
   --command "UPDATE auth.accounts SET roles = ARRAY['customer','admin']::TEXT[], updated_at = NOW() WHERE email = '${email}'" \
   >/dev/null
 
@@ -121,14 +130,14 @@ assert_status "${get_order_status}" "200" "${work_dir}/confirmed-order.json"
 jq -e --arg payment_id "${payment_id}" '.status == "confirmed" and .payment_id == $payment_id' \
   "${work_dir}/confirmed-order.json" >/dev/null
 
-ledger_sum="$(docker compose exec -T postgres psql -At -U bookstore -d bookstore \
+ledger_sum="$("${compose[@]}" exec -T postgres psql -At -U bookstore -d bookstore \
   --command "SELECT COALESCE(SUM(entry.amount_cents), 0) FROM payments.ledger_entries entry JOIN payments.ledger_transactions txn ON txn.id = entry.transaction_id WHERE txn.kind = 'payment' AND txn.reference_id = '${payment_id}'")"
 if [[ "${ledger_sum}" != "0" ]]; then
   echo "ledger is unbalanced for payment ${payment_id}: ${ledger_sum}" >&2
   exit 1
 fi
 
-reservation_status="$(docker compose exec -T postgres psql -At -U bookstore -d bookstore \
+reservation_status="$("${compose[@]}" exec -T postgres psql -At -U bookstore -d bookstore \
   --command "SELECT status FROM catalog.stock_reservations WHERE order_id = '${order_id}' AND book_id = '${book_id}'")"
 if [[ "${reservation_status}" != "committed" ]]; then
   echo "stock reservation status is ${reservation_status}, want committed" >&2

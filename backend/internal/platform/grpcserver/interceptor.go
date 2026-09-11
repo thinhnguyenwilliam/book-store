@@ -8,6 +8,7 @@ import (
 	"time"
 
 	apptrace "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/trace"
+	oteltrace "go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -78,6 +79,9 @@ func (s *contextServerStream) Context() context.Context {
 }
 
 func contextWithTraceID(ctx context.Context) context.Context {
+	if spanContext := oteltrace.SpanContextFromContext(ctx); spanContext.IsValid() {
+		return apptrace.ContextWithID(ctx, spanContext.TraceID().String())
+	}
 	values := metadata.ValueFromIncomingContext(ctx, apptrace.MetadataKey)
 	if len(values) > 0 {
 		if traceID := apptrace.Normalize(values[0]); traceID != "" {

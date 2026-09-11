@@ -1,0 +1,134 @@
+x-app-defaults: &app-defaults
+  restart: unless-stopped
+  networks:
+    - backend
+  command: ["-config", "/app/config.yml"]
+  stop_grace_period: 15s
+  volumes:
+    - ./config/config.yml:/app/config.yml:ro
+    - app-logs:/app/logs
+
+services:
+  gateway:
+    <<: *app-defaults
+    build:
+      context: .
+      args: { SERVICE: gateway }
+    ports: ["8080:8080"]
+    depends_on:
+      auth-service: { condition: service_started }
+      user-service: { condition: service_started }
+      book-service: { condition: service_started }
+      order-service: { condition: service_started }
+      payment-service: { condition: service_started }
+      notification-service: { condition: service_started }
+      comment-service: { condition: service_started }
+      chat-service: { condition: service_started }
+      search-service: { condition: service_started }
+      redis: { condition: service_healthy }
+
+  auth-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args: { SERVICE: auth-service }
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  user-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args: { SERVICE: user-service }
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  book-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args: { SERVICE: book-service }
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  search-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args: { SERVICE: search-service }
+    depends_on:
+      elasticsearch: { condition: service_healthy }
+      kafka-init: { condition: service_completed_successfully }
+      book-service: { condition: service_started }
+
+  payment-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args: { SERVICE: payment-service }
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+
+  order-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args: { SERVICE: order-service }
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      book-service: { condition: service_started }
+      payment-service: { condition: service_started }
+
+  worker-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args: { SERVICE: worker-service }
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+      user-service: { condition: service_started }
+
+  notification-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args: { SERVICE: notification-service }
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      user-service: { condition: service_started }
+      mailpit: { condition: service_started }
+
+  comment-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args: { SERVICE: comment-service }
+    depends_on:
+      postgres: { condition: service_healthy }
+      user-service: { condition: service_started }
+      book-service: { condition: service_started }
+
+  chat-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args: { SERVICE: chat-service }
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      user-service: { condition: service_started }
+
+  analytics-service:
+    <<: *app-defaults
+    build:
+      context: .
+      args: { SERVICE: analytics-service }
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka-init: { condition: service_completed_successfully }

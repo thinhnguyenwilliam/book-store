@@ -1,0 +1,100 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  file_storage:
+    directory: /var/lib/otelcol
+    create_directory: true
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Giữ logger hiện tại của ứng dụng. Collector tail file ở ngoài process nên
+  # Kafka/Loki lỗi sẽ không làm request API chậm hoặc thất bại.
+  filelog/bookstore:
+    include:
+      - /var/log/bookstore/docker/*.log
+      - /var/log/bookstore/local/*.log
+    start_at: end
+    include_file_path: true
+    storage: file_storage
+    operators:
+      - type: regex_parser
+        parse_from: attributes["log.file.path"]
+        regex: '^.*/(?P<service_name>[^/]+)-\d{4}-\d{2}-\d{2}(?:\.\d+)?\.log$'
+      - type: move
+        from: attributes.service_name
+        to: resource["service.name"]
+      - type: add
+        field: resource["service.namespace"]
+        value: bookstore
+      - type: add
+        field: resource["deployment.environment.name"]
+        value: local
+      - type: json_parser
+        if: 'body matches "^\\s*\\{"'
+        parse_from: body
+        parse_to: attributes
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  prometheus:
+    endpoint: 0.0.0.0:8889
+
+  kafka/logs:
+    brokers: [kafka:29092]
+    client_id: bookstore-otel-log-producer
+    logs:
+      topic: bookstore.application-logs
+      encoding: otlp_proto
+    partition_logs_by_resource_attributes: true
+    producer:
+      required_acks: -1
+      compression: zstd
+      allow_auto_topic_creation: false
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 0s
+    sending_queue:
+      enabled: true
+      storage: file_storage
+      queue_size: 10000
+
+service:
+  extensions: [health_check, file_storage]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [filelog/bookstore]
+      processors: [memory_limiter, batch]
+      exporters: [kafka/logs]
+
+  telemetry:
+    logs:
+      level: info

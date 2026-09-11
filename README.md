@@ -1,6 +1,6 @@
 # Book Store
 
-Book Store gồm backend Golang theo hướng microservice, Clean Architecture và DDD cùng storefront và admin portal Vue 3 + TypeScript. Gateway public dùng Echo/HTTP, các service nội bộ giao tiếp bằng gRPC, dữ liệu lưu trong PostgreSQL qua GORM; RabbitMQ xử lý workflow còn Kafka cấp event stream cho analytics và Elasticsearch search index.
+Book Store gồm backend Golang theo hướng microservice, Clean Architecture và DDD cùng storefront và admin portal Vue 3 + TypeScript. Gateway public dùng Echo/HTTP, các service nội bộ giao tiếp bằng gRPC, dữ liệu lưu trong PostgreSQL qua GORM; RabbitMQ xử lý workflow còn Kafka cấp event stream cho analytics, Elasticsearch search index và buffer log. Grafana đọc trace/metric/log từ Tempo, Prometheus và Loki qua OpenTelemetry Collector.
 
 Repository gồm `backend/`, `storefront/` và `admin-portal/`.
 
@@ -73,6 +73,34 @@ docker compose version
 docker ps
 ```
 
+## Chạy local bằng một lệnh
+
+Từ thư mục gốc repository (hoặc `backend/`):
+
+```bash
+make local
+```
+
+Lệnh này khởi động infrastructure bằng Docker, chạy mười hai Go service trên máy với Air hot reload, rồi mở storefront và admin portal. Lần đầu có thể mất vài phút vì Docker image, Air và `pnpm install`.
+
+```bash
+make logs      # theo dõi log
+make status    # xem process đang chạy
+make stop      # dừng Go + Vue, giữ Postgres/Redis/Kafka
+make down      # dừng apps và Docker infrastructure
+```
+
+Cửa sổ trình duyệt:
+
+- Storefront: <http://localhost:5173>
+- Admin portal: <http://localhost:5174>
+- API Gateway: <http://localhost:8080>
+- Grafana: <http://localhost:3001> (`admin` / `admin` cho local)
+- Prometheus: <http://localhost:9090>
+- Kafka UI: <http://localhost:8085>
+
+Muốn chạy `go run` thay vì Air, dùng `WATCH=0 make local`. Các lệnh `make local-*` / `make watch-*` từng service vẫn dùng được khi cần debug riêng.
+
 ## Chạy nhanh bằng Docker Compose
 
 Clone repository:
@@ -97,7 +125,13 @@ make migrate
 Nếu máy không có `make`, dùng trực tiếp:
 
 ```bash
-docker compose up -d --build
+docker compose \
+  -f docker-compose.yml \
+  -f compose/docker-compose.data.yml \
+  -f compose/docker-compose.kafka.yml \
+  -f compose/docker-compose.observability.yml \
+  -f compose/docker-compose.apps.yml \
+  up -d --build
 ```
 
 Lần chạy đầu Docker cần tải image Elasticsearch/Kafka và build các Go service nên có thể mất vài phút.
@@ -274,7 +308,14 @@ make dev-down
 Chỉ xem log Gateway và worker:
 
 ```bash
-docker compose logs -f --tail=200 gateway worker-service
+cd backend
+docker compose \
+  -f docker-compose.yml \
+  -f compose/docker-compose.data.yml \
+  -f compose/docker-compose.kafka.yml \
+  -f compose/docker-compose.observability.yml \
+  -f compose/docker-compose.apps.yml \
+  logs -f --tail=200 gateway worker-service
 ```
 
 Khởi động lại:
@@ -351,7 +392,7 @@ Không ghi secret production vào file config đang commit. Khi deploy thật, h
 
 ## Xử lý lỗi thường gặp
 
-Nếu `docker compose up` báo port đang được sử dụng, kiểm tra các port `8080`, `5050`, `5432`, `5540`, `5672`, `6379` và `15672`, sau đó dừng process/container đang chiếm port hoặc đổi mapping trong `backend/docker-compose.yml`.
+Nếu `make up` báo port đang được sử dụng, kiểm tra các port `3001`, `3100`, `3200`, `4317`, `4318`, `5050`, `5432`, `5540`, `5672`, `6379`, `8080`, `8085`, `9090`, `9092` và `15672`, sau đó dừng process/container đang chiếm port hoặc đổi mapping trong file tương ứng dưới `backend/compose/`.
 
 Nếu service chưa sẵn sàng:
 

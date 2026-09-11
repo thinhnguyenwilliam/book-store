@@ -6,10 +6,17 @@ import (
 	"time"
 
 	apptrace "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/trace"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
+
+// ObservabilityDialOption enables W3C trace propagation and standard gRPC
+// client spans/metrics through the process-wide OpenTelemetry providers.
+func ObservabilityDialOption() grpc.DialOption {
+	return grpc.WithStatsHandler(otelgrpc.NewClientHandler())
+}
 
 // UnaryDeadlineInterceptor guarantees that every unary call has a deadline.
 // An earlier caller deadline is preserved, so HTTP cancellation and deadlines

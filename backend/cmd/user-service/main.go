@@ -14,6 +14,7 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/database"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcserver"
 	appLogger "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/logger"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/telemetry"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/user/adapter/postgres"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/user/application"
 	usergrpc "github.com/thinhnguyenwilliam/book-store/backend/internal/user/delivery/grpc"
@@ -39,6 +40,12 @@ func execute() int {
 	}
 	slog.SetDefault(logManager.Logger())
 	defer func() { _ = logManager.Close() }()
+	telemetryManager, err := telemetry.New(context.Background(), "userservice", cfg.Telemetry)
+	if err != nil {
+		slog.Error("initialize user service telemetry", "error", err)
+		return 1
+	}
+	defer func() { _ = telemetryManager.Close() }()
 
 	if err := run(cfg); err != nil {
 		slog.Error("user service stopped", "error", err)

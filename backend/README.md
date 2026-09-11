@@ -24,6 +24,10 @@ RabbitMQ -> Worker       |
 RabbitMQ xử lý domain event phục vụ workflow. Kafka giữ order lifecycle, customer
 activity và catalog event để analytics/replay/indexing; Redis được giữ riêng cho
 cache/rate-limit. Elasticsearch là read model tìm kiếm, không phải source of truth.
+
+Observability đi theo luồng riêng: service xuất trace/metric bằng OTLP sang
+OpenTelemetry Collector; log file được Collector tail rồi đệm qua Kafka trước khi
+đưa vào Loki. Grafana đọc Tempo, Prometheus và Loki để nối trace, metric và log.
 ```
 
 Gateway là public entry point. Các service giao tiếp bằng unary gRPC; Order Service điều phối Book Service và Payment Service cho checkout Saga.
@@ -85,6 +89,16 @@ kafka:
   customer_activity_dlq_topic: "bookstore.customer-activity.dlq"
   activity_consumer_group: "bookstore-customer-activity-analytics-v1"
   activity_buffer_size: 4096
+
+telemetry:
+  enabled: true
+  otlp_endpoint: "otel-collector:4317" # local Go process dùng localhost:4317
+  insecure: true                       # chỉ dùng plaintext trong mạng local
+  service_namespace: "bookstore"
+  environment: "docker-local"
+  trace_sample_ratio: 1.0              # production thường giảm theo traffic
+  metric_export_interval: "10s"
+  shutdown_timeout: "5s"
 ```
 
 Auth local dùng access token JWT `5m` và refresh session `168h`. Gateway đặt refresh token vào cookie `HttpOnly`, `SameSite=Lax`, còn PostgreSQL chỉ lưu SHA-256 hash của token:
@@ -274,7 +288,9 @@ File đang ghi của mỗi ngày luôn giữ tên `service-YYYY-MM-DD.log`. Nế
 - `max_backups`: chỉ giữ số backup mới nhất; `0` để không giới hạn số lượng.
 - File đang được ghi không bao giờ bị cleanup xoá.
 
-Khi chạy Docker, file nằm ở `/app/logs` và được giữ trong named volume `app-logs`; `also_stdout` vẫn cho phép xem bằng `make logs` và chuyển log sang Loki/ELK/OpenSearch ở production.
+Khi chạy Docker, file nằm ở `/app/logs` và được giữ trong named volume `app-logs`;
+`also_stdout` vẫn cho phép xem bằng `make logs`. OpenTelemetry Collector đọc named
+volume này theo quyền read-only, nên ứng dụng không phụ thuộc Kafka/Loki khi ghi log.
 
 Local dùng text với thời gian dễ đọc như `20/08/2026 16:10:30.189 +07:00`; cấu hình Docker dùng JSON với timestamp RFC3339 để hệ thống thu thập log dễ parse:
 
@@ -292,15 +308,18 @@ logging:
 
 Log HTTP chứa request ID, trace ID, method, URI, status, latency và response size. Password, JWT, refresh token và request body không được ghi log.
 
-### Trace ID xuyên microservice
+### Trace ID và distributed trace xuyên microservice
 
-Gateway nhận header `X-Trace-ID` gồm 32 ký tự hex hoặc tự sinh một ID mới, rồi trả ID đó trong response header. ID được đặt vào context để structured logger tự thêm trường `trace_id` và được truyền qua:
+Gateway ưu tiên W3C `traceparent`; nếu client chỉ gửi `X-Trace-ID` gồm 32 ký tự hex
+thì middleware dùng ID này để seed trace, còn không sẽ tự sinh ID mới. Response vẫn
+trả `X-Trace-ID` để debug thuận tiện. ID được đặt vào context để structured logger
+tự thêm trường `trace_id` và được truyền qua:
 
 ```text
 HTTP Gateway
-  -> gRPC metadata -> Auth/User/Book
-  -> outbox trace_id -> RabbitMQ header
-  -> Worker -> gRPC metadata -> User
+  -> W3C trace context + gRPC metadata -> Auth/User/Book/Order/Payment/...
+  -> outbox trace_id -> RabbitMQ/Kafka traceparent header
+  -> async consumer span -> downstream gRPC
 ```
 
 `request_id` nhận diện một HTTP request cụ thể; `trace_id` là correlation ID được giữ xuyên các service và cả đoạn xử lý bất đồng bộ. Có thể gửi ID cố định lúc debug:
@@ -313,6 +332,62 @@ rg '0123456789abcdef0123456789abcdef' logs/
 ```
 
 Request register mẫu trong `api.http` dùng trace ID dễ nhận biết. Outbox lưu ID trong cột `auth.outbox_events.trace_id`, vì vậy trace không bị mất nếu RabbitMQ down hoặc event được retry sau khi HTTP request đã kết thúc.
+
+## Observability: Grafana, OpenTelemetry, Tempo, Prometheus, Loki và Kafka
+
+Luồng được triển khai:
+
+```text
+Go services -- OTLP traces + metrics --> OTel Collector --> Tempo
+                                               |
+                                               +------------> Prometheus scrape
+
+daily JSON log files --> filelog receiver --> Kafka bookstore.application-logs
+                                                   |
+                                                   v
+                                      OTel log consumer --> Loki
+
+Grafana --> Tempo + Prometheus + Loki
+```
+
+Kafka chỉ làm buffer cho **log**. Không đưa trace/metric qua Kafka ở local vì làm
+tăng độ trễ, dung lượng và số thành phần phải vận hành mà chưa đem lại lợi ích cho
+quy mô hiện tại. Service cũng không ghi Kafka trực tiếp: nó tiếp tục ghi file nhanh,
+Collector giữ offset trên volume và queue bền; Kafka/Loki lỗi không làm API lỗi.
+Consumer Kafka và RabbitMQ truyền W3C trace context, nên span bất đồng bộ vẫn nối
+được với request ban đầu khi outbox giữ lại trace ID.
+
+Không dùng Promtail: dự án này dùng `filelog` receiver của OpenTelemetry Collector
+và native OTLP endpoint của Loki. Collector số một nhận OTLP/tail file và publish
+log; collector thứ hai chỉ consume topic Kafka rồi gửi Loki. Tách hai process tránh
+vòng lặp và cho phép scale producer/consumer độc lập.
+
+Chạy riêng observability (lệnh tự bảo đảm Kafka và topic log sẵn sàng):
+
+```bash
+make observability-up
+make observability-ps
+make observability-logs
+```
+
+Truy cập:
+
+- Grafana: `http://localhost:3001`, tài khoản local `admin` / `admin`.
+- Prometheus: `http://localhost:9090`.
+- Tempo API: `http://localhost:3200`.
+- Loki API: `http://localhost:3100`.
+- OTLP gRPC/HTTP cho Go chạy trên máy: `localhost:4317` / `localhost:4318`.
+
+Grafana tự provision ba datasource. Trong **Explore**, chọn Tempo để tìm trace theo
+service, Loki để query `{service_name="gateway"}`, hoặc bấm derived `TraceID` từ
+log sang Tempo. Filelog bắt đầu ở cuối file trong lần chạy đầu để không nạp ngược
+toàn bộ log cũ; hãy gọi một API sau khi observability đã chạy để tạo dữ liệu mới.
+Local sample 100%; production phải đổi sampling/retention theo lưu
+lượng, bật TLS/authentication và thay mật khẩu Grafana bằng secret manager.
+
+Tài liệu upstream: [OpenTelemetry Go exporters](https://opentelemetry.io/docs/languages/go/exporters/),
+[Loki native OTLP](https://grafana.com/docs/loki/latest/send-data/otel/),
+[Tempo configuration](https://grafana.com/docs/tempo/latest/configuration/).
 
 ## Các kiểu gRPC trong backend
 
@@ -386,17 +461,33 @@ cd backend
 make up
 ```
 
-Lệnh trên tương đương `docker compose up -d --build`. Dùng `make logs` để theo dõi log và `make ps` để xem trạng thái container.
+Makefile ghép các file Compose đã tách nhỏ rồi chạy `up -d --build`. Dùng
+`make logs` để theo dõi log và `make ps` để xem trạng thái container. Không chạy
+riêng `docker compose up` với file gốc vì file gốc chỉ chứa tài nguyên dùng chung:
+
+- `docker-compose.yml`: project name, network và named volumes.
+- `compose/docker-compose.data.yml`: PostgreSQL, Redis, RabbitMQ, Elasticsearch và UI/tool liên quan.
+- `compose/docker-compose.kafka.yml`: Kafka KRaft, topic initializer và Kafka UI.
+- `compose/docker-compose.observability.yml`: Collector, Tempo, Prometheus, Loki và Grafana.
+- `compose/docker-compose.apps.yml`: mười hai Go service.
+- `docker-compose.dev.yml`: override Air hot reload cho nhóm app.
 
 ## Chạy Go service trực tiếp trên máy
 
-Chuẩn bị infrastructure nhưng không build/chạy container Go:
+Chạy toàn bộ stack local bằng một lệnh (infrastructure Docker, Go trên máy, storefront và admin portal):
+
+```bash
+make local
+```
+
+`make local-stop` dừng các process Go/Vue; `make local-logs` theo dõi log. Muốn tự mở từng terminal, chuẩn bị infrastructure nhưng không build/chạy container Go:
 
 ```bash
 make local-prepare
 ```
 
-Lệnh này dừng toàn bộ mười hai container Go rồi chỉ giữ PostgreSQL, pgAdmin, Redis, RedisInsight, RabbitMQ, Kafka, Kafka UI, Elasticsearch và Mailpit. Các Docker volume dữ liệu không bị xóa.
+Lệnh này dừng toàn bộ mười hai container Go rồi chỉ giữ data/messaging/search và
+observability. Các Docker volume dữ liệu không bị xóa.
 
 Mở mười hai terminal trong thư mục `backend`:
 
@@ -482,6 +573,10 @@ Các địa chỉ:
 - Kafka UI (read-only): `http://localhost:8085`
 - Elasticsearch: `http://localhost:9200`
 - Mailpit inbox: `http://localhost:8025`
+- Grafana: `http://localhost:3001`
+- Prometheus: `http://localhost:9090`
+- Tempo: `http://localhost:3200`
+- Loki: `http://localhost:3100`
 
 Đăng nhập pgAdmin:
 
@@ -558,7 +653,8 @@ curl 'http://localhost:8080/api/v1/books/suggest?q=clea&limit=8'
 Endpoint ghi sách yêu cầu role `admin`. Để gán role khi phát triển local:
 
 ```bash
-docker compose exec -T postgres psql -U bookstore -d bookstore \
+docker compose -f docker-compose.yml -f compose/docker-compose.data.yml \
+  exec -T postgres psql -U bookstore -d bookstore \
   -c "UPDATE auth.accounts SET roles = ARRAY['customer','admin'] WHERE email = 'reader@example.com'"
 ```
 
@@ -864,12 +960,14 @@ Không lưu access token hoặc refresh token thô trong Redis. Access token hi�
 Kiểm tra cache local:
 
 ```bash
-docker compose exec redis redis-cli --scan --pattern 'bookstore-local:cache:*'
+docker compose -f docker-compose.yml -f compose/docker-compose.data.yml \
+  exec redis redis-cli --scan --pattern 'bookstore-local:cache:*'
 make e2e-checkout-local
 ```
 
 ## Ghi chú production
 
+- Observability Compose hiện là single-node dành cho local. Production nên dùng object storage cho Tempo/Loki, Prometheus HA hoặc managed service, TLS/auth cho OTLP và Grafana, alert theo collector queue/Kafka lag, đồng thời đặt quota cho `bookstore.application-logs`. Khi log volume lớn, tách log Kafka khỏi cluster đang chở order event để log burst không tranh tài nguyên với nghiệp vụ checkout.
 - Transactional outbox của Auth và Payment đã dùng PostgreSQL + RabbitMQ publisher confirms. Production nên chạy RabbitMQ cluster ba node, áp policy at-least-once cho DLX, thêm metrics/alert cho pending event và archive bảng outbox.
 - Checkout tiền thật đã có VNPAY HMAC webhook, query/refund và settlement reconciliation. Trước khi go-live vẫn phải hoàn thành hợp đồng merchant, dùng production credential/URL, HTTPS public IPN, alert cho mismatch/pending lâu, đối soát báo cáo ngân hàng theo ngày và kiểm thử sandbox/UAT với VNPAY.
 - Redis cache là optimization và fail-open; production cần Redis HA/Sentinel hoặc managed Redis, metrics hit/miss/error/latency và giới hạn memory với eviction policy phù hợp. Không dùng Redis cache làm nguồn dữ liệu duy nhất cho cart hoặc payment.

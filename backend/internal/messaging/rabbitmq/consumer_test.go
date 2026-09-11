@@ -7,6 +7,8 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	apptrace "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/trace"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 func TestDeliveryTraceIDIsAddedToHandlerContext(t *testing.T) {
@@ -15,6 +17,19 @@ func TestDeliveryTraceIDIsAddedToHandlerContext(t *testing.T) {
 	ctx := contextWithDeliveryTraceID(context.Background(), delivery)
 	if got := apptrace.IDFromContext(ctx); got != traceID {
 		t.Fatalf("handler trace ID = %q, want %q", got, traceID)
+	}
+}
+
+func TestDeliveryPrefersW3CTraceContext(t *testing.T) {
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+	const traceID = "11111111111111111111111111111111"
+	delivery := amqp.Delivery{Headers: amqp.Table{
+		"trace_id":    "22222222222222222222222222222222",
+		"traceparent": "00-" + traceID + "-3333333333333333-01",
+	}}
+	ctx := contextWithDeliveryTraceID(context.Background(), delivery)
+	if got := apptrace.IDFromContext(ctx); got != traceID {
+		t.Fatalf("handler trace ID = %q, want W3C trace ID %q", got, traceID)
 	}
 }
 

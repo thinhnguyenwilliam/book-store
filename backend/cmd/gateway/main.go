@@ -23,6 +23,8 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/config"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcclient"
 	appLogger "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/logger"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/telemetry"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -55,6 +57,12 @@ func execute() int {
 	}
 	slog.SetDefault(logManager.Logger())
 	defer func() { _ = logManager.Close() }()
+	telemetryManager, err := telemetry.New(context.Background(), "gateway", cfg.Telemetry)
+	if err != nil {
+		slog.Error("initialize gateway telemetry", "error", err)
+		return 1
+	}
+	defer func() { _ = telemetryManager.Close() }()
 
 	if err := run(cfg); err != nil {
 		slog.Error("gateway stopped", "error", err)
@@ -112,6 +120,7 @@ func run(cfg config.Config) error {
 	authConnection, err := grpc.NewClient(
 		cfg.GRPC.AuthAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpcclient.ObservabilityDialOption(),
 		grpc.WithChainUnaryInterceptor(
 			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout),
 			grpcclient.UnaryLoggingInterceptor,
@@ -126,6 +135,7 @@ func run(cfg config.Config) error {
 	userConnection, err := grpc.NewClient(
 		cfg.GRPC.UserAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpcclient.ObservabilityDialOption(),
 		grpc.WithChainUnaryInterceptor(
 			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout),
 			grpcclient.UnaryLoggingInterceptor,
@@ -140,6 +150,7 @@ func run(cfg config.Config) error {
 	bookConnection, err := grpc.NewClient(
 		cfg.GRPC.BookAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpcclient.ObservabilityDialOption(),
 		grpc.WithChainUnaryInterceptor(
 			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout),
 			grpcclient.UnaryLoggingInterceptor,
@@ -154,6 +165,7 @@ func run(cfg config.Config) error {
 	orderConnection, err := grpc.NewClient(
 		cfg.GRPC.OrderAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpcclient.ObservabilityDialOption(),
 		grpc.WithChainUnaryInterceptor(
 			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout),
 			grpcclient.UnaryLoggingInterceptor,
@@ -168,6 +180,7 @@ func run(cfg config.Config) error {
 	paymentConnection, err := grpc.NewClient(
 		cfg.GRPC.PaymentAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpcclient.ObservabilityDialOption(),
 		grpc.WithChainUnaryInterceptor(
 			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout),
 			grpcclient.UnaryLoggingInterceptor,
@@ -182,6 +195,7 @@ func run(cfg config.Config) error {
 	notificationConnection, err := grpc.NewClient(
 		cfg.GRPC.NotificationAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpcclient.ObservabilityDialOption(),
 		grpc.WithChainUnaryInterceptor(grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout), grpcclient.UnaryLoggingInterceptor),
 		grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor),
 	)
@@ -193,6 +207,7 @@ func run(cfg config.Config) error {
 	commentConnection, err := grpc.NewClient(
 		cfg.GRPC.CommentAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpcclient.ObservabilityDialOption(),
 		grpc.WithChainUnaryInterceptor(grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout), grpcclient.UnaryLoggingInterceptor),
 		grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor),
 	)
@@ -204,6 +219,7 @@ func run(cfg config.Config) error {
 	chatConnection, err := grpc.NewClient(
 		cfg.GRPC.ChatAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpcclient.ObservabilityDialOption(),
 		grpc.WithChainUnaryInterceptor(grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout), grpcclient.UnaryLoggingInterceptor),
 		grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor),
 	)
@@ -215,6 +231,7 @@ func run(cfg config.Config) error {
 	analyticsConnection, err := grpc.NewClient(
 		cfg.GRPC.AnalyticsAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpcclient.ObservabilityDialOption(),
 		grpc.WithChainUnaryInterceptor(
 			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout), grpcclient.UnaryLoggingInterceptor,
 		),
@@ -227,6 +244,7 @@ func run(cfg config.Config) error {
 	searchConnection, err := grpc.NewClient(
 		cfg.GRPC.SearchAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpcclient.ObservabilityDialOption(),
 		grpc.WithChainUnaryInterceptor(
 			grpcclient.UnaryDeadlineInterceptor(grpcCallTimeout), grpcclient.UnaryLoggingInterceptor,
 		),
@@ -313,6 +331,7 @@ func run(cfg config.Config) error {
 	e.Server.IdleTimeout = idleTimeout
 	e.Use(middleware.RequestID())
 	e.Use(gatewayhttp.TraceID)
+	e.Use(otelecho.Middleware("gateway"))
 	e.Use(gatewayhttp.RequestDeadline(requestTimeout))
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{

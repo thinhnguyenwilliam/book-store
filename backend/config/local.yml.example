@@ -196,3 +196,13 @@ logging:
   max_size_mb: 100
   max_age_days: 14
   max_backups: 30
+
+telemetry:
+  enabled: true
+  otlp_endpoint: "localhost:4317"
+  insecure: true
+  service_namespace: "bookstore"
+  environment: "local"
+  trace_sample_ratio: 1.0
+  metric_export_interval: "10s"
+  shutdown_timeout: "5s"

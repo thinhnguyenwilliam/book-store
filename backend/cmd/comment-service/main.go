@@ -19,6 +19,7 @@ import (
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcclient"
 	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/grpcserver"
 	appLogger "github.com/thinhnguyenwilliam/book-store/backend/internal/platform/logger"
+	"github.com/thinhnguyenwilliam/book-store/backend/internal/platform/telemetry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -39,6 +40,12 @@ func execute() int {
 	}
 	slog.SetDefault(logManager.Logger())
 	defer func() { _ = logManager.Close() }()
+	telemetryManager, err := telemetry.New(context.Background(), "commentservice", cfg.Telemetry)
+	if err != nil {
+		slog.Error("initialize comment service telemetry", "error", err)
+		return 1
+	}
+	defer func() { _ = telemetryManager.Close() }()
 	if err := run(cfg); err != nil {
 		slog.Error("comment service stopped", "error", err)
 		return 1
@@ -80,5 +87,5 @@ func run(cfg config.Config) error {
 }
 
 func newClient(address string, timeout time.Duration) (*grpc.ClientConn, error) {
-	return grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithChainUnaryInterceptor(grpcclient.UnaryDeadlineInterceptor(timeout), grpcclient.UnaryLoggingInterceptor), grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor))
+	return grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpcclient.ObservabilityDialOption(), grpc.WithChainUnaryInterceptor(grpcclient.UnaryDeadlineInterceptor(timeout), grpcclient.UnaryLoggingInterceptor), grpc.WithChainStreamInterceptor(grpcclient.StreamLoggingInterceptor))
 }

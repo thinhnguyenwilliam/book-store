@@ -3,9 +3,10 @@
 .PHONY: help tools generate proto swagger graphql tidy fmt test test-integration vet lint lint-tool build check perf e2e-checkout e2e-checkout-local migrate \
 	docker-config docker-build up run up-foreground down down-volumes restart ps logs \
 	dev dev-foreground dev-build dev-logs dev-ps dev-down dev-restart \
-	air-tool elasticsearch-pull infra-core-up infra-up infra-stop infra-ps infra-logs app-stop local-prepare \
+	air-tool elasticsearch-pull observability-pull infra-core-up infra-up infra-stop infra-ps infra-logs observability-up observability-stop observability-ps observability-logs app-stop local-prepare \
 	local-gateway local-auth local-user local-book local-order local-payment local-worker local-notification local-comment local-chat local-analytics local-search search-reindex \
-	watch-gateway watch-auth watch-user watch-book watch-order watch-payment watch-worker watch-notification watch-comment watch-chat watch-analytics watch-search hooks-install
+	watch-gateway watch-auth watch-user watch-book watch-order watch-payment watch-worker watch-notification watch-comment watch-chat watch-analytics watch-search hooks-install \
+	local local-stop local-logs local-status
 
 TOOLS_DIR := $(CURDIR)/.tools
 CACHE_DIR := $(CURDIR)/.cache
@@ -17,15 +18,25 @@ AIR := $(TOOLS_DIR)/air
 AIR_VERSION := v1.66.1
 GOLANGCI_LINT := $(TOOLS_DIR)/golangci-lint
 GOLANGCI_LINT_VERSION := v2.12.2
-DEV_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.dev.yml
+COMPOSE_BASE := -f docker-compose.yml \
+	-f compose/docker-compose.data.yml \
+	-f compose/docker-compose.kafka.yml \
+	-f compose/docker-compose.observability.yml \
+	-f compose/docker-compose.apps.yml
+COMPOSE := docker compose $(COMPOSE_BASE)
+DEV_COMPOSE := $(COMPOSE) -f docker-compose.dev.yml
 LOCAL_CONFIG := config/local.yml
 LOCAL_SECRET_CONFIG ?= config/local.secret.yml
 LOCAL_SECRET_ARG = $(if $(wildcard $(LOCAL_SECRET_CONFIG)),-secrets $(LOCAL_SECRET_CONFIG),)
-INFRA_SERVICES := postgres pgadmin redis redisinsight rabbitmq mailpit kafka-volume-init kafka kafka-init kafka-ui elasticsearch
-INFRA_CORE_SERVICES := postgres pgadmin redis redisinsight rabbitmq mailpit kafka-volume-init kafka kafka-init kafka-ui
+OBSERVABILITY_SERVICES := otel-storage-init otel-collector otel-log-consumer tempo loki prometheus grafana
+OBSERVABILITY_PULL_SERVICES := otel-collector tempo loki prometheus grafana
+INFRA_SERVICES := postgres pgadmin redis redisinsight rabbitmq mailpit kafka-volume-init kafka kafka-init kafka-ui elasticsearch $(OBSERVABILITY_SERVICES)
+INFRA_CORE_SERVICES := postgres pgadmin redis redisinsight rabbitmq mailpit kafka-volume-init kafka kafka-init kafka-ui $(OBSERVABILITY_SERVICES)
 APP_SERVICES := gateway auth-service user-service book-service order-service payment-service worker-service notification-service comment-service chat-service analytics-service search-service
 ELASTICSEARCH_PULL_RETRIES ?= 5
 ELASTICSEARCH_PULL_DELAY_SECONDS ?= 10
+OBSERVABILITY_PULL_RETRIES ?= 5
+OBSERVABILITY_PULL_DELAY_SECONDS ?= 10
 REPO_ROOT := $(abspath $(CURDIR)/..)
 
 help: ## Hiển thị các lệnh có thể sử dụng
@@ -113,40 +124,40 @@ e2e-checkout-local: ## Tự chạy/tắt service local và kiểm thử checkout
 	./scripts/e2e-checkout-local.sh
 
 docker-config: ## Kiểm tra cú pháp Docker Compose
-	docker compose config --quiet
+	$(COMPOSE) config --quiet
 
 migrate: ## Áp dụng các migration idempotent vào PostgreSQL local đang chạy
-	docker compose exec -T postgres sh -c 'set -e; for migration in /docker-entrypoint-initdb.d/*.sql; do psql -v ON_ERROR_STOP=1 -U bookstore -d bookstore -f "$$migration"; done'
+	$(COMPOSE) exec -T postgres sh -c 'set -e; for migration in /docker-entrypoint-initdb.d/*.sql; do psql -v ON_ERROR_STOP=1 -U bookstore -d bookstore -f "$$migration"; done'
 
 docker-build: ## Build toàn bộ Docker images
-	docker compose build
+	$(COMPOSE) build
 
-up: ## Build và chạy toàn bộ stack ở background
-	docker compose up -d --build
+up: elasticsearch-pull observability-pull ## Build và chạy toàn bộ stack ở background
+	$(COMPOSE) up -d --build
 
 run: up ## Alias của make up
 
-up-foreground: ## Build và chạy stack, hiển thị log trực tiếp
-	docker compose up --build
+up-foreground: elasticsearch-pull observability-pull ## Build và chạy stack, hiển thị log trực tiếp
+	$(COMPOSE) up --build
 
 down: ## Dừng stack, giữ nguyên database volumes
-	docker compose down
+	$(COMPOSE) down
 
 down-volumes: ## Dừng stack và xóa toàn bộ local volumes
-	docker compose down --volumes
+	$(COMPOSE) down --volumes
 
 restart: down up ## Khởi động lại toàn bộ stack
 
 ps: ## Xem trạng thái container
-	docker compose ps
+	$(COMPOSE) ps
 
 logs: ## Theo dõi log của toàn bộ stack
-	docker compose logs -f --tail=200
+	$(COMPOSE) logs -f --tail=200
 
-dev: ## Chạy toàn bộ stack với Air hot reload ở background
+dev: elasticsearch-pull observability-pull ## Chạy toàn bộ stack với Air hot reload ở background
 	$(DEV_COMPOSE) up -d --build
 
-dev-foreground: ## Chạy Air hot reload và hiển thị log trực tiếp
+dev-foreground: elasticsearch-pull observability-pull ## Chạy Air hot reload và hiển thị log trực tiếp
 	$(DEV_COMPOSE) up --build
 
 dev-build: ## Build lại image development có Air
@@ -169,7 +180,7 @@ elasticsearch-pull: ## Tải Elasticsearch với retry khi registry tạm thời
 	@attempt=1; \
 	while [ $$attempt -le $(ELASTICSEARCH_PULL_RETRIES) ]; do \
 		echo "Pulling Elasticsearch (attempt $$attempt/$(ELASTICSEARCH_PULL_RETRIES))..."; \
-		if docker compose pull --policy missing elasticsearch; then \
+		if $(COMPOSE) pull --policy missing elasticsearch; then \
 			exit 0; \
 		fi; \
 		if [ $$attempt -eq $(ELASTICSEARCH_PULL_RETRIES) ]; then \
@@ -181,27 +192,69 @@ elasticsearch-pull: ## Tải Elasticsearch với retry khi registry tạm thời
 		sleep $(ELASTICSEARCH_PULL_DELAY_SECONDS); \
 	done
 
-infra-core-up: ## Chạy infrastructure không gồm Elasticsearch khi registry đang lỗi
-	docker compose up -d --no-build $(INFRA_CORE_SERVICES)
+infra-core-up: observability-pull ## Chạy infrastructure không gồm Elasticsearch khi registry đang lỗi
+	$(COMPOSE) up -d --no-build $(INFRA_CORE_SERVICES)
 
-infra-up: elasticsearch-pull ## Chạy PostgreSQL, Redis, RabbitMQ, Kafka, Elasticsearch và các UI local
-	docker compose up -d --no-build $(INFRA_SERVICES)
+infra-up: elasticsearch-pull observability-pull ## Chạy data, messaging, search và observability local
+	$(COMPOSE) up -d --no-build $(INFRA_SERVICES)
 
 infra-stop: ## Dừng các container infrastructure, giữ nguyên volumes
-	docker compose stop $(INFRA_SERVICES)
+	$(COMPOSE) stop $(INFRA_SERVICES)
 
 infra-ps: ## Xem trạng thái các container infrastructure
-	docker compose ps $(INFRA_SERVICES)
+	$(COMPOSE) ps $(INFRA_SERVICES)
 
 infra-logs: ## Theo dõi log các container infrastructure
-	docker compose logs -f --tail=200 $(INFRA_SERVICES)
+	$(COMPOSE) logs -f --tail=200 $(INFRA_SERVICES)
+
+observability-pull: ## Tải tuần tự image observability với retry khi container registry timeout
+	@for service in $(OBSERVABILITY_PULL_SERVICES); do \
+		attempt=1; \
+		while [ $$attempt -le $(OBSERVABILITY_PULL_RETRIES) ]; do \
+			echo "Pulling $$service (attempt $$attempt/$(OBSERVABILITY_PULL_RETRIES))..."; \
+			if $(COMPOSE) pull --policy missing $$service; then \
+				break; \
+			fi; \
+			if [ $$attempt -eq $(OBSERVABILITY_PULL_RETRIES) ]; then \
+				echo "Failed to pull $$service after $(OBSERVABILITY_PULL_RETRIES) attempts."; \
+				exit 1; \
+			fi; \
+			attempt=$$((attempt + 1)); \
+			echo "Retrying in $(OBSERVABILITY_PULL_DELAY_SECONDS)s; downloaded layers will be reused..."; \
+			sleep $(OBSERVABILITY_PULL_DELAY_SECONDS); \
+		done; \
+	done
+
+observability-up: observability-pull ## Chạy Grafana, OTel Collector, Tempo, Prometheus và Loki (Kafka phải sẵn sàng)
+	$(COMPOSE) up -d --no-build kafka-volume-init kafka kafka-init $(OBSERVABILITY_SERVICES)
+
+observability-stop: ## Dừng riêng observability stack, giữ nguyên dữ liệu
+	$(COMPOSE) stop $(OBSERVABILITY_SERVICES)
+
+observability-ps: ## Xem trạng thái observability stack
+	$(COMPOSE) ps $(OBSERVABILITY_SERVICES)
+
+observability-logs: ## Theo dõi log của observability stack
+	$(COMPOSE) logs -f --tail=200 $(OBSERVABILITY_SERVICES)
 
 app-stop: ## Dừng các container Go để giải phóng các port chạy local
-	docker compose stop $(APP_SERVICES)
+	$(COMPOSE) stop $(APP_SERVICES)
 
-local-prepare: ## Dừng container Go và chỉ khởi động infrastructure
-	docker compose stop $(APP_SERVICES)
-	docker compose up -d --no-build $(INFRA_SERVICES)
+local-prepare: elasticsearch-pull observability-pull ## Dừng container Go và chỉ khởi động infrastructure
+	$(COMPOSE) stop $(APP_SERVICES)
+	$(COMPOSE) up -d --no-build $(INFRA_SERVICES)
+
+local: ## Chạy toàn bộ stack local bằng một lệnh (infra + Go trên máy + storefront + admin)
+	$(REPO_ROOT)/scripts/local.sh up
+
+local-stop: ## Dừng Go services và frontend local, giữ infrastructure
+	$(REPO_ROOT)/scripts/local.sh down
+
+local-logs: ## Theo dõi log các process local
+	$(REPO_ROOT)/scripts/local.sh logs
+
+local-status: ## Xem process local đang chạy
+	$(REPO_ROOT)/scripts/local.sh status
 
 local-gateway: ## Chạy gateway trực tiếp trên máy, không hot reload
 	go run ./cmd/gateway -config $(LOCAL_CONFIG)

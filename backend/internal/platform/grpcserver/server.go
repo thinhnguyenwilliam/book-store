@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -23,6 +24,7 @@ func Run(ctx context.Context, addr string, shutdownTimeout time.Duration, regist
 
 func run(ctx context.Context, listener net.Listener, shutdownTimeout time.Duration, register func(*grpc.Server)) error {
 	server := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(unaryInterceptor),
 		grpc.ChainStreamInterceptor(streamInterceptor),
 	)
