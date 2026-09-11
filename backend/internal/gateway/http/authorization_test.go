@@ -2,10 +2,11 @@ package http
 
 import (
 	"context"
-	"github.com/labstack/echo/v4"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/labstack/echo/v4"
 )
 
 func TestPermissionNotLegacyRole(t *testing.T) {

@@ -96,11 +96,11 @@ func TestAssignRolesRejectsSelfAndDeduplicates(t *testing.T) {
 }
 
 func TestDeleteRoleRequiresManagePermission(t *testing.T) {
-	service, authz := newAuthorizationService(domain.Access{Permissions: []string{"roles.read"}})
+	service, _ := newAuthorizationService(domain.Access{Permissions: []string{"roles.read"}})
 	if err := service.DeleteRole(context.Background(), "token", "test_catalog"); !errors.Is(err, domain.ErrForbidden) {
 		t.Fatalf("missing manage: %v", err)
 	}
-	service, authz = newAuthorizationService(domain.Access{Permissions: []string{"roles.manage"}})
+	service, authz := newAuthorizationService(domain.Access{Permissions: []string{"roles.manage"}})
 	if err := service.DeleteRole(context.Background(), "token", "test_catalog"); err != nil {
 		t.Fatal(err)
 	}

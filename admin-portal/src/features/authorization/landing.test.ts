@@ -4,7 +4,8 @@ import { adminLandingRoute, canGrantRole } from './landing'
 
 describe('adminLandingRoute', () => {
   it('sends catalog managers to books instead of the full dashboard', () => {
-    const can = (permission: string) => ['admin.access', 'books.read', 'books.create'].includes(permission)
+    const can = (permission: string) =>
+      ['admin.access', 'books.read', 'books.create'].includes(permission)
     expect(adminLandingRoute(can)).toBe('books')
   })
 
@@ -24,10 +25,11 @@ describe('canGrantRole', () => {
 
   it('forbids granting a role whose permissions exceed the actor', () => {
     expect(
-      canGrantRole({ code: 'admin', permissions: ['admin.access', 'books.delete'] }, ['admin'], [
-        'admin.access',
-        'books.read',
-      ]),
+      canGrantRole(
+        { code: 'admin', permissions: ['admin.access', 'books.delete'] },
+        ['admin'],
+        ['admin.access', 'books.read'],
+      ),
     ).toBe(false)
   })
 })

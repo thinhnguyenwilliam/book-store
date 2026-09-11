@@ -13,6 +13,7 @@ import (
 func hasPermission(principal Principal, permission string) bool {
 	return slices.Contains(principal.Permissions, permission)
 }
+
 func RequirePermission(permission string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -23,6 +24,7 @@ func RequirePermission(permission string) echo.MiddlewareFunc {
 		}
 	}
 }
+
 func bearerToken(c echo.Context) string {
 	parts := strings.Fields(c.Request().Header.Get(echo.HeaderAuthorization))
 	if len(parts) != 2 {
@@ -36,6 +38,7 @@ type AccessResponse struct {
 	Roles       []string `json:"roles"`
 	Permissions []string `json:"permissions"`
 }
+
 type RoleResponse struct {
 	Code        string   `json:"code"`
 	Name        string   `json:"name"`
@@ -43,19 +46,23 @@ type RoleResponse struct {
 	System      bool     `json:"system"`
 	Permissions []string `json:"permissions"`
 }
+
 type PermissionResponse struct {
 	Code        string `json:"code"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Group       string `json:"group"`
 }
+
 type AuthorizationCatalogResponse struct {
 	Roles       []RoleResponse       `json:"roles"`
 	Permissions []PermissionResponse `json:"permissions"`
 }
+
 type AssignRolesRequest struct {
 	Roles []string `json:"roles"`
 }
+
 type AuthorizationAuditResponse struct {
 	ID        int64  `json:"id"`
 	ActorID   string `json:"actor_id"`
@@ -87,7 +94,11 @@ func (h *Handler) getAccess(c echo.Context) error {
 		return errorResponse(c, err)
 	}
 	c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
-	return c.JSON(http.StatusOK, AccessResponse{AccountID: response.GetAccountId(), Roles: stringsOrEmpty(response.GetRoles()), Permissions: stringsOrEmpty(response.GetPermissions())})
+	return c.JSON(http.StatusOK, AccessResponse{
+		AccountID:   response.GetAccountId(),
+		Roles:       stringsOrEmpty(response.GetRoles()),
+		Permissions: stringsOrEmpty(response.GetPermissions()),
+	})
 }
 
 // authorizationCatalog godoc
